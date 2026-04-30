@@ -76,6 +76,44 @@ En la terminal donde está corriendo `npm run dev`, presiona `Ctrl + C`.
 
 ---
 
+## Troubleshooting (errores comunes en Codespaces)
+
+### ❌ Veo `HTTP ERROR 502 - This page isn't working`
+
+Esto significa que el túnel de Codespaces sí encontró el puerto, pero el servidor no respondió. Posibles causas:
+
+1. **Estás en la rama equivocada.** Verifica con:
+   ```bash
+   git branch --show-current
+   ```
+   Debería decir `claude/vestia-wardrobe-app-uNNfy` (o `main` si ya fusionaste). Si dice otra cosa, cámbiate:
+   ```bash
+   git checkout claude/vestia-wardrobe-app-uNNfy
+   npm install
+   ```
+
+2. **El servidor no terminó de arrancar.** Espera a ver el mensaje `✓ Ready in XXXms` en la terminal **antes** de abrir el navegador. Si abriste el navegador antes, recarga la página.
+
+3. **El servidor está atado a IPv6 y Codespaces solo rutea IPv4.** Este proyecto ya fuerza `0.0.0.0` en el script `dev` (ver `package.json`), así que no debería pasar. Si pasa, corre manualmente:
+   ```bash
+   npx next dev -H 0.0.0.0 -p 3000
+   ```
+
+4. **Visibilidad del puerto.** En la pestaña **Ports** de VS Code, click derecho sobre el puerto 3000 → `Port Visibility` → `Public` (o `Private` si solo lo vas a abrir tú estando logueado en GitHub).
+
+### ❌ `npm install` falla con errores
+
+Asegúrate de estar en la carpeta correcta (debe haber un `package.json` en la raíz). Si no lo hay, estás en la rama equivocada (ver punto 1).
+
+### ❌ El puerto 3000 ya está en uso
+
+Otro proceso lo tiene tomado. Mata cualquier proceso de Next residual:
+```bash
+pkill -f "next dev"
+```
+
+---
+
 ## Estructura del proyecto
 
 ```
