@@ -1,6 +1,7 @@
 // Pagina del armario (/wardrobe). Server Component: leemos al usuario y sus
-// prendas desde Supabase con RLS, y delegamos el filtrado/render al Client
-// Component `CategoryFilter`.
+// prendas desde Supabase con RLS, firmamos URLs temporales para las imagenes
+// privadas en Storage, y delegamos el filtrado/render al Client Component
+// `CategoryFilter`.
 //
 // La proteccion de la ruta y el gate del onboarding la hace el Proxy
 // (`src/proxy.ts`); aqui solo leemos defensivamente.
@@ -11,9 +12,16 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import CategoryFilter from "@/components/wardrobe/CategoryFilter";
+import UploadSuccessBanner from "@/components/wardrobe/UploadSuccessBanner";
+import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import type { ClothingItem } from "@/types/database";
 
-export default async function WardrobePage() {
+type Props = {
+  // En Next.js 16 los searchParams son async (Promise).
+  searchParams: Promise<{ uploaded?: string }>;
+};
+
+export default async function WardrobePage({ searchParams }: Props) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -33,11 +41,27 @@ export default async function WardrobePage() {
     .eq("id", user?.id ?? "")
     .maybeSingle();
 
-  const items = (itemsData ?? []) as ClothingItem[];
+  const itemsRaw = (itemsData ?? []) as ClothingItem[];
+
+  // Firmamos las URLs de las imagenes (bucket privado). Si Supabase Storage no
+  // contesta o la firma falla para algun path, ese item cae al placeholder.
+  const paths = itemsRaw
+    .map((i) => i.image_path)
+    .filter((p): p is string => Boolean(p));
+  const signedUrls = await createSignedUrlMap(supabase, paths);
+
+  const items: ClothingItem[] = itemsRaw.map((i) => ({
+    ...i,
+    image_url: i.image_path ? signedUrls.get(i.image_path) ?? null : null,
+  }));
+
   const tienePrendas = items.length > 0;
   // Edge case: si por algun motivo no hay display_name, caemos al usuario del email.
   const saludo =
     profile?.display_name?.trim() || user?.email?.split("@")[0] || "tu";
+
+  const sp = await searchParams;
+  const mostrarBanner = sp.uploaded === "1";
 
   return (
     <div className="flex flex-1 flex-col">
@@ -45,6 +69,8 @@ export default async function WardrobePage() {
 
       <main className="flex-1 py-10 sm:py-14">
         <Container size="lg">
+          {mostrarBanner ? <UploadSuccessBanner /> : null}
+
           {/* Saludo + CTA */}
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
