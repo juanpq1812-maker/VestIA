@@ -1,0 +1,364 @@
+// Generacion de outfits con Gemini.
+//
+// Esta funcion vive en el SERVIDOR (la importan Server Actions o Route
+// Handlers). Hace todo el trabajo pesado:
+//   1. Lee el armario y las preferencias del usuario via Supabase (con RLS).
+//   2. Construye un prompt en espanol listando las prendas con sus IDs.
+//   3. Llama a Gemini con `responseMimeType: "application/json"`.
+//   4. Parsea la respuesta toleramente (a veces el modelo agrega texto extra).
+//   5. Valida que los IDs existan en el armario del usuario (anti-alucinacion).
+//   6. Devuelve los outfits hidratados con la info completa de cada prenda
+//      (incluyendo signed URLs para mostrar las fotos).
+//
+// El consumidor de esta funcion solo tiene que renderizar el resultado.
+
+import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
+import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { getGeminiModel } from "@/lib/ai/gemini";
+import type { ClothingItem, UserPreferences } from "@/types/database";
+
+// ---------------------------------------------------------------------------
+// Tipos publicos.
+// ---------------------------------------------------------------------------
+
+export type GenerateMode = "occasion" | "description" | "surprise";
+
+export type GenerateOutfitsInput = {
+  userId: string;
+  mode: GenerateMode;
+  /** Solo se usa cuando mode === "occasion". */
+  occasion?: string;
+  /** Solo se usa cuando mode === "description". Limite blando: 200 chars. */
+  description?: string;
+};
+
+/** Codigos de error que la UI puede traducir a mensajes amigables. */
+export type GenerateOutfitsErrorCode =
+  | "NO_API_KEY"
+  | "EMPTY_WARDROBE"
+  | "NOT_ENOUGH_ITEMS"
+  | "NETWORK_ERROR"
+  | "INVALID_RESPONSE"
+  | "NO_VALID_OUTFITS"
+  | "UNKNOWN";
+
+export class GenerateOutfitsError extends Error {
+  code: GenerateOutfitsErrorCode;
+  constructor(code: GenerateOutfitsErrorCode, message: string) {
+    super(message);
+    this.code = code;
+    this.name = "GenerateOutfitsError";
+  }
+}
+
+/** Outfit ya hidratado con la info completa de cada prenda. */
+export type GeneratedOutfit = {
+  /** Nombre que la IA le puso al outfit. */
+  name: string;
+  /** Texto corto explicando por que combina. */
+  explanation: string;
+  /** Prendas en el orden en que la IA las propuso. */
+  items: ClothingItem[];
+};
+
+// ---------------------------------------------------------------------------
+// Funcion principal.
+// ---------------------------------------------------------------------------
+
+export async function generateOutfits(
+  input: GenerateOutfitsInput
+): Promise<GeneratedOutfit[]> {
+  const supabase = await createSupabaseServerClient();
+
+  // 1. Leer el armario del usuario. RLS ya filtra por user_id, pero le ponemos
+  //    el filtro explicito para ser claros y soportar service-role en tests.
+  const { data: itemsData, error: itemsError } = await supabase
+    .from("clothing_items")
+    .select(
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, created_at, updated_at"
+    )
+    .eq("user_id", input.userId);
+
+  if (itemsError) {
+    console.error("[generateOutfits] error leyendo clothing_items", itemsError);
+    throw new GenerateOutfitsError(
+      "UNKNOWN",
+      "No pudimos leer tu armario. Intenta de nuevo en unos segundos."
+    );
+  }
+
+  const items = (itemsData ?? []) as ClothingItem[];
+  if (items.length === 0) {
+    throw new GenerateOutfitsError(
+      "EMPTY_WARDROBE",
+      "Tu armario esta vacio. Sube al menos 2 prendas para generar outfits."
+    );
+  }
+  if (items.length < 2) {
+    throw new GenerateOutfitsError(
+      "NOT_ENOUGH_ITEMS",
+      "Necesitas al menos 2 prendas en tu armario para generar outfits."
+    );
+  }
+
+  // 2. Leer preferencias (es opcional: si no existen, usamos defaults).
+  const { data: prefsData } = await supabase
+    .from("user_preferences")
+    .select("style_tags, favorite_occasions")
+    .eq("user_id", input.userId)
+    .maybeSingle();
+
+  const prefs = (prefsData ?? null) as Pick<
+    UserPreferences,
+    "style_tags" | "favorite_occasions"
+  > | null;
+
+  // 3. Construir prompt y llamar a Gemini.
+  const prompt = buildPrompt({
+    items,
+    prefs,
+    mode: input.mode,
+    occasion: input.occasion,
+    description: input.description,
+  });
+
+  const rawJson = await callGemini(prompt);
+
+  // 4. Parsear de forma tolerante.
+  const parsed = parseOutfitsJson(rawJson);
+
+  // 5. Validar IDs contra el armario real (anti-alucinacion).
+  const validIds = new Set(items.map((i) => i.id));
+  const itemsById = new Map(items.map((i) => [i.id, i] as const));
+
+  const validOutfits = parsed
+    .map((o) => {
+      const cleanIds = o.clothing_item_ids.filter((id) => validIds.has(id));
+      // Sin al menos 2 prendas validas, el outfit no tiene sentido.
+      if (cleanIds.length < 2) return null;
+      return { ...o, clothing_item_ids: cleanIds };
+    })
+    .filter((o): o is NonNullable<typeof o> => o !== null);
+
+  if (validOutfits.length === 0) {
+    throw new GenerateOutfitsError(
+      "NO_VALID_OUTFITS",
+      "La IA propuso prendas que no existen en tu armario. Intenta de nuevo."
+    );
+  }
+
+  // 6. Hidratar las prendas con signed URLs para las fotos.
+  const usedPaths = new Set<string>();
+  for (const o of validOutfits) {
+    for (const id of o.clothing_item_ids) {
+      const it = itemsById.get(id);
+      if (it?.image_path) usedPaths.add(it.image_path);
+    }
+  }
+  const signedUrls = await createSignedUrlMap(supabase, [...usedPaths]);
+
+  return validOutfits.map((o) => ({
+    name: o.name,
+    explanation: o.explanation,
+    items: o.clothing_item_ids
+      .map((id) => itemsById.get(id))
+      .filter((it): it is ClothingItem => Boolean(it))
+      .map((it) => ({
+        ...it,
+        image_url: it.image_path
+          ? signedUrls.get(it.image_path) ?? null
+          : null,
+      })),
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Prompt builder.
+// ---------------------------------------------------------------------------
+
+function buildPrompt(args: {
+  items: ClothingItem[];
+  prefs: Pick<UserPreferences, "style_tags" | "favorite_occasions"> | null;
+  mode: GenerateMode;
+  occasion?: string;
+  description?: string;
+}): string {
+  const { items, prefs, mode, occasion, description } = args;
+
+  // Listamos las prendas en formato compacto: ID + categoria/subcategoria +
+  // color + ocasiones. Suficiente para que la IA combine sin pasarnos del
+  // limite de tokens.
+  const inventario = items
+    .map((it) => {
+      const subcat = it.subcategory ?? it.category;
+      const nombre = it.name?.trim();
+      const color = it.primary_color ?? "color desconocido";
+      const ocasiones =
+        it.occasions && it.occasions.length > 0
+          ? it.occasions.join(", ")
+          : "varias";
+      return `- id="${it.id}" | categoria=${it.category} | tipo=${subcat}${nombre ? ` "${nombre}"` : ""} | color=${color} | ocasiones=[${ocasiones}]`;
+    })
+    .join("\n");
+
+  const stylePrefs =
+    prefs?.style_tags && prefs.style_tags.length > 0
+      ? prefs.style_tags.join(", ")
+      : "sin preferencia declarada";
+  const occasionPrefs =
+    prefs?.favorite_occasions && prefs.favorite_occasions.length > 0
+      ? prefs.favorite_occasions.join(", ")
+      : "sin preferencia declarada";
+
+  let instruccionDeOcasion = "";
+  if (mode === "occasion" && occasion) {
+    instruccionDeOcasion = `El usuario quiere outfits para la ocasion: "${occasion}". Prioriza prendas cuya lista de ocasiones incluya algo similar.`;
+  } else if (mode === "description" && description) {
+    // Cortamos a 200 chars en backend tambien por seguridad.
+    const trimmed = description.slice(0, 200);
+    instruccionDeOcasion = `El usuario describe lo que necesita asi: "${trimmed}". Interpreta el tono y elige prendas coherentes.`;
+  } else {
+    instruccionDeOcasion = `Modo "sorprendeme": elige libremente. Combina prendas de forma creativa pero usable, mezclando colores que armonicen.`;
+  }
+
+  return [
+    `Eres un estilista personal. Tu tarea es proponer EXACTAMENTE 2 outfits distintos combinando SOLO prendas del armario del usuario que se lista mas abajo.`,
+    ``,
+    `Reglas de composicion (importantes):`,
+    `- Cada outfit debe tener: 1 prenda superior (top) + 1 prenda inferior (bottom), O bien 1 vestido (dress).`,
+    `- Cada outfit debe tener 1 calzado (footwear).`,
+    `- Opcionalmente puedes anadir 1 outerwear y 1-2 accesorios si combinan.`,
+    `- No repitas IDs dentro del mismo outfit.`,
+    `- Los 2 outfits deben ser claramente distintos entre si (diferente vibe o paleta).`,
+    `- Solo puedes usar IDs que aparecen en el armario. NO inventes IDs nuevos.`,
+    ``,
+    `Preferencias del usuario (recomendacion, no obligacion):`,
+    `- Estilos favoritos: ${stylePrefs}`,
+    `- Ocasiones favoritas: ${occasionPrefs}`,
+    ``,
+    instruccionDeOcasion,
+    ``,
+    `Armario disponible:`,
+    inventario,
+    ``,
+    `Responde EXCLUSIVAMENTE con un JSON valido (sin markdown, sin texto extra) con esta estructura exacta:`,
+    `{`,
+    `  "outfits": [`,
+    `    {`,
+    `      "name": "Nombre corto del outfit, ej: Casual relajado",`,
+    `      "clothing_item_ids": ["uuid1", "uuid2", "uuid3"],`,
+    `      "explanation": "1-2 frases explicando por que esta combinacion funciona."`,
+    `    },`,
+    `    {`,
+    `      "name": "...",`,
+    `      "clothing_item_ids": ["..."],`,
+    `      "explanation": "..."`,
+    `    }`,
+    `  ]`,
+    `}`,
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Llamada al modelo (con manejo defensivo).
+// ---------------------------------------------------------------------------
+
+async function callGemini(prompt: string): Promise<string> {
+  let model;
+  try {
+    model = getGeminiModel();
+  } catch (err) {
+    // El unico error que lanza getGeminiModel es por API key faltante.
+    throw new GenerateOutfitsError(
+      "NO_API_KEY",
+      err instanceof Error ? err.message : "Falta la API key de Gemini."
+    );
+  }
+
+  try {
+    const result = await model.generateContent(prompt);
+    const text = result.response.text();
+    if (!text || text.trim().length === 0) {
+      throw new GenerateOutfitsError(
+        "INVALID_RESPONSE",
+        "Gemini devolvio una respuesta vacia."
+      );
+    }
+    return text;
+  } catch (err) {
+    if (err instanceof GenerateOutfitsError) throw err;
+    console.error("[generateOutfits] error llamando a Gemini", err);
+    const message = err instanceof Error ? err.message : String(err);
+    // Intentamos diferenciar API key invalida vs. error de red. El SDK no
+    // expone codigos uniformes, asi que nos basamos en el texto.
+    if (/api key|API_KEY|invalid key|permission/i.test(message)) {
+      throw new GenerateOutfitsError(
+        "NO_API_KEY",
+        "La API key de Gemini parece invalida. Revisa `.env.local`."
+      );
+    }
+    throw new GenerateOutfitsError(
+      "NETWORK_ERROR",
+      "No pudimos contactar a Gemini. Revisa tu conexion e intenta de nuevo."
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Parser tolerante de la respuesta de la IA.
+// ---------------------------------------------------------------------------
+
+type ParsedOutfit = {
+  name: string;
+  clothing_item_ids: string[];
+  explanation: string;
+};
+
+function parseOutfitsJson(raw: string): ParsedOutfit[] {
+  // Estrategias en orden:
+  // 1. JSON.parse directo.
+  // 2. Quitar fences ```json ... ```.
+  // 3. Recortar al primer "{" y al ultimo "}".
+  const candidatos: string[] = [raw];
+
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenceMatch) candidatos.push(fenceMatch[1]);
+
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    candidatos.push(raw.slice(firstBrace, lastBrace + 1));
+  }
+
+  for (const cand of candidatos) {
+    try {
+      const obj = JSON.parse(cand.trim());
+      const outfits = (obj?.outfits ?? obj) as unknown;
+      if (!Array.isArray(outfits)) continue;
+      const valid: ParsedOutfit[] = [];
+      for (const o of outfits) {
+        if (!o || typeof o !== "object") continue;
+        const oo = o as Record<string, unknown>;
+        const name = typeof oo.name === "string" ? oo.name : "Outfit";
+        const ids = Array.isArray(oo.clothing_item_ids)
+          ? oo.clothing_item_ids.filter(
+              (id): id is string => typeof id === "string"
+            )
+          : [];
+        const explanation =
+          typeof oo.explanation === "string" ? oo.explanation : "";
+        if (ids.length === 0) continue;
+        valid.push({ name, clothing_item_ids: ids, explanation });
+      }
+      if (valid.length > 0) return valid;
+    } catch {
+      // probar el siguiente candidato
+    }
+  }
+
+  console.error("[generateOutfits] no se pudo parsear JSON. Raw:", raw);
+  throw new GenerateOutfitsError(
+    "INVALID_RESPONSE",
+    "Gemini devolvio una respuesta que no pudimos interpretar como JSON."
+  );
+}
