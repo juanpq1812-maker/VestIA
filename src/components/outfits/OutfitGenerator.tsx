@@ -1,0 +1,524 @@
+// Componente cliente que orquesta la pantalla /outfits.
+//
+// Maneja:
+//   - Tabs entre los 3 modos (ocasion, descripcion, sorpresa).
+//   - Llamada a la Server Action `generateOutfitsAction`.
+//   - Estado de carga con skeletons + mensajes motivadores rotando.
+//   - Render de los 2 outfits generados con sus prendas y explicacion.
+//   - Boton "Guardar" que llama `saveOutfitAction` por cada outfit.
+//   - Boton "Regenerar" que repite la ultima solicitud.
+//
+// El server component `/outfits/page.tsx` solo se ocupa de pasar las prendas
+// iniciales (para validar que haya >=2) y los datos del header.
+
+"use client";
+
+import { useEffect, useMemo, useState, useTransition } from "react";
+import Link from "next/link";
+import Button from "@/components/ui/Button";
+import {
+  generateOutfitsAction,
+  saveOutfitAction,
+  type GenerateActionInput,
+} from "@/app/outfits/actions";
+import type { GeneratedOutfit } from "@/lib/ai/generateOutfits";
+import type { ClothingItem } from "@/types/database";
+
+// Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
+// `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
+const OCASIONES = [
+  "Formal",
+  "Casual",
+  "Deportivo",
+  "Fiesta",
+  "Trabajo",
+  "Universidad",
+  "Citas",
+  "Eventos formales",
+] as const;
+
+const MENSAJES_LOADING = [
+  "Combinando colores...",
+  "Pensando en el clima...",
+  "Buscando armonia...",
+  "Mezclando texturas...",
+  "Probando combinaciones...",
+] as const;
+
+type Tab = "occasion" | "description" | "surprise";
+
+type Props = {
+  /** Cantidad total de prendas en el armario. Si <2 el componente no renderiza el generador. */
+  totalItems: number;
+};
+
+export default function OutfitGenerator({ totalItems }: Props) {
+  const [tab, setTab] = useState<Tab>("occasion");
+  const [occasion, setOccasion] = useState<string>(OCASIONES[1]); // "Casual"
+  const [description, setDescription] = useState<string>("");
+
+  const [isPending, startTransition] = useTransition();
+  const [outfits, setOutfits] = useState<GeneratedOutfit[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lastInput, setLastInput] = useState<GenerateActionInput | null>(null);
+
+  if (totalItems < 2) {
+    return <EmptyWardrobeCallout />;
+  }
+
+  function dispararGeneracion(input: GenerateActionInput) {
+    setError(null);
+    setOutfits(null);
+    setLastInput(input);
+    startTransition(async () => {
+      const res = await generateOutfitsAction(input);
+      if (!res.ok) {
+        setError(res.error);
+        return;
+      }
+      setOutfits(res.outfits);
+    });
+  }
+
+  function onGenerar() {
+    if (tab === "occasion") {
+      dispararGeneracion({ mode: "occasion", occasion });
+    } else if (tab === "description") {
+      const trimmed = description.trim();
+      if (trimmed.length === 0) {
+        setError("Escribe una descripcion antes de generar.");
+        return;
+      }
+      dispararGeneracion({ mode: "description", description: trimmed });
+    } else {
+      dispararGeneracion({ mode: "surprise" });
+    }
+  }
+
+  function onRegenerar() {
+    if (!lastInput) return;
+    dispararGeneracion(lastInput);
+  }
+
+  return (
+    <div className="space-y-10">
+      <ModeSelector tab={tab} setTab={setTab} />
+
+      <section className="rounded-xl border border-border bg-surface p-6 shadow-sm sm:p-8">
+        {tab === "occasion" && (
+          <OccasionPicker value={occasion} onChange={setOccasion} />
+        )}
+        {tab === "description" && (
+          <DescriptionInput value={description} onChange={setDescription} />
+        )}
+        {tab === "surprise" && <SurpriseBlurb />}
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={onGenerar}
+            isLoading={isPending}
+            loadingText="Generando outfit..."
+          >
+            {tab === "surprise"
+              ? "✨ Sorprendeme con un outfit"
+              : "Generar outfit"}
+          </Button>
+          <Link
+            href="/outfits/saved"
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Ver mis outfits guardados →
+          </Link>
+        </div>
+      </section>
+
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-danger bg-danger-light px-5 py-4 text-sm text-danger"
+        >
+          {error}
+        </div>
+      )}
+
+      {isPending && <LoadingState />}
+
+      {!isPending && outfits && outfits.length > 0 && (
+        <ResultsGrid
+          outfits={outfits}
+          onRegenerate={onRegenerar}
+          contextoOcasion={
+            lastInput?.mode === "occasion" ? lastInput.occasion ?? null : null
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Selector de modo (3 tabs como cards en mobile, fila en desktop).
+// ---------------------------------------------------------------------------
+
+function ModeSelector({
+  tab,
+  setTab,
+}: {
+  tab: Tab;
+  setTab: (t: Tab) => void;
+}) {
+  const opciones: { id: Tab; titulo: string; sub: string; icono: string }[] = [
+    {
+      id: "occasion",
+      titulo: "Por ocasion",
+      sub: "Elige una ocasion y deja que la IA arme algo apropiado.",
+      icono: "📅",
+    },
+    {
+      id: "description",
+      titulo: "Descripcion libre",
+      sub: "Cuenta en tus palabras lo que necesitas.",
+      icono: "✍️",
+    },
+    {
+      id: "surprise",
+      titulo: "Sorprendeme",
+      sub: "Sin reglas: que la IA improvise.",
+      icono: "✨",
+    },
+  ];
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Modo de generacion de outfit"
+      className="grid gap-3 sm:grid-cols-3"
+    >
+      {opciones.map((op) => {
+        const activo = tab === op.id;
+        return (
+          <button
+            key={op.id}
+            role="tab"
+            aria-selected={activo}
+            onClick={() => setTab(op.id)}
+            className={[
+              "rounded-xl border p-4 text-left transition-all",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+              activo
+                ? "border-primary bg-primary-light shadow-sm"
+                : "border-border bg-surface hover:border-primary-mid hover:bg-surface-2",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-2">
+              <span aria-hidden="true" className="text-xl">
+                {op.icono}
+              </span>
+              <span
+                className={[
+                  "font-semibold",
+                  activo ? "text-primary" : "text-text",
+                ].join(" ")}
+              >
+                {op.titulo}
+              </span>
+            </div>
+            <p className="mt-1.5 text-xs text-text-muted">{op.sub}</p>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function OccasionPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-semibold text-text">
+        Para que ocasion?
+      </label>
+      <p className="mt-1 text-xs text-text-muted">
+        Elige una y la IA priorizara prendas etiquetadas para ese contexto.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {OCASIONES.map((o) => {
+          const activo = value === o;
+          return (
+            <button
+              key={o}
+              onClick={() => onChange(o)}
+              className={[
+                "rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                activo
+                  ? "bg-primary text-white"
+                  : "bg-surface-2 text-text-muted hover:bg-primary-light hover:text-primary",
+              ].join(" ")}
+            >
+              {o}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DescriptionInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const max = 200;
+  return (
+    <div>
+      <label
+        htmlFor="outfit-description"
+        className="block text-sm font-semibold text-text"
+      >
+        Describe el outfit que necesitas...
+      </label>
+      <textarea
+        id="outfit-description"
+        value={value}
+        onChange={(e) => onChange(e.target.value.slice(0, max))}
+        placeholder="Algo comodo para ir a la universidad y verme bien"
+        rows={4}
+        className="mt-3 w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text placeholder:text-text-faint focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-mid"
+      />
+      <div className="mt-1.5 flex justify-end text-xs text-text-muted">
+        {value.length}/{max}
+      </div>
+    </div>
+  );
+}
+
+function SurpriseBlurb() {
+  return (
+    <div className="text-center">
+      <p className="font-display text-xl text-text sm:text-2xl">
+        Confia en la IA.
+      </p>
+      <p className="mt-2 text-sm text-text-muted">
+        Te propondremos 2 combinaciones inesperadas con prendas de tu armario.
+      </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Estado de carga: skeletons + mensajes rotando.
+// ---------------------------------------------------------------------------
+
+function LoadingState() {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(
+      () => setIdx((i) => (i + 1) % MENSAJES_LOADING.length),
+      1600
+    );
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center text-sm text-text-muted">
+        <span className="inline-block animate-pulse">{MENSAJES_LOADING[idx]}</span>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        {[0, 1].map((k) => (
+          <div
+            key={k}
+            className="rounded-xl border border-border bg-surface p-5 shadow-sm"
+          >
+            <div className="h-4 w-32 animate-pulse rounded bg-surface-2" />
+            <div className="mt-4 grid grid-cols-4 gap-2">
+              {[0, 1, 2, 3].map((j) => (
+                <div
+                  key={j}
+                  className="aspect-[3/4] animate-pulse rounded-lg bg-surface-2"
+                />
+              ))}
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="h-3 w-full animate-pulse rounded bg-surface-2" />
+              <div className="h-3 w-3/4 animate-pulse rounded bg-surface-2" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Resultados.
+// ---------------------------------------------------------------------------
+
+function ResultsGrid({
+  outfits,
+  onRegenerate,
+  contextoOcasion,
+}: {
+  outfits: GeneratedOutfit[];
+  onRegenerate: () => void;
+  contextoOcasion: string | null;
+}) {
+  return (
+    <section aria-label="Outfits propuestos" className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-2xl font-bold text-text">
+          Tus outfits
+        </h2>
+        <Button variant="ghost" onClick={onRegenerate}>
+          🔄 Regenerar
+        </Button>
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        {outfits.map((o, idx) => (
+          <OutfitCard
+            key={`${o.name}-${idx}`}
+            outfit={o}
+            contextoOcasion={contextoOcasion}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function OutfitCard({
+  outfit,
+  contextoOcasion,
+}: {
+  outfit: GeneratedOutfit;
+  contextoOcasion: string | null;
+}) {
+  const [estado, setEstado] = useState<"idle" | "saving" | "saved" | "error">(
+    "idle"
+  );
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  const visibles = useMemo(() => outfit.items.slice(0, 5), [outfit.items]);
+
+  async function onGuardar() {
+    setEstado("saving");
+    setErrMsg(null);
+    const res = await saveOutfitAction({
+      name: outfit.name,
+      occasion: contextoOcasion,
+      notes: outfit.explanation || null,
+      clothing_item_ids: outfit.items.map((i) => i.id),
+    });
+    if (res.ok) {
+      setEstado("saved");
+    } else {
+      setEstado("error");
+      setErrMsg(res.error);
+    }
+  }
+
+  return (
+    <article className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+      <header className="flex items-start justify-between gap-3">
+        <h3 className="font-display text-xl font-semibold text-text">
+          {outfit.name}
+        </h3>
+        <span className="rounded-full bg-primary-light px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
+          IA
+        </span>
+      </header>
+
+      <ul className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5">
+        {visibles.map((it) => (
+          <li key={it.id} className="text-center">
+            <ItemThumb item={it} />
+            <p className="mt-1.5 truncate text-[11px] text-text-muted">
+              {it.subcategory ?? it.category}
+            </p>
+          </li>
+        ))}
+      </ul>
+
+      {outfit.explanation && (
+        <p className="mt-4 text-xs leading-relaxed text-text-muted">
+          {outfit.explanation}
+        </p>
+      )}
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <Button
+          variant={estado === "saved" ? "secondary" : "primary"}
+          onClick={onGuardar}
+          isLoading={estado === "saving"}
+          loadingText="Guardando..."
+          disabled={estado === "saved"}
+        >
+          {estado === "saved" ? "✓ Guardado" : "💾 Guardar outfit"}
+        </Button>
+        {estado === "error" && errMsg && (
+          <span className="text-xs text-danger">{errMsg}</span>
+        )}
+      </div>
+    </article>
+  );
+}
+
+function ItemThumb({ item }: { item: ClothingItem }) {
+  const fallback = item.primary_color ?? "#c4b5fd";
+  return (
+    <div
+      className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border"
+      style={{ backgroundColor: fallback }}
+      title={item.name ?? item.subcategory ?? item.category}
+    >
+      {item.image_url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={item.image_url}
+          alt={item.name ?? item.subcategory ?? item.category}
+          className="h-full w-full object-cover"
+          loading="lazy"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Empty state cuando el armario tiene <2 prendas.
+// ---------------------------------------------------------------------------
+
+function EmptyWardrobeCallout() {
+  return (
+    <div className="rounded-xl border-2 border-dashed border-border bg-surface-2 p-10 text-center">
+      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
+        <span aria-hidden="true" className="text-2xl">
+          👕
+        </span>
+      </div>
+      <h3 className="mt-4 font-display text-xl font-semibold text-text">
+        Necesitas al menos 2 prendas en tu armario
+      </h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
+        Para que la IA pueda combinar, sube primero algunas prendas. Te
+        recomendamos al menos 1 top, 1 bottom y 1 calzado.
+      </p>
+      <div className="mt-6 flex justify-center">
+        <Link href="/wardrobe/upload">
+          <Button variant="primary">Subir mi primera prenda</Button>
+        </Link>
+      </div>
+    </div>
+  );
+}

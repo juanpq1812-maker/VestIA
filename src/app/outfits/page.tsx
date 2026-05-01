@@ -1,5 +1,13 @@
+// /outfits — pantalla principal de generacion de outfits con IA.
+//
+// Server Component: leemos al usuario y contamos sus prendas para decidir si
+// renderizamos el generador o el empty state. La generacion en si pasa por
+// la Server Action `generateOutfitsAction` (en `actions.ts`).
+
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
-import PaginaStub from "@/components/ui/PaginaStub";
+import Header from "@/components/layout/Header";
+import Container from "@/components/ui/Container";
+import OutfitGenerator from "@/components/outfits/OutfitGenerator";
 
 export default async function OutfitsPage() {
   const supabase = await createSupabaseServerClient();
@@ -7,18 +15,42 @@ export default async function OutfitsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Contamos prendas (cabezera HEAD para no traer payload).
+  const { count: itemsCount } = await supabase
+    .from("clothing_items")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user?.id ?? "");
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("display_name")
     .eq("id", user?.id ?? "")
     .maybeSingle();
 
+  const totalItems = itemsCount ?? 0;
+
   return (
-    <PaginaStub
-      titulo="Outfits con IA"
-      descripcion="Aqui se generaran outfits combinando tu armario con la API de Anthropic, ajustados al clima, la ocasion y tu estilo."
-      userEmail={user?.email}
-      displayName={profile?.display_name}
-    />
+    <div className="flex flex-1 flex-col">
+      <Header email={user?.email} displayName={profile?.display_name} />
+      <main className="flex-1 py-10 sm:py-14">
+        <Container size="lg">
+          <header className="max-w-2xl">
+            <p className="text-sm text-text-muted">Outfits con IA</p>
+            <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
+              Que te pondras hoy?
+            </h1>
+            <p className="mt-2 text-base text-text-muted">
+              Elige un modo y la IA combinara prendas reales de tu armario.
+              Cada generacion produce 2 propuestas distintas; guarda la que
+              mas te guste.
+            </p>
+          </header>
+
+          <div className="mt-10">
+            <OutfitGenerator totalItems={totalItems} />
+          </div>
+        </Container>
+      </main>
+    </div>
   );
 }
