@@ -1,13 +1,19 @@
-// Placeholder de "Subir prenda" (/wardrobe/upload).
+// Pantalla "Subir prenda" (/wardrobe/upload).
 //
-// La implementacion real (foto + Storage + insert en clothing_items) llega en
-// la Capa 3. Por ahora dejamos la pantalla con el shell de la app y un mensaje
-// "en construccion".
+// El shell (header + saludo) se renderiza en el servidor para resolver el
+// usuario y su display_name. La logica del formulario (file input, compresion,
+// upload a Storage e insert en clothing_items) vive en `UploadForm`, un
+// Client Component.
+//
+// La proteccion de la ruta y el gate del onboarding la hace el Proxy
+// (`src/proxy.ts`); aqui solo leemos defensivamente.
 
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
-import PaginaStub from "@/components/ui/PaginaStub";
+import Header from "@/components/layout/Header";
+import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
+import UploadForm from "@/components/wardrobe/UploadForm";
 
 export default async function UploadPage() {
   const supabase = await createSupabaseServerClient();
@@ -22,16 +28,32 @@ export default async function UploadPage() {
     .maybeSingle();
 
   return (
-    <PaginaStub
-      titulo="Subir prenda"
-      descripcion="Proximamente: vas a poder tomar o cargar una foto, elegir categoria, color y ocasion, y la prenda quedara en tu armario digital. La conexion con Supabase Storage llega en la siguiente capa."
-      userEmail={user?.email}
-      displayName={profile?.display_name}
-      acciones={
-        <Link href="/wardrobe">
-          <Button variant="secondary">Volver al armario</Button>
-        </Link>
-      }
-    />
+    <div className="flex flex-1 flex-col">
+      <Header email={user?.email} displayName={profile?.display_name} />
+
+      <main className="flex-1 py-10 sm:py-14">
+        <Container size="md">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-text-muted">Armario digital</p>
+              <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
+                Subir prenda
+              </h1>
+              <p className="mt-2 max-w-xl text-base text-text-muted">
+                Sube una foto, dinos que es y para que ocasiones la usas. Va
+                directo a tu armario y queda lista para que la IA la combine.
+              </p>
+            </div>
+            <Link href="/wardrobe">
+              <Button variant="ghost">Volver al armario</Button>
+            </Link>
+          </div>
+
+          <div className="mt-8">
+            <UploadForm />
+          </div>
+        </Container>
+      </main>
+    </div>
   );
 }
