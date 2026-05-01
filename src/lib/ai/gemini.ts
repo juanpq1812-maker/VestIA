@@ -5,16 +5,26 @@
 // Si Next.js detecta que un Client Component lee esta variable, fallara el
 // build — y aunque no fallara, expondria la key al navegador.
 //
-// Modelo elegido: `gemini-2.0-flash`. Es el modelo "rapido y barato" mas
-// reciente de Gemini con buena calidad para tareas de razonamiento corto
-// como combinar prendas. Si en el futuro cambia el nombre o sale un modelo
-// mejor, basta con cambiar `GEMINI_MODEL_NAME` aqui.
+// Modelo: leemos `GEMINI_MODEL` del entorno (variable opcional). El default es
+// `gemini-1.5-flash` porque es el modelo flash que esta GRATIS en el plan
+// gratuito de AI Studio. `gemini-2.0-flash` y `gemini-2.5-flash` solo estan
+// disponibles con facturacion activa, asi que tirar 429 con limit:0 si se
+// intenta usar gratis. Para cambiar a otro modelo basta con setear
+// `GEMINI_MODEL=...` en `.env.local` y reiniciar.
 
 import { GoogleGenerativeAI, type GenerativeModel } from "@google/generative-ai";
 
-// Si Google saca un nuevo flash o lo renombra (ej: gemini-2.5-flash), cambia
-// solo esta constante.
-export const GEMINI_MODEL_NAME = "gemini-2.0-flash";
+/** Modelo por defecto: el unico flash que esta GRATIS hoy. */
+export const DEFAULT_GEMINI_MODEL = "gemini-1.5-flash";
+
+/**
+ * Devuelve el nombre del modelo a usar. Si la variable `GEMINI_MODEL` esta
+ * definida (y no esta vacia) la respeta; si no, cae al default gratis.
+ */
+export function getGeminiModelName(): string {
+  const fromEnv = process.env.GEMINI_MODEL?.trim();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_GEMINI_MODEL;
+}
 
 /**
  * Lee la API key del entorno y lanza un error claro si falta. Centralizamos
@@ -41,7 +51,7 @@ function getGeminiApiKey(): string {
 export function getGeminiModel(): GenerativeModel {
   const client = new GoogleGenerativeAI(getGeminiApiKey());
   return client.getGenerativeModel({
-    model: GEMINI_MODEL_NAME,
+    model: getGeminiModelName(),
     generationConfig: {
       // JSON mode: aun asi parseamos defensivamente, pero ayuda mucho.
       responseMimeType: "application/json",

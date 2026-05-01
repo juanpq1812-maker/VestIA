@@ -37,6 +37,7 @@ export type GenerateOutfitsErrorCode =
   | "NO_API_KEY"
   | "EMPTY_WARDROBE"
   | "NOT_ENOUGH_ITEMS"
+  | "RATE_LIMITED"
   | "NETWORK_ERROR"
   | "INVALID_RESPONSE"
   | "NO_VALID_OUTFITS"
@@ -289,8 +290,19 @@ async function callGemini(prompt: string): Promise<string> {
     if (err instanceof GenerateOutfitsError) throw err;
     console.error("[generateOutfits] error llamando a Gemini", err);
     const message = err instanceof Error ? err.message : String(err);
-    // Intentamos diferenciar API key invalida vs. error de red. El SDK no
-    // expone codigos uniformes, asi que nos basamos en el texto.
+    // El SDK no expone codigos uniformes, asi que clasificamos por texto.
+    // Orden importa: 429 ANTES que "permission" porque algunos mensajes de
+    // cuota mencionan permisos.
+    if (
+      /\b429\b|quota|rate.?limit|too many requests|resource.?exhausted/i.test(
+        message
+      )
+    ) {
+      throw new GenerateOutfitsError(
+        "RATE_LIMITED",
+        "Has excedido la cuota gratuita de la IA. Intentalo de nuevo en 1 minuto."
+      );
+    }
     if (/api key|API_KEY|invalid key|permission/i.test(message)) {
       throw new GenerateOutfitsError(
         "NO_API_KEY",
