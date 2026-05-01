@@ -3,13 +3,6 @@
 // Es un Client Component porque maneja estado de formulario y llama a Supabase desde
 // el navegador (el cliente del navegador escribe la cookie de sesion automaticamente
 // si el registro es exitoso).
-//
-// Flujo:
-//   1. El usuario escribe email + contrasena.
-//   2. Validamos formato basico antes de llamar a la API.
-//   3. Llamamos a `supabase.auth.signUp`.
-//   4. Si todo sale bien, redirigimos a /onboarding.
-//   5. Si falla, mostramos un mensaje claro debajo del formulario.
 
 "use client";
 
@@ -17,6 +10,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
+import AuthShell from "@/components/layout/AuthShell";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -61,71 +57,65 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-6 py-16 dark:bg-black">
-      <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <AuthShell
+      eyebrow="Crea tu cuenta"
+      brandTitle="Empieza a digitalizar tu armario."
+      brandSubtitle="Sube tus prendas, deja que la IA te combine outfits y descubre cuanto puedes aprovechar lo que ya tienes."
+    >
+      <header>
+        <h2 className="font-display text-3xl font-bold text-text sm:text-4xl">
           Crea tu cuenta
-        </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
-          Empieza a digitalizar tu armario en menos de un minuto.
+        </h2>
+        <p className="mt-2 text-sm text-text-muted">
+          Empieza en menos de un minuto.
         </p>
+      </header>
 
-        <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Email
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:focus:border-zinc-100"
-              placeholder="tu@correo.com"
-            />
-          </label>
+      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5" noValidate>
+        <Input
+          label="Email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="tu@correo.com"
+        />
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Contrasena
-            <input
-              type="password"
-              autoComplete="new-password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:focus:border-zinc-100"
-              placeholder="Minimo 6 caracteres"
-            />
-          </label>
+        <Input
+          label="Contrasena"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={6}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Minimo 6 caracteres"
+          hint="Usa al menos 6 caracteres."
+          error={error}
+        />
 
-          {error && (
-            <p
-              role="alert"
-              className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
-            >
-              {error}
-            </p>
-          )}
+        <Button
+          type="submit"
+          size="lg"
+          fullWidth
+          isLoading={cargando}
+          loadingText="Creando cuenta…"
+          className="mt-2"
+        >
+          Crear cuenta
+        </Button>
+      </form>
 
-          <button
-            type="submit"
-            disabled={cargando}
-            className="mt-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            {cargando ? "Creando cuenta…" : "Registrarme"}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
-          ¿Ya tienes cuenta?{" "}
-          <Link
-            href="/login"
-            className="font-medium text-zinc-900 underline dark:text-zinc-50"
-          >
-            Inicia sesion
-          </Link>
-        </p>
-      </div>
-    </main>
+      <p className="mt-8 text-center text-sm text-text-muted">
+        ¿Ya tienes cuenta?{" "}
+        <Link
+          href="/login"
+          className="font-semibold text-primary underline-offset-4 hover:underline"
+        >
+          Inicia sesion
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
