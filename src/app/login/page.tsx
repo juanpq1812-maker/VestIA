@@ -1,7 +1,7 @@
 // Pagina de Login (/login).
 //
-// Igual que /register: Client Component que usa el cliente de Supabase del navegador.
-// Si el inicio de sesion es exitoso, redirigimos directo al armario.
+// Client Component que usa el cliente de Supabase del navegador.
+// Si el inicio de sesion es exitoso, redirigimos al armario.
 
 "use client";
 
@@ -9,6 +9,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
+import AuthShell from "@/components/layout/AuthShell";
+import Button from "@/components/ui/Button";
+import Input from "@/components/ui/Input";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -47,70 +50,63 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-6 py-16 dark:bg-black">
-      <div className="w-full max-w-sm">
-        <h1 className="text-3xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <AuthShell
+      eyebrow="Bienvenido de vuelta"
+      brandTitle="Tu armario te esta esperando."
+      brandSubtitle="Entra a VestIA y deja que la IA te combine outfits con la ropa que ya tienes."
+    >
+      <header>
+        <h2 className="font-display text-3xl font-bold text-text sm:text-4xl">
           Inicia sesion
-        </h1>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+        </h2>
+        <p className="mt-2 text-sm text-text-muted">
           Vuelve a tu armario digital.
         </p>
+      </header>
 
-        <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
-          <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Email
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:focus:border-zinc-100"
-              placeholder="tu@correo.com"
-            />
-          </label>
+      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5" noValidate>
+        <Input
+          label="Email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="tu@correo.com"
+        />
 
-          <label className="flex flex-col gap-1 text-sm font-medium text-zinc-700 dark:text-zinc-300">
-            Contrasena
-            <input
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none focus:border-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50 dark:focus:border-zinc-100"
-              placeholder="Tu contrasena"
-            />
-          </label>
+        <Input
+          label="Contrasena"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Tu contrasena"
+          error={error}
+        />
 
-          {error && (
-            <p
-              role="alert"
-              className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300"
-            >
-              {error}
-            </p>
-          )}
+        <Button
+          type="submit"
+          size="lg"
+          fullWidth
+          isLoading={cargando}
+          loadingText="Iniciando sesion…"
+          className="mt-2"
+        >
+          Entrar
+        </Button>
+      </form>
 
-          <button
-            type="submit"
-            disabled={cargando}
-            className="mt-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-          >
-            {cargando ? "Entrando…" : "Entrar"}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-sm text-zinc-600 dark:text-zinc-400">
-          ¿No tienes cuenta?{" "}
-          <Link
-            href="/register"
-            className="font-medium text-zinc-900 underline dark:text-zinc-50"
-          >
-            Registrate
-          </Link>
-        </p>
-      </div>
-    </main>
+      <p className="mt-8 text-center text-sm text-text-muted">
+        ¿No tienes cuenta?{" "}
+        <Link
+          href="/register"
+          className="font-semibold text-primary underline-offset-4 hover:underline"
+        >
+          Registrate
+        </Link>
+      </p>
+    </AuthShell>
   );
 }
