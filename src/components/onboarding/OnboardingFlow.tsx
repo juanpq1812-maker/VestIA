@@ -1,7 +1,7 @@
 // Flujo de onboarding multi-paso (Client Component).
 //
 // Cinco pantallas, una a la vez, con una transicion suave entre pasos:
-//   1. Bienvenida
+//   1. Bienvenida + nombre del usuario (obligatorio)
 //   2. Estilo (chips multi-select, minimo 1)
 //   3. Ocasiones favoritas (chips multi-select, minimo 1)
 //   4. Tallas (top, bottom, calzado)
@@ -35,6 +35,25 @@ type Medidas = {
   hipCm: string;
 };
 
+const NOMBRE_MIN = 2;
+const NOMBRE_MAX = 30;
+// Letras (incluyendo acentos y eñe), espacios, apostrofes y guiones.
+const NOMBRE_REGEX = /^[\p{L}][\p{L} '\-]*$/u;
+
+function validarNombre(value: string): string | null {
+  const limpio = value.trim();
+  if (limpio.length < NOMBRE_MIN) {
+    return `Tu nombre debe tener al menos ${NOMBRE_MIN} caracteres.`;
+  }
+  if (limpio.length > NOMBRE_MAX) {
+    return `Tu nombre no puede pasar de ${NOMBRE_MAX} caracteres.`;
+  }
+  if (!NOMBRE_REGEX.test(limpio)) {
+    return "Usa solo letras, espacios, apostrofes o guiones.";
+  }
+  return null;
+}
+
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
@@ -47,6 +66,7 @@ function parseNumber(value: string): number | null {
 export default function OnboardingFlow() {
   const router = useRouter();
   const [paso, setPaso] = useState(1);
+  const [nombre, setNombre] = useState("");
   const [estilos, setEstilos] = useState<string[]>([]);
   const [ocasiones, setOcasiones] = useState<string[]>([]);
   const [topSize, setTopSize] = useState<string>("");
@@ -62,6 +82,13 @@ export default function OnboardingFlow() {
 
   function siguiente() {
     setError(null);
+    if (paso === 1) {
+      const errorNombre = validarNombre(nombre);
+      if (errorNombre) {
+        setError(errorNombre);
+        return;
+      }
+    }
     if (paso === 2 && estilos.length === 0) {
       setError("Elige al menos un estilo.");
       return;
@@ -82,7 +109,14 @@ export default function OnboardingFlow() {
 
   function finalizar(saltarMedidas: boolean) {
     setError(null);
+    const errorNombre = validarNombre(nombre);
+    if (errorNombre) {
+      setError(errorNombre);
+      setPaso(1);
+      return;
+    }
     const payload = {
+      displayName: nombre.trim(),
       styleTags: estilos,
       favoriteOccasions: ocasiones,
       topSize: topSize || null,
@@ -117,7 +151,15 @@ export default function OnboardingFlow() {
             key={paso}
             className="motion-safe:animate-[onboarding-fade_240ms_ease-out]"
           >
-            {paso === 1 && <PasoBienvenida />}
+            {paso === 1 && (
+              <PasoBienvenida
+                nombre={nombre}
+                onNombreChange={(v) => {
+                  setNombre(v);
+                  if (error) setError(null);
+                }}
+              />
+            )}
             {paso === 2 && (
               <PasoChips
                 titulo="¿Que estilos te representan?"
@@ -236,7 +278,12 @@ function ProgressBar({ paso, total }: { paso: number; total: number }) {
   );
 }
 
-function PasoBienvenida() {
+type PasoBienvenidaProps = {
+  nombre: string;
+  onNombreChange: (v: string) => void;
+};
+
+function PasoBienvenida({ nombre, onNombreChange }: PasoBienvenidaProps) {
   return (
     <div className="text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
@@ -262,6 +309,21 @@ function PasoBienvenida() {
         proponerte outfits que de verdad encajen con tu estilo, tus tallas y
         las ocasiones para las que te vistes.
       </p>
+      <div className="mx-auto mt-8 max-w-sm text-left">
+        <Input
+          label="¿Como te llamamos?"
+          type="text"
+          autoComplete="given-name"
+          autoFocus
+          required
+          minLength={NOMBRE_MIN}
+          maxLength={NOMBRE_MAX}
+          value={nombre}
+          onChange={(e) => onNombreChange(e.target.value)}
+          placeholder="Juan, Maria, Sofia…"
+          hint="Lo usaremos para saludarte dentro de la app."
+        />
+      </div>
     </div>
   );
 }

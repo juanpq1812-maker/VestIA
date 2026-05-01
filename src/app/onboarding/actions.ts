@@ -17,6 +17,7 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export type OnboardingPayload = {
+  displayName: string;
   styleTags: string[];
   favoriteOccasions: string[];
   topSize: string | null;
@@ -26,6 +27,10 @@ export type OnboardingPayload = {
   waistCm: number | null;
   hipCm: number | null;
 };
+
+const DISPLAY_NAME_MIN = 2;
+const DISPLAY_NAME_MAX = 30;
+const DISPLAY_NAME_REGEX = /^[\p{L}][\p{L} '\-]*$/u;
 
 export type OnboardingResult =
   | { ok: true }
@@ -45,7 +50,15 @@ export async function saveOnboarding(
     return { ok: false, error: "Tu sesion expiro. Vuelve a iniciar sesion." };
   }
 
-  // Validacion minima: al menos un estilo y una ocasion.
+  // Validacion minima: nombre, al menos un estilo y una ocasion.
+  const displayName = payload.displayName.trim();
+  if (
+    displayName.length < DISPLAY_NAME_MIN ||
+    displayName.length > DISPLAY_NAME_MAX ||
+    !DISPLAY_NAME_REGEX.test(displayName)
+  ) {
+    return { ok: false, error: "Tu nombre no es valido. Vuelve al primer paso y revisalo." };
+  }
   if (payload.styleTags.length === 0) {
     return { ok: false, error: "Elige al menos un estilo." };
   }
@@ -81,7 +94,7 @@ export async function saveOnboarding(
 
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({ onboarding_completed: true })
+    .update({ onboarding_completed: true, display_name: displayName })
     .eq("id", user.id);
 
   if (profileError) {
