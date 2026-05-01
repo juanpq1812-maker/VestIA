@@ -23,11 +23,13 @@ const NAV: LinkNav[] = [
 
 type Props = {
   email?: string | null;
+  /** Nombre preferido del usuario (profiles.display_name). Si existe se muestra en vez del email. */
+  displayName?: string | null;
   /** Si quieres ocultar la navegacion (por ejemplo en onboarding). */
   hideNav?: boolean;
 };
 
-export default function Header({ email, hideNav = false }: Props) {
+export default function Header({ email, displayName, hideNav = false }: Props) {
   const pathname = usePathname();
 
   return (
@@ -71,12 +73,12 @@ export default function Header({ email, hideNav = false }: Props) {
         )}
 
         <div className="flex items-center gap-3">
-          {email ? (
+          {displayName || email ? (
             <span
               className="hidden text-xs text-text-muted sm:inline-block max-w-[180px] truncate"
-              title={email}
+              title={email ?? undefined}
             >
-              {email}
+              {displayName ?? email}
             </span>
           ) : null}
           <LogoutButton />

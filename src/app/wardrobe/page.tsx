@@ -27,13 +27,21 @@ export default async function WardrobePage() {
     )
     .order("created_at", { ascending: false });
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+
   const items = (itemsData ?? []) as ClothingItem[];
   const tienePrendas = items.length > 0;
-  const saludo = user?.email?.split("@")[0] ?? "tu";
+  // Edge case: si por algun motivo no hay display_name, caemos al usuario del email.
+  const saludo =
+    profile?.display_name?.trim() || user?.email?.split("@")[0] || "tu";
 
   return (
     <div className="flex flex-1 flex-col">
-      <Header email={user?.email} />
+      <Header email={user?.email} displayName={profile?.display_name} />
 
       <main className="flex-1 py-10 sm:py-14">
         <Container size="lg">

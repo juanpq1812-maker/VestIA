@@ -11,6 +11,8 @@ type Props = {
   descripcion: string;
   /** Email del usuario, ya leido en el Server Component. */
   userEmail?: string | null;
+  /** Nombre preferido del usuario (profiles.display_name). */
+  displayName?: string | null;
   /** Si se pasa, oculta los enlaces de navegacion (util en /onboarding). */
   hideNav?: boolean;
   /** Acciones opcionales al pie (ej: un boton "Volver"). */
@@ -21,12 +23,13 @@ export default function PaginaStub({
   titulo,
   descripcion,
   userEmail,
+  displayName,
   hideNav,
   acciones,
 }: Props) {
   return (
     <div className="flex flex-1 flex-col">
-      <Header email={userEmail} hideNav={hideNav} />
+      <Header email={userEmail} displayName={displayName} hideNav={hideNav} />
       <main className="flex-1 py-10 sm:py-16">
         <Container size="md">
           <div className="rounded-xl border border-border bg-surface p-8 shadow-sm sm:p-12">

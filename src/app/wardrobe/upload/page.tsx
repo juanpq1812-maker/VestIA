@@ -15,11 +15,18 @@ export default async function UploadPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+
   return (
     <PaginaStub
       titulo="Subir prenda"
       descripcion="Proximamente: vas a poder tomar o cargar una foto, elegir categoria, color y ocasion, y la prenda quedara en tu armario digital. La conexion con Supabase Storage llega en la siguiente capa."
       userEmail={user?.email}
+      displayName={profile?.display_name}
       acciones={
         <Link href="/wardrobe">
           <Button variant="secondary">Volver al armario</Button>
