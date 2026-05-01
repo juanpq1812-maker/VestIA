@@ -1,5 +1,13 @@
+// Placeholder de "Subir prenda" (/wardrobe/upload).
+//
+// La implementacion real (foto + Storage + insert en clothing_items) llega en
+// la Capa 3. Por ahora dejamos la pantalla con el shell de la app y un mensaje
+// "en construccion".
+
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import PaginaStub from "@/components/ui/PaginaStub";
+import Button from "@/components/ui/Button";
 
 export default async function UploadPage() {
   const supabase = await createSupabaseServerClient();
@@ -10,8 +18,13 @@ export default async function UploadPage() {
   return (
     <PaginaStub
       titulo="Subir prenda"
-      descripcion="Aqui podras subir una foto de una prenda y catalogarla en tu armario digital con Supabase Storage."
+      descripcion="Proximamente: vas a poder tomar o cargar una foto, elegir categoria, color y ocasion, y la prenda quedara en tu armario digital. La conexion con Supabase Storage llega en la siguiente capa."
       userEmail={user?.email}
+      acciones={
+        <Link href="/wardrobe">
+          <Button variant="secondary">Volver al armario</Button>
+        </Link>
+      }
     />
   );
 }
