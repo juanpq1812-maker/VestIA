@@ -20,6 +20,7 @@ const NAV: LinkNav[] = [
   { href: "/wardrobe/upload", label: "Subir prenda" },
   { href: "/outfits", label: "Outfits IA" },
   { href: "/outfits/saved", label: "Mis outfits" },
+  { href: "/impact", label: "Impacto" },
 ];
 
 type Props = {

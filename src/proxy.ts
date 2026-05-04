@@ -16,7 +16,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createSupabaseProxyClient } from "@/lib/supabase/proxyClient";
 
 // Rutas que requieren sesion activa.
-const RUTAS_PRIVADAS = ["/onboarding", "/wardrobe", "/outfits"];
+const RUTAS_PRIVADAS = ["/onboarding", "/wardrobe", "/outfits", "/impact"];
 
 // Rutas que solo deben verse cuando NO hay sesion (si ya entraste, te llevamos
 // al armario).
