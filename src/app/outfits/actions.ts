@@ -168,3 +168,175 @@ export async function deleteOutfitAction(
   revalidatePath("/outfits/saved");
   return { ok: true };
 }
+
+// =============================================================================
+// USOS DE OUTFITS (tabla `outfit_uses`)
+// =============================================================================
+//
+// El usuario marca "Lo use hoy" o "Lo use otro dia" desde la UI. Servidor
+// valida:
+//   - Sesion activa.
+//   - Outfit pertenece al usuario.
+//   - daysAgo entre 0 (hoy) y 7 (hace 7 dias). Nunca futuro.
+//   - UNIQUE (outfit_id, used_date) — el error 23505 (Postgres) lo traducimos
+//     a "ya registrado".
+//
+// La fecha real (`used_date`) la calcula el servidor a partir de `daysAgo`,
+// asi el cliente nunca puede inyectar fechas arbitrarias.
+
+const MAX_DAYS_BACK = 7;
+
+/** Devuelve "YYYY-MM-DD" para la fecha de hoy menos `daysAgo` dias. */
+function dateNDaysAgoIso(daysAgo: number): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - daysAgo);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export type RegisterUseInput = {
+  outfitId: string;
+  /** 0 = hoy, 1 = ayer, ... hasta 7. */
+  daysAgo: number;
+};
+
+export type RegisterUseResult =
+  | { ok: true; usedDate: string; useId: string }
+  | { ok: false; code: RegisterUseErrorCode; error: string };
+
+export type RegisterUseErrorCode =
+  | "UNAUTHENTICATED"
+  | "NOT_OWNER"
+  | "OUT_OF_RANGE"
+  | "ALREADY_REGISTERED"
+  | "UNKNOWN";
+
+export async function registerOutfitUseAction(
+  input: RegisterUseInput
+): Promise<RegisterUseResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      code: "UNAUTHENTICATED",
+      error: "Inicia sesion para registrar usos.",
+    };
+  }
+
+  // Validacion de rango: hoy (0) o hasta 7 dias atras. Nunca futuro.
+  if (
+    !Number.isInteger(input.daysAgo) ||
+    input.daysAgo < 0 ||
+    input.daysAgo > MAX_DAYS_BACK
+  ) {
+    return {
+      ok: false,
+      code: "OUT_OF_RANGE",
+      error: `Solo puedes registrar usos de hoy o hasta hace ${MAX_DAYS_BACK} dias.`,
+    };
+  }
+
+  // Verificacion explicita de propiedad (RLS tambien lo asegura, pero asi
+  // damos un mensaje mas claro).
+  const { data: outfit, error: outfitErr } = await supabase
+    .from("outfits")
+    .select("id, user_id")
+    .eq("id", input.outfitId)
+    .maybeSingle();
+
+  if (outfitErr) {
+    console.error("[registerOutfitUseAction] error consultando outfit", outfitErr);
+    return { ok: false, code: "UNKNOWN", error: "No pudimos verificar el outfit." };
+  }
+  if (!outfit || outfit.user_id !== user.id) {
+    return {
+      ok: false,
+      code: "NOT_OWNER",
+      error: "Este outfit no esta en tus guardados.",
+    };
+  }
+
+  const usedDate = dateNDaysAgoIso(input.daysAgo);
+
+  const { data, error } = await supabase
+    .from("outfit_uses")
+    .insert({
+      user_id: user.id,
+      outfit_id: input.outfitId,
+      used_date: usedDate,
+    })
+    .select("id")
+    .single();
+
+  if (error) {
+    // 23505 = unique_violation en Postgres.
+    const code = (error as { code?: string }).code;
+    if (code === "23505") {
+      return {
+        ok: false,
+        code: "ALREADY_REGISTERED",
+        error: "Ya registraste este outfit en esa fecha.",
+      };
+    }
+    console.error("[registerOutfitUseAction] insert fallo", error);
+    return {
+      ok: false,
+      code: "UNKNOWN",
+      error: "No pudimos registrar el uso. Intenta de nuevo.",
+    };
+  }
+
+  revalidatePath("/outfits/saved");
+  revalidatePath("/outfits");
+
+  return { ok: true, usedDate, useId: data.id };
+}
+
+/**
+ * Guarda un outfit recien generado Y registra su uso para hoy en una sola
+ * accion. Si la primera parte falla, no intentamos la segunda. Si la segunda
+ * falla pero la primera ya quedo, devolvemos el id del outfit con un warning
+ * legible.
+ */
+export type SaveAndUseResult =
+  | { ok: true; outfitId: string; useId: string; usedDate: string }
+  | {
+      ok: "partial";
+      outfitId: string;
+      error: string;
+    }
+  | { ok: false; error: string };
+
+export async function saveAndUseOutfitTodayAction(
+  input: SaveOutfitInput
+): Promise<SaveAndUseResult> {
+  const saved = await saveOutfitAction(input);
+  if (!saved.ok) return { ok: false, error: saved.error };
+
+  const used = await registerOutfitUseAction({
+    outfitId: saved.outfitId,
+    daysAgo: 0,
+  });
+
+  if (!used.ok) {
+    return {
+      ok: "partial",
+      outfitId: saved.outfitId,
+      error: used.error,
+    };
+  }
+
+  return {
+    ok: true,
+    outfitId: saved.outfitId,
+    useId: used.useId,
+    usedDate: used.usedDate,
+  };
+}

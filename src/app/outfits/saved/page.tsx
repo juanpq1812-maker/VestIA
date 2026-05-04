@@ -1,8 +1,11 @@
 // /outfits/saved — lista de outfits guardados por el usuario.
 //
-// Server Component: leemos los outfits con RLS, despues hidratamos con la
-// info de las prendas (sus fotos vienen de Storage privado, asi que firmamos
-// URLs temporales). El boton de eliminar vive en `SavedOutfitCard`.
+// Server Component: leemos los outfits con RLS, hidratamos con la info de las
+// prendas (firmamos URLs temporales porque el bucket es privado) y traemos
+// tambien `outfit_uses` para calcular total de usos / ultimo uso por outfit.
+//
+// La seccion "Repetiste outfit?" usa los 4 outfits con uso mas reciente; se
+// oculta si el usuario nunca ha registrado uso de ningun outfit.
 
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
@@ -10,8 +13,11 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import SavedOutfitCard from "@/components/outfits/SavedOutfitCard";
+import RepeatedOutfitsSection, {
+  type RepeatableOutfit,
+} from "@/components/outfits/RepeatedOutfitsSection";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
-import type { ClothingItem, Outfit } from "@/types/database";
+import type { ClothingItem, Outfit, OutfitUse } from "@/types/database";
 
 export default async function SavedOutfitsPage() {
   const supabase = await createSupabaseServerClient();
@@ -31,6 +37,25 @@ export default async function SavedOutfitsPage() {
     .order("created_at", { ascending: false });
 
   const outfits = (outfitsData ?? []) as Outfit[];
+
+  // Trae todos los usos del usuario (RLS filtra por dueno). Es N filas, no N
+  // queries — escala bien para el MVP.
+  const { data: usesData } = await supabase
+    .from("outfit_uses")
+    .select("id, user_id, outfit_id, used_date, created_at")
+    .order("used_date", { ascending: false });
+
+  const uses = (usesData ?? []) as OutfitUse[];
+
+  // Mapa outfitId -> array de fechas (ordenadas asc para que .at(-1) sea la mas reciente).
+  const usesByOutfit = new Map<string, string[]>();
+  for (const u of uses) {
+    const arr = usesByOutfit.get(u.outfit_id) ?? [];
+    arr.push(u.used_date);
+    usesByOutfit.set(u.outfit_id, arr);
+  }
+  // El query las trae desc; las invertimos para que el orden lexicografico
+  // funcione en `lastUsedIso = arr.sort().at(-1)` desde la card.
 
   // Recolectamos todos los IDs de prendas referenciadas por estos outfits y
   // los traemos en una sola consulta. Asi evitamos N+1.
@@ -64,6 +89,34 @@ export default async function SavedOutfitsPage() {
     );
   }
 
+  // Construimos la lista de "Repetiste outfit?" (los 4 mas recientes USADOS).
+  // El primer uso de cada outfit en `uses` es el mas reciente porque ya viene
+  // ordenado desc — tomamos el primero por outfit.
+  const lastUseByOutfit = new Map<string, string>();
+  for (const u of uses) {
+    if (!lastUseByOutfit.has(u.outfit_id)) {
+      lastUseByOutfit.set(u.outfit_id, u.used_date);
+    }
+  }
+  const repeatable: RepeatableOutfit[] = Array.from(lastUseByOutfit.entries())
+    .sort((a, b) => (a[1] < b[1] ? 1 : a[1] > b[1] ? -1 : 0))
+    .slice(0, 4)
+    .map(([outfitId, lastUsedIso]) => {
+      const outfit = outfits.find((o) => o.id === outfitId);
+      if (!outfit) return null;
+      const cover = outfit.clothing_item_ids
+        .map((id) => itemsById.get(id))
+        .find((it): it is ClothingItem => Boolean(it)) ?? null;
+      return {
+        id: outfit.id,
+        name: outfit.name,
+        cover,
+        lastUsedIso,
+        usedDates: usesByOutfit.get(outfit.id) ?? [],
+      };
+    })
+    .filter((x): x is RepeatableOutfit => x !== null);
+
   return (
     <div className="flex flex-1 flex-col">
       <Header email={user?.email} displayName={profile?.display_name} />
@@ -84,21 +137,26 @@ export default async function SavedOutfitsPage() {
           {outfits.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="mt-8 grid gap-6 md:grid-cols-2">
-              {outfits.map((o) => (
-                <SavedOutfitCard
-                  key={o.id}
-                  outfitId={o.id}
-                  name={o.name}
-                  occasion={o.occasion}
-                  notes={o.notes}
-                  createdAt={o.created_at}
-                  items={o.clothing_item_ids
-                    .map((id) => itemsById.get(id))
-                    .filter((it): it is ClothingItem => Boolean(it))}
-                />
-              ))}
-            </div>
+            <>
+              <RepeatedOutfitsSection outfits={repeatable} />
+
+              <div className="mt-8 grid gap-6 md:grid-cols-2">
+                {outfits.map((o) => (
+                  <SavedOutfitCard
+                    key={o.id}
+                    outfitId={o.id}
+                    name={o.name}
+                    occasion={o.occasion}
+                    notes={o.notes}
+                    createdAt={o.created_at}
+                    items={o.clothing_item_ids
+                      .map((id) => itemsById.get(id))
+                      .filter((it): it is ClothingItem => Boolean(it))}
+                    usedDates={usesByOutfit.get(o.id) ?? []}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </Container>
       </main>
