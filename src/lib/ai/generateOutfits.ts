@@ -1,10 +1,10 @@
-// Generacion de outfits con Gemini.
+// Generacion de outfits con la IA (OpenRouter -> Llama gratis por defecto).
 //
 // Esta funcion vive en el SERVIDOR (la importan Server Actions o Route
 // Handlers). Hace todo el trabajo pesado:
 //   1. Lee el armario y las preferencias del usuario via Supabase (con RLS).
 //   2. Construye un prompt en espanol listando las prendas con sus IDs.
-//   3. Llama a Gemini con `responseMimeType: "application/json"`.
+//   3. Llama al modelo via OpenRouter pidiendo `response_format: json_object`.
 //   4. Parsea la respuesta toleramente (a veces el modelo agrega texto extra).
 //   5. Valida que los IDs existan en el armario del usuario (anti-alucinacion).
 //   6. Devuelve los outfits hidratados con la info completa de cada prenda
@@ -14,7 +14,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
-import { getGeminiModel } from "@/lib/ai/gemini";
+import { getAiClient, getAiModelName } from "@/lib/ai/aiClient";
 import type { ClothingItem, UserPreferences } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +35,7 @@ export type GenerateOutfitsInput = {
 /** Codigos de error que la UI puede traducir a mensajes amigables. */
 export type GenerateOutfitsErrorCode =
   | "NO_API_KEY"
+  | "NO_CREDITS"
   | "EMPTY_WARDROBE"
   | "NOT_ENOUGH_ITEMS"
   | "RATE_LIMITED"
@@ -114,7 +115,7 @@ export async function generateOutfits(
     "style_tags" | "favorite_occasions"
   > | null;
 
-  // 3. Construir prompt y llamar a Gemini.
+  // 3. Construir prompt y llamar al modelo via OpenRouter.
   const prompt = buildPrompt({
     items,
     prefs,
@@ -123,7 +124,7 @@ export async function generateOutfits(
     description: input.description,
   });
 
-  const rawJson = await callGemini(prompt);
+  const rawJson = await callAiModel(prompt);
 
   // 4. Parsear de forma tolerante.
   const parsed = parseOutfitsJson(rawJson);
@@ -264,54 +265,79 @@ function buildPrompt(args: {
 // Llamada al modelo (con manejo defensivo).
 // ---------------------------------------------------------------------------
 
-async function callGemini(prompt: string): Promise<string> {
-  let model;
+async function callAiModel(prompt: string): Promise<string> {
+  let client;
   try {
-    model = getGeminiModel();
+    client = getAiClient();
   } catch (err) {
-    // El unico error que lanza getGeminiModel es por API key faltante.
+    // El unico error que lanza getAiClient es por API key faltante.
     throw new GenerateOutfitsError(
       "NO_API_KEY",
-      err instanceof Error ? err.message : "Falta la API key de Gemini."
+      err instanceof Error ? err.message : "Falta la API key de OpenRouter."
     );
   }
 
   try {
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const completion = await client.chat.completions.create({
+      model: getAiModelName(),
+      // Mensajes: separamos el "rol" del estilista (system) de la peticion
+      // concreta del usuario para que el modelo respete mejor las reglas.
+      messages: [
+        {
+          role: "system",
+          content:
+            "Eres un estilista personal experto. Respondes EXCLUSIVAMENTE con JSON valido segun el esquema que el usuario te indique, sin markdown ni texto extra.",
+        },
+        { role: "user", content: prompt },
+      ],
+      // En OpenRouter (formato OpenAI) el modo JSON estricto se pide asi.
+      // Aun asi parseamos defensivamente porque algunos modelos open-source
+      // ignoran este flag y devuelven el JSON envuelto en markdown.
+      response_format: { type: "json_object" },
+      temperature: 0.85,
+    });
+
+    const text = completion.choices?.[0]?.message?.content ?? "";
     if (!text || text.trim().length === 0) {
       throw new GenerateOutfitsError(
         "INVALID_RESPONSE",
-        "Gemini devolvio una respuesta vacia."
+        "La IA devolvio una respuesta vacia."
       );
     }
     return text;
   } catch (err) {
     if (err instanceof GenerateOutfitsError) throw err;
-    console.error("[generateOutfits] error llamando a Gemini", err);
+    console.error("[generateOutfits] error llamando al modelo", err);
+
+    // El SDK de OpenAI expone `status` en sus errores HTTP. Lo usamos cuando
+    // existe; si no, caemos al texto del mensaje como ultimo recurso.
+    const status =
+      typeof err === "object" && err !== null && "status" in err
+        ? (err as { status?: number }).status
+        : undefined;
     const message = err instanceof Error ? err.message : String(err);
-    // El SDK no expone codigos uniformes, asi que clasificamos por texto.
-    // Orden importa: 429 ANTES que "permission" porque algunos mensajes de
-    // cuota mencionan permisos.
-    if (
-      /\b429\b|quota|rate.?limit|too many requests|resource.?exhausted/i.test(
-        message
-      )
-    ) {
-      throw new GenerateOutfitsError(
-        "RATE_LIMITED",
-        "Has excedido la cuota gratuita de la IA. Intentalo de nuevo en 1 minuto."
-      );
-    }
-    if (/api key|API_KEY|invalid key|permission/i.test(message)) {
+
+    if (status === 401 || /\b401\b|invalid api key|unauthorized/i.test(message)) {
       throw new GenerateOutfitsError(
         "NO_API_KEY",
-        "La API key de Gemini parece invalida. Revisa `.env.local`."
+        "La API key de OpenRouter no es valida. Revisa tu configuracion en `.env.local`."
+      );
+    }
+    if (status === 402 || /\b402\b|insufficient.?credit|payment required/i.test(message)) {
+      throw new GenerateOutfitsError(
+        "NO_CREDITS",
+        "No tienes creditos en OpenRouter. Verifica tu cuenta o usa un modelo con sufijo `:free`."
+      );
+    }
+    if (status === 429 || /\b429\b|rate.?limit|too many requests/i.test(message)) {
+      throw new GenerateOutfitsError(
+        "RATE_LIMITED",
+        "Has excedido el limite de la IA. Intentalo en unos segundos."
       );
     }
     throw new GenerateOutfitsError(
       "NETWORK_ERROR",
-      "No pudimos contactar a Gemini. Revisa tu conexion e intenta de nuevo."
+      "No pudimos contactar a la IA. Revisa tu conexion e intenta de nuevo."
     );
   }
 }
@@ -371,6 +397,6 @@ function parseOutfitsJson(raw: string): ParsedOutfit[] {
   console.error("[generateOutfits] no se pudo parsear JSON. Raw:", raw);
   throw new GenerateOutfitsError(
     "INVALID_RESPONSE",
-    "Gemini devolvio una respuesta que no pudimos interpretar como JSON."
+    "La IA devolvio una respuesta que no pudimos interpretar como JSON."
   );
 }

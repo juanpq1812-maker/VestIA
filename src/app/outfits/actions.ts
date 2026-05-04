@@ -1,7 +1,7 @@
 // Server Actions de /outfits.
 //
 // Exponemos dos acciones a los Client Components:
-//   - generateOutfitsAction: corre Gemini y devuelve los outfits hidratados.
+//   - generateOutfitsAction: corre la IA (OpenRouter) y devuelve los outfits hidratados.
 //   - saveOutfitAction: inserta el outfit elegido en la tabla `outfits`.
 //
 // Ambas validan la sesion y traducen los errores conocidos a mensajes en

@@ -13,7 +13,7 @@ Prototipo inicial (HTML estático): https://vestiamobileapp.netlify.app/
 1. **Login y registro** de usuarios.
 2. **Onboarding** para definir estilo y ocasiones favoritas.
 3. **Subir prendas** del armario con foto.
-4. **Generar outfits con IA** usando la API de Anthropic (Claude Sonnet 4.6).
+4. **Generar outfits con IA** usando OpenRouter (modelo Llama 3.3 70B gratis por defecto).
 5. **Vista del armario** con la galería de prendas.
 
 ## Stack técnico
@@ -24,7 +24,7 @@ Prototipo inicial (HTML estático): https://vestiamobileapp.netlify.app/
 | Lenguaje | TypeScript |
 | Estilos | Tailwind CSS v4 |
 | Auth / DB / Storage | Supabase (auth ✅ · DB y Storage pendientes) |
-| IA | API de Anthropic — Claude Sonnet 4.6 _(pendiente)_ |
+| IA | OpenRouter (SDK `openai`) — default `meta-llama/llama-3.3-70b-instruct:free` |
 | Deploy | Vercel _(pendiente)_ |
 
 ---
@@ -71,6 +71,32 @@ La app necesita conectarse a tu proyecto de Supabase para autenticación. Las cr
    - `anon` `public` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY` _(NO uses la `service_role`, esa es secreta)_
 
 3. Si ya tenías el servidor de desarrollo corriendo, detenlo (`Ctrl+C`) y vuélvelo a iniciar para que Next.js cargue las variables nuevas.
+
+### 3.b Configurar OpenRouter (IA para outfits)
+
+La generación de outfits usa **OpenRouter**: un proxy que expone muchos modelos de IA (Llama, Mistral, Gemini, GPT, Claude…) con el mismo formato que la API de OpenAI. Por eso en el código usamos el SDK `openai` apuntado a `https://openrouter.ai/api/v1`.
+
+1. Entra a [openrouter.ai](https://openrouter.ai) y crea cuenta (puedes usar Google o GitHub, es gratis).
+2. Ve a **[openrouter.ai/keys](https://openrouter.ai/keys)** → **Create Key** → ponle un nombre (ej. `vestia-dev`) → cópiala (empieza por `sk-or-...`).
+3. Pégala en `.env.local`:
+
+   ```
+   OPENROUTER_API_KEY=sk-or-tu-key-aqui
+   ```
+
+4. (Opcional) Si quieres cambiar el modelo, descomenta la línea `AI_MODEL=` en `.env.local` y pon uno distinto.
+
+#### Modelos `:free` recomendados
+
+> ⚠️ El sufijo **`:free`** es **OBLIGATORIO** para que el modelo no cobre. Cualquier modelo SIN `:free` (ej. `meta-llama/llama-3.3-70b-instruct` a secas) se factura por token.
+
+| Modelo | Cuándo usarlo |
+|---|---|
+| `meta-llama/llama-3.3-70b-instruct:free` _(default)_ | Mejor balance calidad/velocidad. |
+| `mistralai/mistral-small-3.2-24b-instruct:free` | Más rápido, ideal mientras pruebas la UI. |
+| `google/gemini-2.0-flash-exp:free` | Buena alternativa multimodal de Google. |
+
+Lista actualizada y completa: [openrouter.ai/models?max_price=0](https://openrouter.ai/models?max_price=0)
 
 ### 4. Levantar el servidor de desarrollo
 
@@ -169,5 +195,5 @@ La sesión se mantiene viva automáticamente: el archivo `src/proxy.ts` refresca
 - [x] Proteger rutas privadas con el Proxy de Next.js 16.
 - [ ] Construir flujo de onboarding (estilo + ocasiones).
 - [ ] Subida de prendas con foto a Supabase Storage.
-- [ ] Conectar la API de Anthropic para generar outfits.
+- [x] Conectar la IA (OpenRouter / Llama 3.3 70B `:free`) para generar outfits.
 - [ ] Deploy en Vercel.
