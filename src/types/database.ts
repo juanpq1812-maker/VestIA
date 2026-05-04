@@ -158,6 +158,24 @@ export type OutfitInsert = {
 
 export type OutfitUpdate = Partial<OutfitInsert>;
 
+export type OutfitUse = {
+  id: string;
+  user_id: string;
+  outfit_id: string;
+  used_date: string; // YYYY-MM-DD (date)
+  created_at: string;
+};
+
+export type OutfitUseInsert = {
+  id?: string;
+  user_id: string;
+  outfit_id: string;
+  used_date: string;
+  created_at?: string;
+};
+
+export type OutfitUseUpdate = Partial<OutfitUseInsert>;
+
 // ---------------------------------------------------------------------------
 // Tipo "Database" estilo Supabase, util si en algun momento creamos el cliente
 // tipado con `createClient<Database>(...)`.
@@ -185,6 +203,11 @@ export type Database = {
         Row: Outfit;
         Insert: OutfitInsert;
         Update: OutfitUpdate;
+      };
+      outfit_uses: {
+        Row: OutfitUse;
+        Insert: OutfitUseInsert;
+        Update: OutfitUseUpdate;
       };
     };
     Views: Record<string, never>;

@@ -19,10 +19,13 @@ import Button from "@/components/ui/Button";
 import {
   generateOutfitsAction,
   saveOutfitAction,
+  registerOutfitUseAction,
+  saveAndUseOutfitTodayAction,
   type GenerateActionInput,
 } from "@/app/outfits/actions";
 import type { GeneratedOutfit } from "@/lib/ai/generateOutfits";
 import type { ClothingItem } from "@/types/database";
+import Toast from "@/components/ui/Toast";
 
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
 // `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
@@ -61,6 +64,7 @@ export default function OutfitGenerator({ totalItems }: Props) {
   const [outfits, setOutfits] = useState<GeneratedOutfit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastInput, setLastInput] = useState<GenerateActionInput | null>(null);
+  const [toast, setToast] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
 
   if (totalItems < 2) {
     return <EmptyWardrobeCallout />;
@@ -152,6 +156,15 @@ export default function OutfitGenerator({ totalItems }: Props) {
           contextoOcasion={
             lastInput?.mode === "occasion" ? lastInput.occasion ?? null : null
           }
+          onToast={(msg, kind) => setToast({ msg, kind })}
+        />
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.msg}
+          kind={toast.kind}
+          onDismiss={() => setToast(null)}
         />
       )}
     </div>
@@ -369,10 +382,12 @@ function ResultsGrid({
   outfits,
   onRegenerate,
   contextoOcasion,
+  onToast,
 }: {
   outfits: GeneratedOutfit[];
   onRegenerate: () => void;
   contextoOcasion: string | null;
+  onToast: (msg: string, kind: "success" | "error") => void;
 }) {
   return (
     <section aria-label="Outfits propuestos" className="space-y-6">
@@ -390,6 +405,7 @@ function ResultsGrid({
             key={`${o.name}-${idx}`}
             outfit={o}
             contextoOcasion={contextoOcasion}
+            onToast={onToast}
           />
         ))}
       </div>
@@ -397,17 +413,35 @@ function ResultsGrid({
   );
 }
 
+// Estado del flujo guardar/usar de un outfit recien generado.
+//   - idle:        ni guardado ni usado.
+//   - saving:      llamando saveOutfitAction.
+//   - saved:       ya guardado (sin uso registrado todavia).
+//   - usingToday:  llamando registerOutfitUseAction o saveAndUse...
+//   - usedToday:   guardado + uso de hoy registrado. Estado terminal.
+//   - error:       el ultimo intento fallo (mostramos mensaje).
+type CardEstado =
+  | "idle"
+  | "saving"
+  | "saved"
+  | "usingToday"
+  | "usedToday"
+  | "error";
+
 function OutfitCard({
   outfit,
   contextoOcasion,
+  onToast,
 }: {
   outfit: GeneratedOutfit;
   contextoOcasion: string | null;
+  onToast: (msg: string, kind: "success" | "error") => void;
 }) {
-  const [estado, setEstado] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle"
-  );
+  const [estado, setEstado] = useState<CardEstado>("idle");
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  // Una vez guardado, recordamos el id para que "Lo usare hoy" no vuelva a
+  // crear un outfit duplicado.
+  const [outfitId, setOutfitId] = useState<string | null>(null);
 
   const visibles = useMemo(() => outfit.items.slice(0, 5), [outfit.items]);
 
@@ -421,12 +455,63 @@ function OutfitCard({
       clothing_item_ids: outfit.items.map((i) => i.id),
     });
     if (res.ok) {
+      setOutfitId(res.outfitId);
       setEstado("saved");
+      onToast("Outfit guardado", "success");
     } else {
       setEstado("error");
       setErrMsg(res.error);
+      onToast(res.error, "error");
     }
   }
+
+  async function onUsarHoy() {
+    setEstado("usingToday");
+    setErrMsg(null);
+
+    // Caso B: ya esta guardado, solo registramos uso.
+    if (outfitId) {
+      const res = await registerOutfitUseAction({ outfitId, daysAgo: 0 });
+      if (res.ok) {
+        setEstado("usedToday");
+        onToast("¡Registrado! Lo usaste hoy", "success");
+      } else if (res.code === "ALREADY_REGISTERED") {
+        setEstado("usedToday");
+        onToast("Ya habias registrado este outfit hoy", "success");
+      } else {
+        setEstado("saved");
+        setErrMsg(res.error);
+        onToast(res.error, "error");
+      }
+      return;
+    }
+
+    // Caso A: no guardado todavia. Guardamos y registramos uso de hoy.
+    const res = await saveAndUseOutfitTodayAction({
+      name: outfit.name,
+      occasion: contextoOcasion,
+      notes: outfit.explanation || null,
+      clothing_item_ids: outfit.items.map((i) => i.id),
+    });
+
+    if (res.ok === true) {
+      setOutfitId(res.outfitId);
+      setEstado("usedToday");
+      onToast("¡Registrado! Lo usaste hoy", "success");
+    } else if (res.ok === "partial") {
+      setOutfitId(res.outfitId);
+      setEstado("saved");
+      setErrMsg(res.error);
+      onToast(res.error, "error");
+    } else {
+      setEstado("error");
+      setErrMsg(res.error);
+      onToast(res.error, "error");
+    }
+  }
+
+  const yaGuardado = estado === "saved" || estado === "usedToday";
+  const usadoHoy = estado === "usedToday";
 
   return (
     <article className="rounded-xl border border-border bg-surface p-5 shadow-sm">
@@ -458,14 +543,25 @@ function OutfitCard({
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Button
-          variant={estado === "saved" ? "secondary" : "primary"}
+          variant={yaGuardado ? "secondary" : "primary"}
           onClick={onGuardar}
           isLoading={estado === "saving"}
           loadingText="Guardando..."
-          disabled={estado === "saved"}
+          disabled={yaGuardado || estado === "saving" || estado === "usingToday"}
         >
-          {estado === "saved" ? "✓ Guardado" : "💾 Guardar outfit"}
+          {yaGuardado ? "✓ Guardado" : "💾 Guardar outfit"}
         </Button>
+
+        <Button
+          variant={usadoHoy ? "secondary" : "primary"}
+          onClick={onUsarHoy}
+          isLoading={estado === "usingToday"}
+          loadingText="Registrando..."
+          disabled={usadoHoy || estado === "saving" || estado === "usingToday"}
+        >
+          {usadoHoy ? "✓ Ya usado hoy" : "👕 Lo usare hoy"}
+        </Button>
+
         {estado === "error" && errMsg && (
           <span className="text-xs text-danger">{errMsg}</span>
         )}
