@@ -36,7 +36,7 @@ export default function LoginPage() {
       // Lo traducimos al espanol para que sea mas claro para el usuario.
       const mensaje =
         signInError.message === "Invalid login credentials"
-          ? "Email o contrasena incorrectos."
+          ? "Email o contraseña incorrectos."
           : signInError.message;
       setError(mensaje);
       setCargando(false);
@@ -44,7 +44,7 @@ export default function LoginPage() {
     }
 
     // `router.refresh()` fuerza a Next.js a re-ejecutar los Server Components,
-    // lo que asegura que el Proxy y las paginas protegidas vean ya la sesion nueva.
+    // lo que asegura que el Proxy y las páginas protegidas vean ya la sesión nueva.
     router.push("/wardrobe");
     router.refresh();
   }
@@ -52,12 +52,12 @@ export default function LoginPage() {
   return (
     <AuthShell
       eyebrow="Bienvenido de vuelta"
-      brandTitle="Tu armario te esta esperando."
-      brandSubtitle="Entra a VestIA y deja que la IA te combine outfits con la ropa que ya tienes."
+      brandTitle="Tu armario te está esperando."
+      brandSubtitle="Entrá a VestIA y dejá que la IA te combine outfits con la ropa que ya tenés."
     >
       <header>
         <h2 className="font-display text-3xl font-bold text-text sm:text-4xl">
-          Inicia sesion
+          Iniciá sesión
         </h2>
         <p className="mt-2 text-sm text-text-muted">
           Vuelve a tu armario digital.
@@ -76,13 +76,13 @@ export default function LoginPage() {
         />
 
         <Input
-          label="Contrasena"
+          label="Contraseña"
           type="password"
           autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Tu contrasena"
+          placeholder="Tu contraseña"
           error={error}
         />
 
@@ -91,7 +91,7 @@ export default function LoginPage() {
           size="lg"
           fullWidth
           isLoading={cargando}
-          loadingText="Iniciando sesion…"
+          loadingText="Iniciando sesión…"
           className="mt-2"
         >
           Entrar
@@ -104,7 +104,7 @@ export default function LoginPage() {
           href="/register"
           className="font-semibold text-primary underline-offset-4 hover:underline"
         >
-          Registrate
+          Registráte
         </Link>
       </p>
     </AuthShell>

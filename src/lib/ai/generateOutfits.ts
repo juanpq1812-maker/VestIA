@@ -93,7 +93,7 @@ export async function generateOutfits(
   if (items.length === 0) {
     throw new GenerateOutfitsError(
       "EMPTY_WARDROBE",
-      "Tu armario esta vacio. Sube al menos 2 prendas para generar outfits."
+      "Tu armario está vacío. Subí al menos 2 prendas para generar outfits."
     );
   }
   if (items.length < 2) {
@@ -214,27 +214,27 @@ function buildPrompt(args: {
 
   let instruccionDeOcasion = "";
   if (mode === "occasion" && occasion) {
-    instruccionDeOcasion = `El usuario quiere outfits para la ocasion: "${occasion}". Prioriza prendas cuya lista de ocasiones incluya algo similar.`;
+    instruccionDeOcasion = `El usuario quiere outfits para la ocasión: "${occasion}". Priorizá prendas cuya lista de ocasiones incluya algo similar.`;
   } else if (mode === "description" && description) {
-    // Cortamos a 200 chars en backend tambien por seguridad.
+    // Cortamos a 200 chars en backend también por seguridad.
     const trimmed = description.slice(0, 200);
     instruccionDeOcasion = `El usuario describe lo que necesita asi: "${trimmed}". Interpreta el tono y elige prendas coherentes.`;
   } else {
-    instruccionDeOcasion = `Modo "sorprendeme": elige libremente. Combina prendas de forma creativa pero usable, mezclando colores que armonicen.`;
+    instruccionDeOcasion = `Modo "sorprendeme": elegí libremente. Combiná prendas de forma creativa pero usable, mezclando colores que armonicen.`;
   }
 
   return [
-    `Eres un estilista personal. Tu tarea es proponer EXACTAMENTE 2 outfits distintos combinando SOLO prendas del armario del usuario que se lista mas abajo.`,
+    `Eres un estilista personal. Tu tarea es proponer EXACTAMENTE 2 outfits distintos combinando SOLO prendas del armario del usuario que se lista más abajo.`,
     ``,
-    `Reglas de composicion (importantes):`,
+    `Reglas de composición (importantes):`,
     `- Cada outfit debe tener: 1 prenda superior (top) + 1 prenda inferior (bottom), O bien 1 vestido (dress).`,
     `- Cada outfit debe tener 1 calzado (footwear).`,
-    `- Opcionalmente puedes anadir 1 outerwear y 1-2 accesorios si combinan.`,
+    `- Opcionalmente podés añadir 1 outerwear y 1-2 accesorios si combinan.`,
     `- No repitas IDs dentro del mismo outfit.`,
-    `- Los 2 outfits deben ser claramente distintos entre si (diferente vibe o paleta).`,
-    `- Solo puedes usar IDs que aparecen en el armario. NO inventes IDs nuevos.`,
+    `- Los 2 outfits deben ser claramente distintos entre sí (diferente vibe o paleta).`,
+    `- Solo podés usar IDs que aparecen en el armario. NO inventes IDs nuevos.`,
     ``,
-    `Preferencias del usuario (recomendacion, no obligacion):`,
+    `Preferencias del usuario (recomendación, no obligación):`,
     `- Estilos favoritos: ${stylePrefs}`,
     `- Ocasiones favoritas: ${occasionPrefs}`,
     ``,
@@ -243,7 +243,7 @@ function buildPrompt(args: {
     `Armario disponible:`,
     inventario,
     ``,
-    `Responde EXCLUSIVAMENTE con un JSON valido (sin markdown, sin texto extra) con esta estructura exacta:`,
+    `Respondé EXCLUSIVAMENTE con un JSON válido (sin markdown, sin texto extra) con esta estructura exacta:`,
     `{`,
     `  "outfits": [`,
     `    {`,
@@ -286,7 +286,7 @@ async function callAiModel(prompt: string): Promise<string> {
         {
           role: "system",
           content:
-            "Eres un estilista personal experto. Respondes EXCLUSIVAMENTE con JSON valido segun el esquema que el usuario te indique, sin markdown ni texto extra.",
+            "Eres un estilista personal experto. Respondé SIEMPRE en español correcto. ES OBLIGATORIO usar correctamente ñ, tildes (á é í ó ú) y signos de apertura (¿ ¡). NUNCA reemplaces ñ por n, ni omitas tildes. Respondés EXCLUSIVAMENTE con JSON válido según el esquema que el usuario te indique, sin markdown ni texto extra.",
         },
         { role: "user", content: prompt },
       ],

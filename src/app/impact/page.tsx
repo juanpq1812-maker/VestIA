@@ -1,8 +1,8 @@
 // /impact — pantalla de impacto ambiental de VestIA.
 //
 // Server Component: hacemos UNA sola query con HEAD + count exacto sobre
-// `outfit_uses` para saber cuantos usos reales tiene el usuario. Esa cifra
-// alimenta los 3 numeros (CO2, arboles, agua) via `computeImpact`.
+// `outfit_uses` para saber cuántos usos reales tiene el usuario. Esa cifra
+// alimenta los 3 números (CO2, árboles, agua) via `computeImpact`.
 //
 // Bifurcacion de UI:
 //   - usos === 0  -> pantalla motivacional con proyeccion a 1 ano + CTA.
@@ -104,7 +104,7 @@ function RealImpact({ uses }: { uses: number }) {
 
       <p className="mt-2 text-sm text-text-muted">
         ≈ <span className="font-semibold text-text">{formatEsNumber(trees)}</span>{" "}
-        {trees === 1 ? "arbol plantado" : "arboles plantados"} al ano
+        {trees === 1 ? "árbol plantado" : "árboles plantados"} al año
       </p>
 
       {/* Microcopy */}
@@ -176,7 +176,7 @@ function EmptyImpact() {
       </div>
 
       <h1 className="mt-4 font-display text-3xl font-bold text-text sm:text-4xl">
-        Tu impacto esta esperando
+        Tu impacto está esperando
       </h1>
 
       <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-text-muted">
@@ -193,7 +193,7 @@ function EmptyImpact() {
       {/* Separador */}
       <div className="mt-8 flex items-center gap-3 text-xs uppercase tracking-widest text-text-faint">
         <span className="h-px flex-1 bg-divider" />
-        Tu potencial en 1 ano
+        Tu potencial en 1 año
         <span className="h-px flex-1 bg-divider" />
       </div>
 
@@ -207,7 +207,7 @@ function EmptyImpact() {
         <ProjectedRow
           icon="🌳"
           value={`${formatEsNumber(trees)}`}
-          label="arboles equivalentes"
+          label="árboles equivalentes"
         />
         <ProjectedRow
           icon="💧"
@@ -217,7 +217,7 @@ function EmptyImpact() {
       </ul>
 
       <p className="mt-4 text-xs text-text-faint">
-        Basado en uso de 3 outfits por semana ({PROJECTED_USES_PER_YEAR} al ano).
+        Basado en uso de 3 outfits por semana ({PROJECTED_USES_PER_YEAR} al año).
       </p>
 
       {/* CTA */}

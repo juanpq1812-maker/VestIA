@@ -6,7 +6,7 @@
 //
 // Fuente de los factores: ONU Environment 2024 — Industria Textil.
 // - Producir una prenda nueva implica ~8.5 kg CO2 y ~2.500 L de agua.
-// - Un arbol adulto absorbe ~22 kg CO2 al ano.
+// - Un árbol adulto absorbe ~22 kg CO2 al año.
 //
 // La metrica base de VestIA es `usos_unicos`: cuantas filas tiene el usuario
 // en la tabla `outfit_uses`. Es decir, cuantas veces de verdad uso un outfit
@@ -24,16 +24,16 @@ export type ImpactNumbers = {
   uses: number;
   /** kg de CO2 evitados (uses * 8.5). */
   co2Kg: number;
-  /** Arboles equivalentes (co2Kg / 22), redondeado al entero mas cercano. */
+  /** Árboles equivalentes (co2Kg / 22), redondeado al entero más cercano. */
   trees: number;
   /** Litros de agua ahorrados (uses * 2.500). */
   waterLiters: number;
 };
 
 /**
- * Calcula los 3 numeros de impacto a partir del numero de usos registrados.
+ * Calcula los 3 números de impacto a partir del número de usos registrados.
  * Para uses=0 devuelve todo en cero — el caso "sin datos" se decide afuera
- * comparando `uses === 0`, no metiendo logica condicional aqui.
+ * comparando `uses === 0`, no metiendo lógica condicional aquí.
  */
 export function computeImpact(uses: number): ImpactNumbers {
   const safeUses = Math.max(0, Math.floor(uses));
@@ -46,7 +46,7 @@ export function computeImpact(uses: number): ImpactNumbers {
   };
 }
 
-/** Proyeccion a 1 ano para usuarios sin datos. Usa PROJECTED_USES_PER_YEAR. */
+/** Proyección a 1 año para usuarios sin datos. Usa PROJECTED_USES_PER_YEAR. */
 export function projectedImpact(): ImpactNumbers {
   return computeImpact(PROJECTED_USES_PER_YEAR);
 }

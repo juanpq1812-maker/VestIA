@@ -94,7 +94,7 @@ export default function OnboardingFlow() {
       return;
     }
     if (paso === 3 && ocasiones.length === 0) {
-      setError("Elige al menos una ocasion.");
+      setError("Elegí al menos una ocasión.");
       return;
     }
     if (paso < TOTAL_PASOS) {
@@ -162,8 +162,8 @@ export default function OnboardingFlow() {
             )}
             {paso === 2 && (
               <PasoChips
-                titulo="¿Que estilos te representan?"
-                subtitulo="Selecciona todos los que apliquen. Esto le ayuda a la IA a sugerirte combinaciones que de verdad te gusten."
+                titulo="¿Qué estilos te representan?"
+                subtitulo="Seleccioná todos los que apliquen. Esto le ayuda a la IA a sugerirte combinaciones que de verdad te gusten."
                 opciones={[...STYLE_TAGS]}
                 seleccionadas={estilos}
                 onToggle={(v) => setEstilos((arr) => toggle(arr, v))}
@@ -171,8 +171,8 @@ export default function OnboardingFlow() {
             )}
             {paso === 3 && (
               <PasoChips
-                titulo="¿Para que ocasiones vistes mas seguido?"
-                subtitulo="Esto define que outfits te vamos a generar primero."
+                titulo="¿Para qué ocasiones te vestís más seguido?"
+                subtitulo="Esto define qué outfits te vamos a generar primero."
                 opciones={[...OCCASION_TAGS]}
                 seleccionadas={ocasiones}
                 onToggle={(v) => setOcasiones((arr) => toggle(arr, v))}
@@ -209,7 +209,7 @@ export default function OnboardingFlow() {
               onClick={atras}
               disabled={paso === 1 || isPending}
             >
-              Atras
+              Atrás
             </Button>
 
             {paso < TOTAL_PASOS ? (
@@ -305,13 +305,13 @@ function PasoBienvenida({ nombre, onNombreChange }: PasoBienvenidaProps) {
         Hola 👋, vamos a personalizar tu experiencia
       </h1>
       <p className="mx-auto mt-3 max-w-lg text-base text-text-muted">
-        Te haremos unas preguntas rapidas (~2 minutos) para que VestIA pueda
+        Te haremos unas preguntas rápidas (~2 minutos) para que VestIA pueda
         proponerte outfits que de verdad encajen con tu estilo, tus tallas y
-        las ocasiones para las que te vistes.
+        las ocasiones para las que te vestís.
       </p>
       <div className="mx-auto mt-8 max-w-sm text-left">
         <Input
-          label="¿Como te llamamos?"
+          label="¿Cómo te llamamos?"
           type="text"
           autoComplete="given-name"
           autoFocus
@@ -320,7 +320,7 @@ function PasoBienvenida({ nombre, onNombreChange }: PasoBienvenidaProps) {
           maxLength={NOMBRE_MAX}
           value={nombre}
           onChange={(e) => onNombreChange(e.target.value)}
-          placeholder="Juan, Maria, Sofia…"
+          placeholder="Juan, María, Sofía…"
           hint="Lo usaremos para saludarte dentro de la app."
         />
       </div>
@@ -421,7 +421,7 @@ function PasoTallas({
         Tus tallas
       </h2>
       <p className="mt-2 text-sm text-text-muted">
-        Las usamos para sugerirte combinaciones realistas y, mas adelante,
+        Las usamos para sugerirte combinaciones realistas y, más adelante,
         recomendarte prendas que te queden bien.
       </p>
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
@@ -441,7 +441,7 @@ function PasoTallas({
         />
         <label className="flex flex-col gap-2">
           <span className="text-sm font-semibold text-text">
-            Calzado (numero)
+            Calzado (número)
           </span>
           <input
             type="number"
@@ -476,8 +476,8 @@ function PasoMedidas({ medidas, onChange }: PasoMedidasProps) {
         Medidas (opcional)
       </h2>
       <p className="mt-2 text-sm text-text-muted">
-        Si nos compartes tus medidas en cm, podremos afinar todavia mas las
-        recomendaciones. Puedes saltar este paso.
+        Si nos compartís tus medidas en cm, podremos afinar todavía más las
+        recomendaciones. Podés saltarte este paso.
       </p>
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <MedidaInput

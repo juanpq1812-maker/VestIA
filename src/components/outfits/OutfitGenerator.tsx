@@ -43,7 +43,7 @@ const OCASIONES = [
 const MENSAJES_LOADING = [
   "Combinando colores...",
   "Pensando en el clima...",
-  "Buscando armonia...",
+  "Buscando armonía...",
   "Mezclando texturas...",
   "Probando combinaciones...",
 ] as const;
@@ -90,7 +90,7 @@ export default function OutfitGenerator({ totalItems }: Props) {
     } else if (tab === "description") {
       const trimmed = description.trim();
       if (trimmed.length === 0) {
-        setError("Escribe una descripcion antes de generar.");
+        setError("Escribí una descripción antes de generar.");
         return;
       }
       dispararGeneracion({ mode: "description", description: trimmed });
@@ -185,14 +185,14 @@ function ModeSelector({
   const opciones: { id: Tab; titulo: string; sub: string; icono: string }[] = [
     {
       id: "occasion",
-      titulo: "Por ocasion",
-      sub: "Elige una ocasion y deja que la IA arme algo apropiado.",
+      titulo: "Por ocasión",
+      sub: "Elegí una ocasión y dejá que la IA arme algo apropiado.",
       icono: "📅",
     },
     {
       id: "description",
-      titulo: "Descripcion libre",
-      sub: "Cuenta en tus palabras lo que necesitas.",
+      titulo: "Descripción libre",
+      sub: "Contá en tus palabras lo que necesitás.",
       icono: "✍️",
     },
     {
@@ -206,7 +206,7 @@ function ModeSelector({
   return (
     <div
       role="tablist"
-      aria-label="Modo de generacion de outfit"
+      aria-label="Modo de generación de outfit"
       className="grid gap-3 sm:grid-cols-3"
     >
       {opciones.map((op) => {
@@ -256,10 +256,10 @@ function OccasionPicker({
   return (
     <div>
       <label className="block text-sm font-semibold text-text">
-        Para que ocasion?
+        ¿Para qué ocasión?
       </label>
       <p className="mt-1 text-xs text-text-muted">
-        Elige una y la IA priorizara prendas etiquetadas para ese contexto.
+        Elegí una y la IA priorizará prendas etiquetadas para ese contexto.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         {OCASIONES.map((o) => {
@@ -299,13 +299,13 @@ function DescriptionInput({
         htmlFor="outfit-description"
         className="block text-sm font-semibold text-text"
       >
-        Describe el outfit que necesitas...
+        Describí el outfit que necesitás...
       </label>
       <textarea
         id="outfit-description"
         value={value}
         onChange={(e) => onChange(e.target.value.slice(0, max))}
-        placeholder="Algo comodo para ir a la universidad y verme bien"
+        placeholder="Algo cómodo para ir a la universidad y verme bien"
         rows={4}
         className="mt-3 w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm text-text placeholder:text-text-faint focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary-mid"
       />
@@ -320,10 +320,10 @@ function SurpriseBlurb() {
   return (
     <div className="text-center">
       <p className="font-display text-xl text-text sm:text-2xl">
-        Confia en la IA.
+        Confiá en la IA.
       </p>
       <p className="mt-2 text-sm text-text-muted">
-        Te propondremos 2 combinaciones inesperadas con prendas de tu armario.
+        Te proponemos 2 combinaciones inesperadas con prendas de tu armario.
       </p>
     </div>
   );
@@ -559,7 +559,7 @@ function OutfitCard({
           loadingText="Registrando..."
           disabled={usadoHoy || estado === "saving" || estado === "usingToday"}
         >
-          {usadoHoy ? "✓ Ya usado hoy" : "👕 Lo usare hoy"}
+          {usadoHoy ? "✓ Ya usado hoy" : "👕 Lo usaré hoy"}
         </Button>
 
         {estado === "error" && errMsg && (
@@ -607,7 +607,7 @@ function EmptyWardrobeCallout() {
         Necesitas al menos 2 prendas en tu armario
       </h3>
       <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
-        Para que la IA pueda combinar, sube primero algunas prendas. Te
+        Para que la IA pueda combinar, subí primero algunas prendas. Te
         recomendamos al menos 1 top, 1 bottom y 1 calzado.
       </p>
       <div className="mt-6 flex justify-center">

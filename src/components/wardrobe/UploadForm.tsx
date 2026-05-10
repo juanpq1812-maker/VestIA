@@ -108,7 +108,7 @@ export default function UploadForm() {
     if (selected.size > MAX_FILE_BYTES) {
       setFieldErrors((prev) => ({
         ...prev,
-        image: `La imagen pesa ${bytesToReadable(selected.size)}. El maximo permitido es 5 MB.`,
+        image: `La imagen pesa ${bytesToReadable(selected.size)}. El máximo permitido es 5 MB.`,
       }));
       return;
     }
@@ -139,12 +139,12 @@ export default function UploadForm() {
 
   function validar(): FieldErrors {
     const errs: FieldErrors = {};
-    if (!file) errs.image = "Sube una foto de la prenda.";
-    if (!category) errs.category = "Elige una categoria.";
-    if (!subcategory) errs.subcategory = "Elige una subcategoria.";
-    if (!color) errs.color = "Selecciona el color principal.";
+    if (!file) errs.image = "Subí una foto de la prenda.";
+    if (!category) errs.category = "Elegí una categoría.";
+    if (!subcategory) errs.subcategory = "Elegí una subcategoría.";
+    if (!color) errs.color = "Seleccioná el color principal.";
     if (occasions.length === 0)
-      errs.occasions = "Marca al menos una ocasion para esta prenda.";
+      errs.occasions = "Marcá al menos una ocasión para esta prenda.";
     if (name.length > NAME_MAX_LENGTH)
       errs.name = `El nombre no puede pasar de ${NAME_MAX_LENGTH} caracteres.`;
     return errs;
@@ -167,7 +167,7 @@ export default function UploadForm() {
         error: authError,
       } = await supabase.auth.getUser();
       if (authError || !user) {
-        setGeneralError("Tu sesion expiro. Vuelve a iniciar sesion.");
+        setGeneralError("Tu sesión expiró. Volvé a iniciar sesión.");
         return;
       }
 
@@ -183,7 +183,7 @@ export default function UploadForm() {
         });
       } catch {
         setGeneralError(
-          "No pudimos procesar la imagen. Prueba con otra foto."
+          "No pudimos procesar la imagen. Probá con otra foto."
         );
         return;
       }
@@ -206,7 +206,7 @@ export default function UploadForm() {
 
       if (uploadError) {
         setGeneralError(
-          `No pudimos subir la imagen: ${uploadError.message}. Revisa tu conexion o vuelve a intentarlo.`
+          `No pudimos subir la imagen: ${uploadError.message}. Revisá tu conexión o volvé a intentarlo.`
         );
         return;
       }
@@ -230,7 +230,7 @@ export default function UploadForm() {
         });
 
       if (insertError) {
-        // Cleanup: si la insercion fallo, no dejes el archivo huerfano.
+        // Cleanup: si la inserción falló, no dejes el archivo huérfano.
         await supabase.storage
           .from(CLOTHING_IMAGES_BUCKET)
           .remove([path])
@@ -249,7 +249,7 @@ export default function UploadForm() {
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Error desconocido";
-      setGeneralError(`Algo salio mal: ${msg}.`);
+      setGeneralError(`Algo salió mal: ${msg}.`);
     } finally {
       setSubmitting(false);
       setProgress(null);
@@ -342,14 +342,14 @@ export default function UploadForm() {
       {/* Categoria */}
       <Card padding="md">
         <h2 className="font-display text-lg font-semibold text-text">
-          Categoria
+          Categoría
         </h2>
         <p className="mt-1 text-xs text-text-muted">
-          Elige el tipo amplio de prenda.
+          Elegí el tipo amplio de prenda.
         </p>
         <div
           role="radiogroup"
-          aria-label="Categoria"
+          aria-label="Categoría"
           className="mt-3 flex flex-wrap gap-2"
         >
           {CLOTHING_CATEGORIES.map((cat) => (
@@ -377,21 +377,21 @@ export default function UploadForm() {
       {/* Subcategoria */}
       <Card padding="md">
         <h2 className="font-display text-lg font-semibold text-text">
-          Subcategoria
+          Subcategoría
         </h2>
         <p className="mt-1 text-xs text-text-muted">
           {category
-            ? "Especifica que tipo de prenda dentro de la categoria."
-            : "Primero elige una categoria arriba."}
+            ? "Especificá qué tipo de prenda es dentro de la categoría."
+            : "Primero elegí una categoría arriba."}
         </p>
         <div
           role="radiogroup"
-          aria-label="Subcategoria"
+          aria-label="Subcategoría"
           className="mt-3 flex flex-wrap gap-2"
         >
           {subcategoryOptions.length === 0 ? (
             <p className="text-sm text-text-faint">
-              Las opciones aparecen al elegir la categoria.
+              Las opciones aparecen al elegir la categoría.
             </p>
           ) : (
             subcategoryOptions.map((opt) => (
@@ -426,7 +426,7 @@ export default function UploadForm() {
           Color principal
         </h2>
         <p className="mt-1 text-xs text-text-muted">
-          Elige el color que mas predomina en la prenda.
+          Elegí el color que más predomina en la prenda.
         </p>
         <div
           role="radiogroup"
@@ -499,10 +499,10 @@ export default function UploadForm() {
       {/* Ocasiones */}
       <Card padding="md">
         <h2 className="font-display text-lg font-semibold text-text">
-          ¿Para que ocasiones sirve?
+          ¿Para qué ocasiones sirve?
         </h2>
         <p className="mt-1 text-xs text-text-muted">
-          Marca todas las que apliquen (minimo 1). Esto ayuda a la IA a
+          Marcá todas las que apliquen (mínimo 1). Esto ayuda a la IA a
           combinarla mejor.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
