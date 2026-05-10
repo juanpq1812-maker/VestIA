@@ -29,11 +29,11 @@ export default function RegisterPage() {
     // pero asi le damos feedback rapido al usuario antes del request.
     const emailLimpio = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpio)) {
-      setError("Ingresa un email valido.");
+      setError("Ingresá un email válido.");
       return;
     }
     if (password.length < 6) {
-      setError("La contrasena debe tener al menos 6 caracteres.");
+      setError("La contraseña debe tener al menos 6 caracteres.");
       return;
     }
 
@@ -59,15 +59,15 @@ export default function RegisterPage() {
   return (
     <AuthShell
       eyebrow="Crea tu cuenta"
-      brandTitle="Empieza a digitalizar tu armario."
-      brandSubtitle="Sube tus prendas, deja que la IA te combine outfits y descubre cuanto puedes aprovechar lo que ya tienes."
+      brandTitle="Empezá a digitalizar tu armario."
+      brandSubtitle="Subí tus prendas, dejá que la IA te combine outfits y descubrí cuánto podés aprovechar lo que ya tenés."
     >
       <header>
         <h2 className="font-display text-3xl font-bold text-text sm:text-4xl">
           Crea tu cuenta
         </h2>
         <p className="mt-2 text-sm text-text-muted">
-          Empieza en menos de un minuto.
+          Empezá en menos de un minuto.
         </p>
       </header>
 
@@ -83,15 +83,15 @@ export default function RegisterPage() {
         />
 
         <Input
-          label="Contrasena"
+          label="Contraseña"
           type="password"
           autoComplete="new-password"
           required
           minLength={6}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="Minimo 6 caracteres"
-          hint="Usa al menos 6 caracteres."
+          placeholder="Mínimo 6 caracteres"
+          hint="Usá al menos 6 caracteres."
           error={error}
         />
 
@@ -113,7 +113,7 @@ export default function RegisterPage() {
           href="/login"
           className="font-semibold text-primary underline-offset-4 hover:underline"
         >
-          Inicia sesion
+          Iniciá sesión
         </Link>
       </p>
     </AuthShell>

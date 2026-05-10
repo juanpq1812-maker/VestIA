@@ -80,8 +80,8 @@ export default async function WardrobePage({ searchParams }: Props) {
               </h1>
               <p className="mt-2 max-w-xl text-base text-text-muted">
                 {tienePrendas
-                  ? "Aqui esta tu armario digital. Filtra por categoria o sube una nueva prenda."
-                  : "Empieza por catalogar tus primeras prendas para que VestIA pueda generarte outfits."}
+                  ? "Aquí está tu armario digital. Filtrá por categoría o subí una nueva prenda."
+                  : "Empezá por catalogar tus primeras prendas para que VestIA pueda generarte outfits."}
               </p>
             </div>
             <div className="flex gap-3">
@@ -133,12 +133,12 @@ function EmptyWardrobe() {
         </svg>
       </div>
       <h3 className="mt-4 font-display text-xl font-semibold text-text">
-        Tu armario esta vacio
+        Tu armario está vacío
       </h3>
       <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
-        Sube tu primera prenda para empezar a construir tu armario digital.
-        Cuando tengas algunas, apareceran aqui en una cuadricula con filtros
-        por categoria.
+        Subí tu primera prenda para empezar a construir tu armario digital.
+        Cuando tengas algunas, aparecerán aquí en una cuadrícula con filtros
+        por categoría.
       </p>
       <div className="mt-6 flex justify-center">
         <Link href="/wardrobe/upload">
