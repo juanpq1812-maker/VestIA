@@ -45,7 +45,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (esRutaDeAuth || pathname === "/")) {
+  // Login/register redirigen al armario si ya hay sesión.
+  // La raíz "/" ya no redirige: el dashboard se renderiza ahí mismo.
+  if (user && esRutaDeAuth) {
     const url = request.nextUrl.clone();
     url.pathname = "/wardrobe";
     return NextResponse.redirect(url);
