@@ -135,7 +135,7 @@ export default function OnboardingFlow() {
       }
       // Refresca para que el Proxy y el Server Component del armario vean
       // `onboarding_completed = true`.
-      router.push("/wardrobe");
+      router.push("/");
       router.refresh();
     });
   }

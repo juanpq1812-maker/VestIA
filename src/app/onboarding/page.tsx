@@ -33,7 +33,7 @@ export default async function OnboardingPage() {
     .maybeSingle();
 
   if (profile?.onboarding_completed) {
-    redirect("/wardrobe");
+    redirect("/");
   }
 
   return (

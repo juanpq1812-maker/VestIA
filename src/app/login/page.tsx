@@ -45,7 +45,7 @@ export default function LoginPage() {
 
     // `router.refresh()` fuerza a Next.js a re-ejecutar los Server Components,
     // lo que asegura que el Proxy y las páginas protegidas vean ya la sesión nueva.
-    router.push("/wardrobe");
+    router.push("/");
     router.refresh();
   }
 
