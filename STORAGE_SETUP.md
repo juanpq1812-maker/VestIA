@@ -60,43 +60,43 @@ drop policy if exists "clothing_images_delete_own"  on storage.objects;
 -- INSERT: solo puedes subir a tu propia carpeta.
 create policy "clothing_images_insert_own"
   on storage.objects for insert
-  to authenticated
-  with check (
-    bucket_id = 'clothing-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- SELECT: solo ves tus propios archivos.
-create policy "clothing_images_select_own"
-  on storage.objects for select
-  to authenticated
-  using (
-    bucket_id = 'clothing-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- UPDATE: solo modificas (renombras / reemplazas) tus propios archivos.
-create policy "clothing_images_update_own"
-  on storage.objects for update
-  to authenticated
-  using (
-    bucket_id = 'clothing-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  )
-  with check (
-    bucket_id = 'clothing-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- DELETE: solo borras tus propios archivos.
-create policy "clothing_images_delete_own"
-  on storage.objects for delete
-  to authenticated
-  using (
-    bucket_id = 'clothing-images'
-    and (storage.foldername(name))[1] = auth.uid()::text
-  );
-```
+    to authenticated
+      with check (
+          bucket_id = 'clothing-images'
+              and (storage.foldername(name))[1] = auth.uid()::text
+                );
+                
+                -- SELECT: solo ves tus propios archivos.
+                create policy "clothing_images_select_own"
+                  on storage.objects for select
+                    to authenticated
+                      using (
+                          bucket_id = 'clothing-images'
+                              and (storage.foldername(name))[1] = auth.uid()::text
+                                );
+                                
+                                -- UPDATE: solo modificas (renombras / reemplazas) tus propios archivos.
+                                create policy "clothing_images_update_own"
+                                  on storage.objects for update
+                                    to authenticated
+                                      using (
+                                          bucket_id = 'clothing-images'
+                                              and (storage.foldername(name))[1] = auth.uid()::text
+                                                )
+                                                  with check (
+                                                      bucket_id = 'clothing-images'
+                                                          and (storage.foldername(name))[1] = auth.uid()::text
+                                                            );
+                                                            
+                                                            -- DELETE: solo borras tus propios archivos.
+                                                            create policy "clothing_images_delete_own"
+                                                              on storage.objects for delete
+                                                                to authenticated
+                                                                  using (
+                                                                      bucket_id = 'clothing-images'
+                                                                          and (storage.foldername(name))[1] = auth.uid()::text
+                                                                            );
+                                                                            ``````
 
 > **¿Por qué `(storage.foldername(name))[1]`?**
 > Supabase guarda el path completo en la columna `name` (ej:
