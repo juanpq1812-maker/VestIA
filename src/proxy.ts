@@ -45,11 +45,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Login/register redirigen al armario si ya hay sesión.
-  // La raíz "/" ya no redirige: el dashboard se renderiza ahí mismo.
+  // Login/register redirigen al dashboard (/) si ya hay sesión.
+  // La raíz "/" renderiza el dashboard personalizado para usuarios con sesión.
   if (user && esRutaDeAuth) {
     const url = request.nextUrl.clone();
-    url.pathname = "/wardrobe";
+    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 

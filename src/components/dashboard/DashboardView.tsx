@@ -55,6 +55,7 @@ function fechaHoyEspanol(): string {
     weekday: "long",
     day: "numeric",
     month: "long",
+    year: "numeric",
   });
   // Capitalizar primera letra: "lunes, 10 de mayo" → "Lunes, 10 de mayo"
   return fecha.charAt(0).toUpperCase() + fecha.slice(1);
@@ -107,6 +108,7 @@ export default function DashboardView({
             <DashboardConDatos
               co2Str={co2Str}
               weekStr={weekStr}
+              totalUses={totalUses}
               weekUses={weekUses}
               totalItems={totalItems}
               recentItems={recentItems}
@@ -155,6 +157,7 @@ function NuevoUsuario() {
 type DashboardConDatosProps = {
   co2Str: string;
   weekStr: string;
+  totalUses: number;
   weekUses: number;
   totalItems: number;
   recentItems: RecentItem[];
@@ -165,6 +168,7 @@ type DashboardConDatosProps = {
 function DashboardConDatos({
   co2Str,
   weekStr,
+  totalUses,
   weekUses,
   totalItems,
   recentItems,
@@ -195,6 +199,13 @@ function DashboardConDatos({
           </p>
         </Card>
       </div>
+
+      {/* ── Mensaje de cero usos ────────────────────────────────────────── */}
+      {totalUses === 0 && (
+        <p className="text-center text-sm text-text-muted">
+          ¡Generá tu primer outfit para empezar a medir tu impacto!
+        </p>
+      )}
 
       {/* ── Prenda estrella ─────────────────────────────────────────────── */}
       {prendaEstrella ? (
