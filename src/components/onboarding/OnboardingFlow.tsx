@@ -302,12 +302,19 @@ function PasoBienvenida({ nombre, onNombreChange }: PasoBienvenidaProps) {
         </svg>
       </div>
       <h1 className="mt-5 font-display text-3xl font-bold text-text sm:text-4xl">
-        Hola 👋, vamos a personalizar tu experiencia
+        Hola 👋, vamos a armar tu primer outfit
       </h1>
       <p className="mx-auto mt-3 max-w-lg text-base text-text-muted">
-        Te haremos unas preguntas rápidas (~2 minutos) para que VestIA pueda
-        proponerte outfits que de verdad encajen con tu estilo, tus tallas y
-        las ocasiones para las que te vestís.
+        Para tu primer outfit solo necesitás{" "}
+        <strong>6 prendas</strong>: 2 tops + 2 bottoms + 1 zapato +
+        1 accesorio.{" "}
+        <span className="text-primary font-medium">
+          ¡En 10 minutos tenés tu primer look generado por IA!
+        </span>
+      </p>
+      <p className="mx-auto mt-2 max-w-lg text-sm text-text-muted">
+        Primero te hacemos unas preguntas rápidas (~2 min) para que los
+        outfits encajen con tu estilo.
       </p>
       <div className="mx-auto mt-8 max-w-sm text-left">
         <Input

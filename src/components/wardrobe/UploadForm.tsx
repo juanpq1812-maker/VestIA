@@ -1,14 +1,15 @@
-// Formulario para subir una prenda nueva al armario.
+// Formulario para subir prenda(s) al armario.
 //
-// Vive como Client Component porque:
-//   - lee un File del input,
-//   - lo comprime/redimensiona con `browser-image-compression`,
-//   - lo sube directo a Supabase Storage desde el navegador,
-//   - inserta la fila en `clothing_items` (RLS deja al usuario escribir solo
-//     en sus propias filas, ver `0003_clothing_items.sql`).
+// Tres modos de subida:
+//   1. single-camera  → input con capture="environment" (abre cámara en mobile)
+//   2. single-gallery → input sin capture (abre galería del carrete)
+//   3. bulk           → input con multiple (varias fotos a la vez, máx 10)
 //
-// El cliente del navegador autentica con la cookie de Supabase, asi que no
-// hace falta pasar tokens manualmente.
+// El flujo de subida individual (modos 1 y 2) mantiene toda la lógica
+// original de metadatos obligatorios.
+//
+// El flujo bulk crea prendas con subcategory=null y category="top" como
+// defaults; el usuario las categoriza después desde el banner en /wardrobe.
 
 "use client";
 
@@ -40,6 +41,10 @@ import {
   type ClothingCategory,
 } from "@/types/database";
 
+// ── Tipos ─────────────────────────────────────────────────────────────────────
+
+type UploadMode = "single-camera" | "single-gallery" | "bulk";
+
 type FieldErrors = {
   image?: string;
   category?: string;
@@ -48,6 +53,10 @@ type FieldErrors = {
   occasions?: string;
   name?: string;
 };
+
+type BulkFileResult = { name: string; ok: boolean; error?: string };
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
@@ -59,7 +68,86 @@ function bytesToReadable(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const BULK_MAX_FILES = 10;
+const BULK_CONCURRENCY = 3; // subidas en paralelo
+
+// ── Componente principal ──────────────────────────────────────────────────────
+
 export default function UploadForm() {
+  const router = useRouter();
+  const [mode, setMode] = useState<UploadMode>("single-camera");
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Selector de modo */}
+      <Card padding="md">
+        <h2 className="font-display text-lg font-semibold text-text">
+          ¿Cómo querés agregar la prenda?
+        </h2>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <ModeButton
+            icon="📸"
+            label="Tomar foto"
+            active={mode === "single-camera"}
+            onClick={() => setMode("single-camera")}
+          />
+          <ModeButton
+            icon="🖼️"
+            label="Elegir de galería"
+            active={mode === "single-gallery"}
+            onClick={() => setMode("single-gallery")}
+          />
+          <ModeButton
+            icon="🖼️🖼️"
+            label="Subir varias a la vez"
+            active={mode === "bulk"}
+            onClick={() => setMode("bulk")}
+          />
+        </div>
+      </Card>
+
+      {mode === "bulk" ? (
+        <BulkUploadSection />
+      ) : (
+        <SingleUploadForm mode={mode} />
+      )}
+    </div>
+  );
+}
+
+function ModeButton({
+  icon,
+  label,
+  active,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex flex-1 items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-semibold transition-colors",
+        active
+          ? "border-primary bg-primary-light text-primary"
+          : "border-border bg-surface text-text hover:border-primary-mid",
+      ].join(" ")}
+    >
+      <span className="text-xl" aria-hidden="true">
+        {icon}
+      </span>
+      {label}
+    </button>
+  );
+}
+
+// ── Subida individual ─────────────────────────────────────────────────────────
+
+function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,8 +202,6 @@ export default function UploadForm() {
     }
 
     clearFieldError("image");
-
-    // Liberamos la URL previa para no fugar memoria.
     if (preview) URL.revokeObjectURL(preview);
     setFile(selected);
     setPreview(URL.createObjectURL(selected));
@@ -132,7 +218,7 @@ export default function UploadForm() {
   function handleCategoria(cat: ClothingCategory) {
     if (cat === category) return;
     setCategory(cat);
-    setSubcategory(""); // resetea: las opciones cambian.
+    setSubcategory("");
     clearFieldError("category");
     clearFieldError("subcategory");
   }
@@ -161,7 +247,6 @@ export default function UploadForm() {
 
     try {
       const supabase = createSupabaseBrowserClient();
-
       const {
         data: { user },
         error: authError,
@@ -171,7 +256,6 @@ export default function UploadForm() {
         return;
       }
 
-      // 1) Comprimir/redimensionar antes de subir.
       let comprimido: File;
       try {
         comprimido = await imageCompression(file, {
@@ -182,13 +266,10 @@ export default function UploadForm() {
           fileType: file.type,
         });
       } catch {
-        setGeneralError(
-          "No pudimos procesar la imagen. Probá con otra foto."
-        );
+        setGeneralError("No pudimos procesar la imagen. Probá con otra foto.");
         return;
       }
 
-      // 2) Subir a Storage en {user_id}/{uuid}.{ext}.
       setProgress("Subiendo foto…");
       const uuid = crypto.randomUUID();
       const path = buildClothingImagePath({
@@ -211,7 +292,6 @@ export default function UploadForm() {
         return;
       }
 
-      // 3) Insertar la fila en clothing_items.
       setProgress("Guardando prenda…");
       const { error: insertError } = await supabase
         .from("clothing_items")
@@ -223,32 +303,22 @@ export default function UploadForm() {
           primary_color: color,
           occasions,
           image_path: path,
-          // Guardamos el path tambien en image_url para poder reconstruir la
-          // signed URL en /wardrobe; como el bucket es privado, no hay una
-          // URL publica que podamos guardar.
           image_url: null,
         });
 
       if (insertError) {
-        // Cleanup: si la inserción falló, no dejes el archivo huérfano.
         await supabase.storage
           .from(CLOTHING_IMAGES_BUCKET)
           .remove([path])
-          .catch(() => {
-            /* best-effort */
-          });
-        setGeneralError(
-          `No pudimos guardar la prenda: ${insertError.message}.`
-        );
+          .catch(() => {});
+        setGeneralError(`No pudimos guardar la prenda: ${insertError.message}.`);
         return;
       }
 
-      // 4) Listo: a /wardrobe con flag de exito.
       router.push("/wardrobe?uploaded=1");
       router.refresh();
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Error desconocido";
+      const msg = err instanceof Error ? err.message : "Error desconocido";
       setGeneralError(`Algo salió mal: ${msg}.`);
     } finally {
       setSubmitting(false);
@@ -264,7 +334,7 @@ export default function UploadForm() {
           Foto de la prenda
         </h2>
         <p className="mt-1 text-xs text-text-muted">
-          Acepta JPG, PNG o WebP. Maximo 5 MB. La optimizamos antes de subir.
+          Acepta JPG, PNG o WebP. Máximo 5 MB. La optimizamos antes de subir.
         </p>
 
         {!preview ? (
@@ -288,10 +358,14 @@ export default function UploadForm() {
             </div>
             <div>
               <p className="text-sm font-semibold text-text">
-                Toca para subir o tomar una foto
+                {mode === "single-camera"
+                  ? "Toca para tomar una foto"
+                  : "Toca para elegir una foto de tu galería"}
               </p>
               <p className="mt-1 text-xs text-text-muted">
-                En tu celular se abre la camara o la galeria.
+                {mode === "single-camera"
+                  ? "Abre la cámara directamente."
+                  : "Seleccioná una foto de tu carrete."}
               </p>
             </div>
             <input
@@ -299,7 +373,7 @@ export default function UploadForm() {
               id="clothing-photo"
               type="file"
               accept={ALLOWED_MIME_TYPES.join(",")}
-              capture="environment"
+              {...(mode === "single-camera" ? { capture: "environment" } : {})}
               className="sr-only"
               onChange={handleFileChange}
             />
@@ -330,10 +404,7 @@ export default function UploadForm() {
         )}
 
         {fieldErrors.image ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-          >
+          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
             {fieldErrors.image}
           </p>
         ) : null}
@@ -341,17 +412,9 @@ export default function UploadForm() {
 
       {/* Categoria */}
       <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">
-          Categoría
-        </h2>
-        <p className="mt-1 text-xs text-text-muted">
-          Elegí el tipo amplio de prenda.
-        </p>
-        <div
-          role="radiogroup"
-          aria-label="Categoría"
-          className="mt-3 flex flex-wrap gap-2"
-        >
+        <h2 className="font-display text-lg font-semibold text-text">Categoría</h2>
+        <p className="mt-1 text-xs text-text-muted">Elegí el tipo amplio de prenda.</p>
+        <div role="radiogroup" aria-label="Categoría" className="mt-3 flex flex-wrap gap-2">
           {CLOTHING_CATEGORIES.map((cat) => (
             <Chip
               key={cat.value}
@@ -365,10 +428,7 @@ export default function UploadForm() {
           ))}
         </div>
         {fieldErrors.category ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-          >
+          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
             {fieldErrors.category}
           </p>
         ) : null}
@@ -376,23 +436,13 @@ export default function UploadForm() {
 
       {/* Subcategoria */}
       <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">
-          Subcategoría
-        </h2>
+        <h2 className="font-display text-lg font-semibold text-text">Subcategoría</h2>
         <p className="mt-1 text-xs text-text-muted">
-          {category
-            ? "Especificá qué tipo de prenda es dentro de la categoría."
-            : "Primero elegí una categoría arriba."}
+          {category ? "Especificá qué tipo de prenda es dentro de la categoría." : "Primero elegí una categoría arriba."}
         </p>
-        <div
-          role="radiogroup"
-          aria-label="Subcategoría"
-          className="mt-3 flex flex-wrap gap-2"
-        >
+        <div role="radiogroup" aria-label="Subcategoría" className="mt-3 flex flex-wrap gap-2">
           {subcategoryOptions.length === 0 ? (
-            <p className="text-sm text-text-faint">
-              Las opciones aparecen al elegir la categoría.
-            </p>
+            <p className="text-sm text-text-faint">Las opciones aparecen al elegir la categoría.</p>
           ) : (
             subcategoryOptions.map((opt) => (
               <Chip
@@ -400,10 +450,7 @@ export default function UploadForm() {
                 role="radio"
                 aria-checked={subcategory === opt}
                 active={subcategory === opt}
-                onClick={() => {
-                  setSubcategory(opt);
-                  clearFieldError("subcategory");
-                }}
+                onClick={() => { setSubcategory(opt); clearFieldError("subcategory"); }}
               >
                 {opt}
               </Chip>
@@ -411,10 +458,7 @@ export default function UploadForm() {
           )}
         </div>
         {fieldErrors.subcategory ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-          >
+          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
             {fieldErrors.subcategory}
           </p>
         ) : null}
@@ -422,17 +466,9 @@ export default function UploadForm() {
 
       {/* Color */}
       <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">
-          Color principal
-        </h2>
-        <p className="mt-1 text-xs text-text-muted">
-          Elegí el color que más predomina en la prenda.
-        </p>
-        <div
-          role="radiogroup"
-          aria-label="Color principal"
-          className="mt-4 flex flex-wrap gap-3"
-        >
+        <h2 className="font-display text-lg font-semibold text-text">Color principal</h2>
+        <p className="mt-1 text-xs text-text-muted">Elegí el color que más predomina en la prenda.</p>
+        <div role="radiogroup" aria-label="Color principal" className="mt-4 flex flex-wrap gap-3">
           {COLOR_PALETTE.map((c) => {
             const seleccionado = color === c.name;
             const esBlanco = c.name === "blanco";
@@ -444,10 +480,7 @@ export default function UploadForm() {
                 aria-checked={seleccionado}
                 aria-label={c.name}
                 title={c.name}
-                onClick={() => {
-                  setColor(c.name);
-                  clearFieldError("color");
-                }}
+                onClick={() => { setColor(c.name); clearFieldError("color"); }}
                 className={[
                   "group flex flex-col items-center gap-1.5 rounded-md p-1 transition-transform",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
@@ -459,38 +492,25 @@ export default function UploadForm() {
                     "flex h-10 w-10 items-center justify-center rounded-full transition-shadow",
                     seleccionado
                       ? "ring-2 ring-primary ring-offset-2 ring-offset-surface shadow-md"
-                      : esBlanco
-                        ? "ring-1 ring-border"
-                        : "shadow-sm",
+                      : esBlanco ? "ring-1 ring-border" : "shadow-sm",
                   ].join(" ")}
                   style={{ background: c.swatch }}
                   aria-hidden="true"
                 >
                   {seleccionado ? (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={c.contrastText === "light" ? "#fff" : "#111"}
-                      strokeWidth="3"
-                    >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                      stroke={c.contrastText === "light" ? "#fff" : "#111"} strokeWidth="3">
                       <path d="M5 12l5 5L20 7" />
                     </svg>
                   ) : null}
                 </span>
-                <span className="text-[11px] capitalize text-text-muted">
-                  {c.name}
-                </span>
+                <span className="text-[11px] capitalize text-text-muted">{c.name}</span>
               </button>
             );
           })}
         </div>
         {fieldErrors.color ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-          >
+          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
             {fieldErrors.color}
           </p>
         ) : null}
@@ -498,32 +518,23 @@ export default function UploadForm() {
 
       {/* Ocasiones */}
       <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">
-          ¿Para qué ocasiones sirve?
-        </h2>
+        <h2 className="font-display text-lg font-semibold text-text">¿Para qué ocasiones sirve?</h2>
         <p className="mt-1 text-xs text-text-muted">
-          Marcá todas las que apliquen (mínimo 1). Esto ayuda a la IA a
-          combinarla mejor.
+          Marcá todas las que apliquen (mínimo 1). Esto ayuda a la IA a combinarla mejor.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           {ITEM_OCCASIONS.map((o) => (
             <Chip
               key={o}
               active={occasions.includes(o)}
-              onClick={() => {
-                setOccasions((arr) => toggle(arr, o));
-                clearFieldError("occasions");
-              }}
+              onClick={() => { setOccasions((arr) => toggle(arr, o)); clearFieldError("occasions"); }}
             >
               {o}
             </Chip>
           ))}
         </div>
         {fieldErrors.occasions ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-          >
+          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
             {fieldErrors.occasions}
           </p>
         ) : null}
@@ -537,41 +548,314 @@ export default function UploadForm() {
           maxLength={NAME_MAX_LENGTH}
           placeholder="Camisa azul oxford"
           value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            clearFieldError("name");
-          }}
+          onChange={(e) => { setName(e.target.value); clearFieldError("name"); }}
           hint={`${name.length}/${NAME_MAX_LENGTH} caracteres`}
           error={fieldErrors.name}
         />
       </Card>
 
-      {/* Error general + submit */}
       {generalError ? (
-        <p
-          role="alert"
-          className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-        >
+        <p role="alert" className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
           {generalError}
         </p>
       ) : null}
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
-        <Button
-          variant="ghost"
-          onClick={() => router.push("/wardrobe")}
-          disabled={submitting}
-        >
+        <Button variant="ghost" onClick={() => router.push("/wardrobe")} disabled={submitting}>
           Cancelar
         </Button>
-        <Button
-          onClick={handleSubmit}
-          isLoading={submitting}
-          loadingText={progress ?? "Subiendo…"}
-        >
+        <Button onClick={handleSubmit} isLoading={submitting} loadingText={progress ?? "Subiendo…"}>
           Guardar prenda
         </Button>
       </div>
     </div>
+  );
+}
+
+// ── Subida múltiple ───────────────────────────────────────────────────────────
+
+function BulkUploadSection() {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [results, setResults] = useState<BulkFileResult[] | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    setFileError(null);
+    setResults(null);
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    if (files.length > BULK_MAX_FILES) {
+      setFileError(`Podés subir hasta ${BULK_MAX_FILES} fotos a la vez. Seleccionaste ${files.length}.`);
+      return;
+    }
+    setSelectedFiles(files);
+  }
+
+  async function handleUpload() {
+    if (selectedFiles.length === 0 || uploading) return;
+
+    setUploading(true);
+    setResults(null);
+    setProgress({ done: 0, total: selectedFiles.length });
+
+    const supabase = createSupabaseBrowserClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      setFileError("Tu sesión expiró. Volvé a iniciar sesión.");
+      setUploading(false);
+      setProgress(null);
+      return;
+    }
+
+    const allResults: BulkFileResult[] = new Array(selectedFiles.length);
+    let doneSoFar = 0;
+
+    // Procesar en lotes de BULK_CONCURRENCY para no saturar Supabase
+    for (let i = 0; i < selectedFiles.length; i += BULK_CONCURRENCY) {
+      const batch = selectedFiles.slice(i, i + BULK_CONCURRENCY);
+
+      await Promise.all(
+        batch.map(async (file, batchIdx) => {
+          const globalIdx = i + batchIdx;
+          try {
+            // Comprimir
+            let comprimido: File;
+            try {
+              comprimido = await imageCompression(file, {
+                maxSizeMB: 5,
+                maxWidthOrHeight: COMPRESS_MAX_WIDTH_OR_HEIGHT,
+                initialQuality: COMPRESS_QUALITY,
+                useWebWorker: true,
+                fileType: file.type.startsWith("image/") ? file.type : "image/jpeg",
+              });
+            } catch {
+              comprimido = file; // Si falla la compresión, subir original
+            }
+
+            // Subir a Storage
+            const uuid = crypto.randomUUID();
+            const path = buildClothingImagePath({
+              userId: user.id,
+              fileName: file.name,
+              uuid,
+            });
+
+            const { error: uploadError } = await supabase.storage
+              .from(CLOTHING_IMAGES_BUCKET)
+              .upload(path, comprimido, {
+                contentType: comprimido.type,
+                upsert: false,
+              });
+
+            if (uploadError) throw new Error(uploadError.message);
+
+            // Insertar en clothing_items con defaults (sin categorizar)
+            const { error: insertError } = await supabase
+              .from("clothing_items")
+              .insert({
+                user_id: user.id,
+                category: "top" as const,  // default; usuario lo cambia en /edit
+                subcategory: null,          // null = "sin categorizar" (muestra badge)
+                name: null,
+                primary_color: null,
+                occasions: [],
+                image_path: path,
+                image_url: null,
+              });
+
+            if (insertError) {
+              await supabase.storage
+                .from(CLOTHING_IMAGES_BUCKET)
+                .remove([path])
+                .catch(() => {});
+              throw new Error(insertError.message);
+            }
+
+            allResults[globalIdx] = { name: file.name, ok: true };
+          } catch (err) {
+            allResults[globalIdx] = {
+              name: file.name,
+              ok: false,
+              error: err instanceof Error ? err.message : "Error desconocido",
+            };
+          }
+
+          doneSoFar++;
+          setProgress({ done: doneSoFar, total: selectedFiles.length });
+        })
+      );
+    }
+
+    setResults(allResults.filter(Boolean));
+    setUploading(false);
+    setProgress(null);
+
+    const exitos = allResults.filter((r) => r?.ok).length;
+    if (exitos > 0) {
+      // Pequeño delay para que el usuario vea el resumen antes del redirect
+      setTimeout(() => {
+        router.push("/wardrobe");
+        router.refresh();
+      }, 2500);
+    }
+  }
+
+  const exitosCount = results?.filter((r) => r.ok).length ?? 0;
+  const erroresCount = results?.filter((r) => !r.ok).length ?? 0;
+  const doneOk = results !== null && exitosCount > 0;
+
+  return (
+    <Card padding="md">
+      <h2 className="font-display text-lg font-semibold text-text">
+        Subir varias fotos a la vez
+      </h2>
+      <p className="mt-1 text-sm text-text-muted">
+        Seleccioná hasta {BULK_MAX_FILES} fotos de tu galería. Las prendas se
+        crean como &quot;sin categorizar&quot; y las completás después.
+      </p>
+
+      {!uploading && results === null ? (
+        <div className="mt-5">
+          <label
+            htmlFor="bulk-photos"
+            className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-surface-2 p-8 text-center transition-colors hover:border-primary-mid"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-primary">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                aria-hidden="true"
+              >
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-text">
+                {selectedFiles.length > 0
+                  ? `${selectedFiles.length} foto${selectedFiles.length > 1 ? "s" : ""} seleccionada${selectedFiles.length > 1 ? "s" : ""}`
+                  : "Toca para seleccionar fotos"}
+              </p>
+              <p className="mt-1 text-xs text-text-muted">
+                Máximo {BULK_MAX_FILES} fotos · JPG, PNG o WebP
+              </p>
+            </div>
+            <input
+              ref={fileInputRef}
+              id="bulk-photos"
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={handleFileChange}
+            />
+          </label>
+
+          {fileError ? (
+            <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
+              {fileError}
+            </p>
+          ) : null}
+
+          {selectedFiles.length > 0 ? (
+            <div className="mt-4">
+              <p className="text-xs text-text-muted mb-2">
+                Vista previa de nombres:
+              </p>
+              <ul className="mb-4 max-h-28 overflow-y-auto rounded-lg border border-border bg-surface p-3 text-xs text-text-muted space-y-1">
+                {selectedFiles.map((f, i) => (
+                  <li key={i} className="truncate">
+                    {i + 1}. {f.name}
+                  </li>
+                ))}
+              </ul>
+              <Button fullWidth onClick={handleUpload}>
+                Subir {selectedFiles.length} foto{selectedFiles.length > 1 ? "s" : ""}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Progreso */}
+      {uploading && progress ? (
+        <div className="mt-5">
+          <p className="text-center text-sm font-semibold text-text">
+            Subiendo {progress.done} de {progress.total} foto{progress.total > 1 ? "s" : ""}…
+          </p>
+          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-surface-offset">
+            <div
+              className="h-full rounded-full bg-primary transition-all duration-300"
+              style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+              aria-hidden="true"
+            />
+          </div>
+          <p className="mt-2 text-center text-xs text-text-muted">
+            Esto puede tomar unos segundos…
+          </p>
+        </div>
+      ) : null}
+
+      {/* Resultado */}
+      {results !== null && !uploading ? (
+        <div className="mt-5 flex flex-col gap-3">
+          {doneOk ? (
+            <div className="rounded-xl border border-success bg-success-light px-4 py-3 text-sm text-success">
+              <p className="font-semibold">
+                ✅ {exitosCount} prenda{exitosCount > 1 ? "s" : ""} agregada{exitosCount > 1 ? "s" : ""} con éxito
+              </p>
+              <p className="mt-0.5 text-xs">
+                Ahora podés categorizarlas desde tu armario. Redirigiendo…
+              </p>
+            </div>
+          ) : null}
+
+          {erroresCount > 0 ? (
+            <div className="rounded-xl border border-danger bg-danger-light px-4 py-3 text-sm text-danger">
+              <p className="font-semibold mb-1">
+                ⚠️ {erroresCount} foto{erroresCount > 1 ? "s" : ""} no se {erroresCount > 1 ? "pudieron subir" : "pudo subir"}:
+              </p>
+              <ul className="space-y-0.5 text-xs">
+                {results
+                  .filter((r) => !r.ok)
+                  .map((r, i) => (
+                    <li key={i} className="truncate">
+                      • {r.name}: {r.error}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {!doneOk ? (
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setResults(null);
+                setSelectedFiles([]);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+            >
+              Intentar de nuevo
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </Card>
   );
 }

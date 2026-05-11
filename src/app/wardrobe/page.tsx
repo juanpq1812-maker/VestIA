@@ -12,6 +12,7 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import CategoryFilter from "@/components/wardrobe/CategoryFilter";
+import OnboardingProgressBar from "@/components/wardrobe/OnboardingProgressBar";
 import UploadSuccessBanner from "@/components/wardrobe/UploadSuccessBanner";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import type { ClothingItem } from "@/types/database";
@@ -43,8 +44,7 @@ export default async function WardrobePage({ searchParams }: Props) {
 
   const itemsRaw = (itemsData ?? []) as ClothingItem[];
 
-  // Firmamos las URLs de las imagenes (bucket privado). Si Supabase Storage no
-  // contesta o la firma falla para algun path, ese item cae al placeholder.
+  // Firmamos las URLs de las imagenes (bucket privado).
   const paths = itemsRaw
     .map((i) => i.image_path)
     .filter((p): p is string => Boolean(p));
@@ -56,9 +56,12 @@ export default async function WardrobePage({ searchParams }: Props) {
   }));
 
   const tienePrendas = items.length > 0;
-  // Edge case: si por algun motivo no hay display_name, caemos al usuario del email.
   const saludo =
     profile?.display_name?.trim() || user?.email?.split("@")[0] || "tu";
+
+  // Items sin categorizar (subcategory null → subidas en bulk)
+  const sinCategorizar = items.filter((i) => i.subcategory === null);
+  const primeraSinCategorizar = sinCategorizar[0] ?? null;
 
   const sp = await searchParams;
   const mostrarBanner = sp.uploaded === "1";
@@ -71,6 +74,32 @@ export default async function WardrobePage({ searchParams }: Props) {
         <Container size="lg">
           {mostrarBanner ? <UploadSuccessBanner /> : null}
 
+          {/* Barra de progreso de onboarding (desaparece al tener 6+ prendas) */}
+          <OnboardingProgressBar itemCount={items.length} />
+
+          {/* Banner sin categorizar */}
+          {sinCategorizar.length > 0 ? (
+            <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-warning bg-warning-light px-4 py-3">
+              <p className="text-sm text-text">
+                <span className="mr-1">📝</span>
+                <strong>
+                  Tenés {sinCategorizar.length}{" "}
+                  {sinCategorizar.length === 1
+                    ? "prenda sin categorizar"
+                    : "prendas sin categorizar"}
+                </strong>{" "}
+                — Categorizalas para mejores outfits
+              </p>
+              {primeraSinCategorizar ? (
+                <Link href={`/wardrobe/${primeraSinCategorizar.id}/edit`}>
+                  <Button variant="secondary" size="md">
+                    Completar →
+                  </Button>
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
+
           {/* Saludo + CTA */}
           <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -81,7 +110,7 @@ export default async function WardrobePage({ searchParams }: Props) {
               <p className="mt-2 max-w-xl text-base text-text-muted">
                 {tienePrendas
                   ? "Aquí está tu armario digital. Filtrá por categoría o subí una nueva prenda."
-                  : "Empezá por catalogar tus primeras prendas para que VestIA pueda generarte outfits."}
+                  : "Subí tus primeras 6 prendas para tu primer outfit con IA."}
               </p>
             </div>
             <div className="flex gap-3">
@@ -133,12 +162,11 @@ function EmptyWardrobe() {
         </svg>
       </div>
       <h3 className="mt-4 font-display text-xl font-semibold text-text">
-        Tu armario está vacío
+        Subí 6 prendas para tu primer outfit
       </h3>
       <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
-        Subí tu primera prenda para empezar a construir tu armario digital.
-        Cuando tengas algunas, aparecerán aquí en una cuadrícula con filtros
-        por categoría.
+        2 tops + 2 bottoms + 1 zapato + 1 accesorio es todo lo que necesitás.
+        ¡En 10 minutos tenés tu primer look generado por IA!
       </p>
       <div className="mt-6 flex justify-center">
         <Link href="/wardrobe/upload">
