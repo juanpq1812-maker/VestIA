@@ -17,19 +17,17 @@ type LinkNav = {
   emoji?: string;
 };
 
-// Desktop: todos los links
 const NAV: LinkNav[] = [
+  { href: "/", label: "Inicio" },
   { href: "/wardrobe", label: "Armario" },
-  { href: "/wardrobe/upload", label: "Subir prenda" },
-  { href: "/outfits", label: "Outfits IA" },
-  { href: "/outfits/saved", label: "Mis outfits" },
+  { href: "/outfits", label: "Outfits" },
   { href: "/impact", label: "Impacto" },
 ];
 
-// Mobile: solo las secciones principales con emoji
 const MOBILE_NAV: LinkNav[] = [
-  { href: "/wardrobe", label: "Mi armario", emoji: "👗" },
-  { href: "/outfits", label: "Outfits IA", emoji: "✨" },
+  { href: "/", label: "Inicio", emoji: "🏠" },
+  { href: "/wardrobe", label: "Armario", emoji: "👗" },
+  { href: "/outfits", label: "Outfits", emoji: "✨" },
   { href: "/impact", label: "Impacto", emoji: "🌱" },
 ];
 
@@ -72,9 +70,9 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
         {/* Logo */}
         <Link
-          href="/wardrobe"
+          href="/"
           className="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-          aria-label="Ir al armario"
+          aria-label="Ir al inicio"
         >
           <Logo size={32} />
           <Wordmark className="text-lg sm:text-xl" />
@@ -88,8 +86,9 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
           >
             {NAV.map((item) => {
               const activo =
-                pathname === item.href ||
-                pathname?.startsWith(`${item.href}/`);
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname === item.href || pathname?.startsWith(`${item.href}/`);
               return (
                 <Link
                   key={item.href}
@@ -165,8 +164,9 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
                   <nav aria-label="Navegación mobile" className="flex flex-col gap-1">
                     {MOBILE_NAV.map((item) => {
                       const activo =
-                        pathname === item.href ||
-                        pathname?.startsWith(`${item.href}/`);
+                        item.href === "/"
+                          ? pathname === "/"
+                          : pathname === item.href || pathname?.startsWith(`${item.href}/`);
                       return (
                         <Link
                           key={item.href}
