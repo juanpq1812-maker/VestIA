@@ -37,12 +37,12 @@ export default async function OutfitsPage() {
           <header className="max-w-2xl">
             <p className="text-sm text-text-muted">Outfits con IA</p>
             <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
-              Que te pondras hoy?
+              ¿Qué te pondrás hoy?
             </h1>
             <p className="mt-2 text-base text-text-muted">
-              Elige un modo y la IA combinara prendas reales de tu armario.
-              Cada generacion produce 2 propuestas distintas; guarda la que
-              mas te guste.
+              Elige un modo y la IA combinará prendas reales de tu armario.
+              Cada generación produce 2 propuestas distintas; guarda la que
+              más te guste.
             </p>
           </header>
 

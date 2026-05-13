@@ -38,7 +38,7 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
     if (enProceso) return;
     const today = todayIso();
     if (marcado[outfit.id] || outfit.usedDates.includes(today)) {
-      setToast({ msg: "Ya habias registrado este outfit hoy", kind: "success" });
+      setToast({ msg: "Ya habías registrado este outfit hoy", kind: "success" });
       return;
     }
     setEnProceso(outfit.id);
@@ -52,7 +52,7 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
       setToast({ msg: "¡Registrado! Lo usaste hoy", kind: "success" });
     } else if (res.code === "ALREADY_REGISTERED") {
       setMarcado((m) => ({ ...m, [outfit.id]: true }));
-      setToast({ msg: "Ya habias registrado este outfit hoy", kind: "success" });
+      setToast({ msg: "Ya habías registrado este outfit hoy", kind: "success" });
     } else {
       setToast({ msg: res.error, kind: "error" });
     }
@@ -68,7 +68,7 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
           🔁 ¿Repetiste outfit?
         </h2>
         <p className="text-xs text-text-muted">
-          Marca rapida si volviste a usar uno de los recientes.
+          Marca rápida si volviste a usar uno de los recientes.
         </p>
       </header>
 
@@ -117,7 +117,7 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
                     {o.name?.trim() || "Outfit sin nombre"}
                   </p>
                   <p className="mt-0.5 text-[11px] text-text-muted">
-                    Ultima vez: {lastUsedLabel(o.lastUsedIso)}
+                    Última vez: {lastUsedLabel(o.lastUsedIso)}
                   </p>
                   {procesando && (
                     <p className="mt-1 text-[11px] text-primary">

@@ -8,6 +8,7 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import LazyImage from "@/components/ui/LazyImage";
 import { computeImpact, formatEsNumber } from "@/lib/impact/calculations";
 import type { ClothingCategory } from "@/types/database";
 
@@ -259,16 +260,14 @@ function DashboardConDatos({
                   <div
                     className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border bg-surface-2"
                     style={{
-                      backgroundColor: item.primary_color ?? "#c4b5fd",
+                      backgroundColor: item.primary_color ?? "#F3F0FF",
                     }}
                   >
                     {item.image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <LazyImage
                         src={item.image_url}
                         alt={label}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                        loading="lazy"
                       />
                     ) : null}
                   </div>
@@ -348,15 +347,13 @@ function MiniImagen({
   return (
     <div
       className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border"
-      style={{ backgroundColor: color ?? "#c4b5fd" }}
+      style={{ backgroundColor: color ?? "#F3F0FF" }}
     >
       {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <LazyImage
           src={imageUrl}
           alt={alt}
           className="h-full w-full object-cover"
-          loading="lazy"
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center text-white/60">
