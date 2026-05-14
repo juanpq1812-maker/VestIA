@@ -1,10 +1,10 @@
-// Generacion de outfits con la IA (OpenRouter -> Llama gratis por defecto).
+// Generacion de outfits con la IA (Anthropic API -> Claude Haiku por defecto).
 //
 // Esta funcion vive en el SERVIDOR (la importan Server Actions o Route
 // Handlers). Hace todo el trabajo pesado:
 //   1. Lee el armario y las preferencias del usuario via Supabase (con RLS).
 //   2. Construye un prompt en espanol listando las prendas con sus IDs.
-//   3. Llama al modelo via OpenRouter pidiendo `response_format: json_object`.
+//   3. Llama al modelo via Anthropic API.
 //   4. Parsea la respuesta toleramente (a veces el modelo agrega texto extra).
 //   5. Valida que los IDs existan en el armario del usuario (anti-alucinacion).
 //   6. Devuelve los outfits hidratados con la info completa de cada prenda
@@ -14,7 +14,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
-import { getAiClient, getAiModelName } from "@/lib/ai/aiClient";
+import { callAnthropicApi } from "@/lib/ai/aiClient";
 import type { ClothingItem, UserPreferences } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -115,7 +115,7 @@ export async function generateOutfits(
     "style_tags" | "favorite_occasions"
   > | null;
 
-  // 3. Construir prompt y llamar al modelo via OpenRouter.
+  // 3. Construir prompt y llamar al modelo via Anthropic.
   const prompt = buildPrompt({
     items,
     prefs,
@@ -262,84 +262,80 @@ function buildPrompt(args: {
 }
 
 // ---------------------------------------------------------------------------
-// Llamada al modelo (con manejo defensivo).
+// Llamada al modelo (con manejo defensivo y reintentos).
 // ---------------------------------------------------------------------------
 
+const SYSTEM_PROMPT =
+  "Sos un asistente de moda experto en crear outfits con ropa que el usuario ya tiene. Respondé SIEMPRE en español perfecto con tildes (á é í ó ú) y ñ correctamente. Generá outfits creativos, coherentes y apropiados para la ocasión pedida. Sé específico sobre por qué cada combinación funciona. Respondé SOLO en el formato JSON que se te pide, sin texto adicional ni backticks.";
+
+const MAX_RETRIES = 2;
+
 async function callAiModel(prompt: string): Promise<string> {
-  let client;
-  try {
-    client = getAiClient();
-  } catch (err) {
-    // El unico error que lanza getAiClient es por API key faltante.
-    throw new GenerateOutfitsError(
-      "NO_API_KEY",
-      err instanceof Error ? err.message : "Falta la API key de OpenRouter."
-    );
+  let lastError: GenerateOutfitsError | null = null;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const text = await callAnthropicApi({
+        systemPrompt: SYSTEM_PROMPT,
+        userPrompt: prompt,
+        maxTokens: 1024,
+        temperature: 0.85,
+      });
+
+      if (!text || text.trim().length === 0) {
+        lastError = new GenerateOutfitsError(
+          "INVALID_RESPONSE",
+          "La IA devolvio una respuesta vacia."
+        );
+        continue;
+      }
+      return text;
+    } catch (err) {
+      if (err instanceof GenerateOutfitsError) throw err;
+      console.error(`[generateOutfits] error llamando al modelo (intento ${attempt + 1})`, err);
+
+      const status =
+        typeof err === "object" && err !== null && "status" in err
+          ? (err as { status?: number }).status
+          : undefined;
+      const message = err instanceof Error ? err.message : String(err);
+
+      if (status === 401 || /\b401\b|invalid api key|unauthorized/i.test(message)) {
+        throw new GenerateOutfitsError(
+          "NO_API_KEY",
+          "La API key de Anthropic no es valida. Revisa ANTHROPIC_API_KEY en `.env.local`."
+        );
+      }
+      if (status === 402 || /\b402\b|insufficient.?credit|payment required/i.test(message)) {
+        throw new GenerateOutfitsError(
+          "NO_CREDITS",
+          "No hay creditos en la cuenta de Anthropic. Verifica tu cuenta."
+        );
+      }
+      if (status === 429 || /\b429\b|rate.?limit|too many requests/i.test(message)) {
+        throw new GenerateOutfitsError(
+          "RATE_LIMITED",
+          "Has excedido el limite de la IA. Intentalo en unos segundos."
+        );
+      }
+      if (!message.includes("ANTHROPIC_API_KEY") && attempt < MAX_RETRIES) {
+        lastError = new GenerateOutfitsError(
+          "NETWORK_ERROR",
+          "No pudimos contactar a la IA. Revisa tu conexion e intenta de nuevo."
+        );
+        continue;
+      }
+      if (message.includes("ANTHROPIC_API_KEY")) {
+        throw new GenerateOutfitsError("NO_API_KEY", message);
+      }
+      throw new GenerateOutfitsError(
+        "NETWORK_ERROR",
+        "No pudimos contactar a la IA. Revisa tu conexion e intenta de nuevo."
+      );
+    }
   }
 
-  try {
-    const completion = await client.chat.completions.create({
-      model: getAiModelName(),
-      // Mensajes: separamos el "rol" del estilista (system) de la peticion
-      // concreta del usuario para que el modelo respete mejor las reglas.
-      messages: [
-        {
-          role: "system",
-          content:
-            "Eres un estilista personal experto. Respondé SIEMPRE en español correcto. ES OBLIGATORIO usar correctamente ñ, tildes (á é í ó ú) y signos de apertura (¿ ¡). NUNCA reemplaces ñ por n, ni omitas tildes. Respondés EXCLUSIVAMENTE con JSON válido según el esquema que el usuario te indique, sin markdown ni texto extra.",
-        },
-        { role: "user", content: prompt },
-      ],
-      // En OpenRouter (formato OpenAI) el modo JSON estricto se pide asi.
-      // Aun asi parseamos defensivamente porque algunos modelos open-source
-      // ignoran este flag y devuelven el JSON envuelto en markdown.
-      response_format: { type: "json_object" },
-      temperature: 0.85,
-    });
-
-    const text = completion.choices?.[0]?.message?.content ?? "";
-    if (!text || text.trim().length === 0) {
-      throw new GenerateOutfitsError(
-        "INVALID_RESPONSE",
-        "La IA devolvio una respuesta vacia."
-      );
-    }
-    return text;
-  } catch (err) {
-    if (err instanceof GenerateOutfitsError) throw err;
-    console.error("[generateOutfits] error llamando al modelo", err);
-
-    // El SDK de OpenAI expone `status` en sus errores HTTP. Lo usamos cuando
-    // existe; si no, caemos al texto del mensaje como ultimo recurso.
-    const status =
-      typeof err === "object" && err !== null && "status" in err
-        ? (err as { status?: number }).status
-        : undefined;
-    const message = err instanceof Error ? err.message : String(err);
-
-    if (status === 401 || /\b401\b|invalid api key|unauthorized/i.test(message)) {
-      throw new GenerateOutfitsError(
-        "NO_API_KEY",
-        "La API key de OpenRouter no es valida. Revisa tu configuracion en `.env.local`."
-      );
-    }
-    if (status === 402 || /\b402\b|insufficient.?credit|payment required/i.test(message)) {
-      throw new GenerateOutfitsError(
-        "NO_CREDITS",
-        "No tienes creditos en OpenRouter. Verifica tu cuenta o usa un modelo con sufijo `:free`."
-      );
-    }
-    if (status === 429 || /\b429\b|rate.?limit|too many requests/i.test(message)) {
-      throw new GenerateOutfitsError(
-        "RATE_LIMITED",
-        "Has excedido el limite de la IA. Intentalo en unos segundos."
-      );
-    }
-    throw new GenerateOutfitsError(
-      "NETWORK_ERROR",
-      "No pudimos contactar a la IA. Revisa tu conexion e intenta de nuevo."
-    );
-  }
+  throw lastError ?? new GenerateOutfitsError("INVALID_RESPONSE", "La IA no devolvio una respuesta valida tras varios intentos.");
 }
 
 // ---------------------------------------------------------------------------
