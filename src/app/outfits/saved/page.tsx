@@ -173,11 +173,11 @@ function EmptyState() {
         </span>
       </div>
       <h3 className="mt-4 font-display text-xl font-semibold text-text">
-        Aun no has guardado outfits
+        Aún no has guardado outfits
       </h3>
       <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
-        Genera un outfit con IA y dale al boton &ldquo;Guardar&rdquo; para
-        verlo aqui mas tarde.
+        Genera un outfit con IA y dale al botón &ldquo;Guardar&rdquo; para
+        verlo aquí más tarde.
       </p>
       <div className="mt-6 flex justify-center">
         <Link href="/outfits">

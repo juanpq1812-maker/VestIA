@@ -6,6 +6,7 @@
 // pagina del armario es la que decide si usarlo (mobile: 2 cols, desktop: 3-4).
 
 import type { ClothingCategory, ClothingItem } from "@/types/database";
+import LazyImage from "@/components/ui/LazyImage";
 
 const CATEGORY_LABELS: Record<ClothingCategory, string> = {
   top: "Top",
@@ -25,7 +26,7 @@ export default function ClothingCard({ item }: Props) {
     item.name?.trim() ||
     item.subcategory?.trim() ||
     CATEGORY_LABELS[item.category];
-  const colorBase = item.primary_color ?? "#c4b5fd"; // primary-mid como fallback
+  const colorBase = item.primary_color ?? "#F3F0FF";
 
   return (
     <article className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow duration-200 hover:shadow-md">
@@ -34,12 +35,10 @@ export default function ClothingCard({ item }: Props) {
         style={{ backgroundColor: colorBase }}
       >
         {item.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <LazyImage
             src={item.image_url}
             alt={titulo}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-            loading="lazy"
           />
         ) : (
           <div

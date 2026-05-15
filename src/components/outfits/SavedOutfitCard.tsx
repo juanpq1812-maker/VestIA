@@ -68,7 +68,7 @@ export default function SavedOutfitCard({
   const lastUsedIso = dates.length > 0 ? [...dates].sort().at(-1) ?? null : null;
 
   function onEliminar() {
-    if (!confirm("Eliminar este outfit guardado?")) return;
+    if (!confirm("¿Eliminar este outfit guardado?")) return;
     setError(null);
     startDelete(async () => {
       const res = await deleteOutfitAction(outfitId);
@@ -89,7 +89,7 @@ export default function SavedOutfitCard({
     } else if (res.code === "ALREADY_REGISTERED") {
       // Por si la card estaba desincronizada con server.
       setDates((prev) => (prev.includes(today) ? prev : [...prev, today]));
-      setToast({ msg: "Ya habias registrado este outfit hoy", kind: "success" });
+      setToast({ msg: "Ya habías registrado este outfit hoy", kind: "success" });
     } else {
       setError(res.error);
       setToast({ msg: res.error, kind: "error" });
@@ -202,7 +202,7 @@ export default function SavedOutfitCard({
               ? "Registrando..."
               : usadoHoy
               ? "✓ Usado hoy"
-              : "👕 Lo use hoy"}
+              : "👕 Lo usé hoy"}
           </button>
 
           <button
@@ -210,7 +210,7 @@ export default function SavedOutfitCard({
             onClick={() => setModalAbierto(true)}
             className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2 text-sm font-semibold text-text-muted transition-all hover:border-primary-mid hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            📅 Lo use otro dia
+            📅 Lo usé otro día
           </button>
         </div>
 
@@ -223,7 +223,7 @@ export default function SavedOutfitCard({
             </div>
             {lastUsedIso && (
               <div className="flex items-center gap-1">
-                <dt className="font-semibold text-text">Ultima vez:</dt>
+                <dt className="font-semibold text-text">Última vez:</dt>
                 <dd>{lastUsedLabel(lastUsedIso)}</dd>
               </div>
             )}

@@ -41,11 +41,11 @@ const OCASIONES = [
 ] as const;
 
 const MENSAJES_LOADING = [
-  "Combinando colores...",
-  "Pensando en el clima...",
-  "Buscando armonía...",
-  "Mezclando texturas...",
-  "Probando combinaciones...",
+  "✨ Analizando tu armario...",
+  "👗 Combinando prendas...",
+  "🎨 Buscando la combinación perfecta...",
+  "🌟 Casi listo...",
+  "💫 Armando tu look...",
 ] as const;
 
 type Tab = "occasion" | "description" | "surprise";
@@ -330,45 +330,54 @@ function SurpriseBlurb() {
 }
 
 // ---------------------------------------------------------------------------
-// Estado de carga: skeletons + mensajes rotando.
+// Estado de carga: mensaje grande rotando + barra de progreso animada.
 // ---------------------------------------------------------------------------
 
 function LoadingState() {
   const [idx, setIdx] = useState(0);
+  const [visible, setVisible] = useState(true);
+  const [progress, setProgress] = useState(0);
+
+  // Rotación de mensajes con fade out → cambio → fade in cada 3 segundos.
   useEffect(() => {
-    const t = setInterval(
-      () => setIdx((i) => (i + 1) % MENSAJES_LOADING.length),
-      1600
-    );
+    const t = setInterval(() => {
+      setVisible(false);
+      const swap = setTimeout(() => {
+        setIdx((i) => (i + 1) % MENSAJES_LOADING.length);
+        setVisible(true);
+      }, 300);
+      return () => clearTimeout(swap);
+    }, 3000);
     return () => clearInterval(t);
   }, []);
 
+  // Barra de progreso: 0 → 90 % en ~15 s (lineal).
+  useEffect(() => {
+    const t = setTimeout(() => setProgress(90), 80);
+    return () => clearTimeout(t);
+  }, []);
+
   return (
-    <div className="space-y-6">
-      <div className="text-center text-sm text-text-muted">
-        <span className="inline-block animate-pulse">{MENSAJES_LOADING[idx]}</span>
-      </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        {[0, 1].map((k) => (
+    <div className="flex flex-col items-center justify-center gap-8 py-14">
+      {/* Mensaje animado */}
+      <p
+        className="font-display text-2xl font-semibold text-text transition-opacity duration-300 sm:text-3xl"
+        style={{ opacity: visible ? 1 : 0 }}
+      >
+        {MENSAJES_LOADING[idx]}
+      </p>
+
+      {/* Barra de progreso */}
+      <div className="w-full max-w-sm">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
           <div
-            key={k}
-            className="rounded-xl border border-border bg-surface p-5 shadow-sm"
-          >
-            <div className="h-4 w-32 animate-pulse rounded bg-surface-2" />
-            <div className="mt-4 grid grid-cols-4 gap-2">
-              {[0, 1, 2, 3].map((j) => (
-                <div
-                  key={j}
-                  className="aspect-[3/4] animate-pulse rounded-lg bg-surface-2"
-                />
-              ))}
-            </div>
-            <div className="mt-4 space-y-2">
-              <div className="h-3 w-full animate-pulse rounded bg-surface-2" />
-              <div className="h-3 w-3/4 animate-pulse rounded bg-surface-2" />
-            </div>
-          </div>
-        ))}
+            className="h-full rounded-full bg-primary"
+            style={{
+              width: `${progress}%`,
+              transition: "width 15s linear",
+            }}
+          />
+        </div>
       </div>
     </div>
   );
