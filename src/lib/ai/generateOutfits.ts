@@ -93,7 +93,7 @@ export async function generateOutfits(
   if (items.length === 0) {
     throw new GenerateOutfitsError(
       "EMPTY_WARDROBE",
-      "Tu armario está vacío. Subí al menos 2 prendas para generar outfits."
+      "Tu armario está vacío. Sube al menos 2 prendas para generar outfits."
     );
   }
   if (items.length < 2) {
@@ -214,13 +214,13 @@ function buildPrompt(args: {
 
   let instruccionDeOcasion = "";
   if (mode === "occasion" && occasion) {
-    instruccionDeOcasion = `El usuario quiere outfits para la ocasión: "${occasion}". Priorizá prendas cuya lista de ocasiones incluya algo similar.`;
+    instruccionDeOcasion = `El usuario quiere outfits para la ocasión: "${occasion}". Prioriza prendas cuya lista de ocasiones incluya algo similar.`;
   } else if (mode === "description" && description) {
     // Cortamos a 200 chars en backend también por seguridad.
     const trimmed = description.slice(0, 200);
     instruccionDeOcasion = `El usuario describe lo que necesita asi: "${trimmed}". Interpreta el tono y elige prendas coherentes.`;
   } else {
-    instruccionDeOcasion = `Modo "sorprendeme": elegí libremente. Combiná prendas de forma creativa pero usable, mezclando colores que armonicen.`;
+    instruccionDeOcasion = `Modo "sorprendeme": elige libremente. Combina prendas de forma creativa pero usable, mezclando colores que armonicen.`;
   }
 
   return [
@@ -229,7 +229,7 @@ function buildPrompt(args: {
     `Reglas de composición (importantes):`,
     `- Cada outfit debe tener: 1 prenda superior (top) + 1 prenda inferior (bottom), O bien 1 vestido (dress).`,
     `- Cada outfit debe tener 1 calzado (footwear).`,
-    `- Opcionalmente podés añadir 1 outerwear y 1-2 accesorios si combinan.`,
+    `- Opcionalmente puedes añadir 1 outerwear y 1-2 accesorios si combinan.`,
     `- No repitas IDs dentro del mismo outfit.`,
     `- Los 2 outfits deben ser claramente distintos entre sí (diferente vibe o paleta).`,
     `- Solo podés usar IDs que aparecen en el armario. NO inventes IDs nuevos.`,
@@ -243,7 +243,7 @@ function buildPrompt(args: {
     `Armario disponible:`,
     inventario,
     ``,
-    `Respondé EXCLUSIVAMENTE con un JSON válido (sin markdown, sin texto extra) con esta estructura exacta:`,
+    `Responde EXCLUSIVAMENTE con un JSON válido (sin markdown, sin texto extra) con esta estructura exacta:`,
     `{`,
     `  "outfits": [`,
     `    {`,
@@ -266,7 +266,7 @@ function buildPrompt(args: {
 // ---------------------------------------------------------------------------
 
 const SYSTEM_PROMPT =
-  "Sos un asistente de moda experto en crear outfits con ropa que el usuario ya tiene. Respondé SIEMPRE en español perfecto con tildes (á é í ó ú) y ñ correctamente. Generá outfits creativos, coherentes y apropiados para la ocasión pedida. Sé específico sobre por qué cada combinación funciona. Respondé SOLO en el formato JSON que se te pide, sin texto adicional ni backticks.";
+  "Eres un asistente de moda experto en crear outfits con ropa que el usuario ya tiene. Responde SIEMPRE en español colombiano neutro. Usa tuteo (tú), NO voseo argentino. Ejemplos correctos: 'usa', 'agrega', 'combina', 'tienes', 'puedes'. Ejemplos INCORRECTOS: 'usá', 'agregá', 'combiná', 'tenés', 'podés'. Usa tildes y ñ correctamente siempre. Genera outfits creativos, coherentes y apropiados para la ocasión pedida. Sé específico sobre por qué cada combinación funciona. Responde SOLO en el formato JSON que se te pide, sin texto adicional ni backticks.";
 
 const MAX_RETRIES = 2;
 

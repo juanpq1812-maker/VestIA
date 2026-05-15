@@ -134,18 +134,18 @@ function NuevoUsuario() {
           Tu armario digital te espera
         </h2>
         <p className="mx-auto mt-3 max-w-sm text-sm text-text-muted">
-          Para tu primer outfit solo necesitás{" "}
+          Para tu primer outfit solo necesitas{" "}
           <strong>6 prendas</strong>: 2 tops + 2 bottoms + 1 zapato +
-          1 accesorio. ¡En 10 minutos tenés tu primer look!
+          1 accesorio. ¡En 10 minutos tienes tu primer look!
         </p>
       </div>
       <div className="flex flex-col items-center gap-3 sm:flex-row">
         <Link href="/wardrobe/upload">
-          <Button size="lg">📸 Subí tu primera prenda</Button>
+          <Button size="lg">📸 Sube tu primera prenda</Button>
         </Link>
         <Link href="/outfits">
           <Button size="lg" variant="ghost">
-            ✨ Generá un outfit
+            ✨ Genera un outfit
           </Button>
         </Link>
       </div>
@@ -204,7 +204,7 @@ function DashboardConDatos({
       {/* ── Mensaje de cero usos ────────────────────────────────────────── */}
       {totalUses === 0 && (
         <p className="text-center text-sm text-text-muted">
-          ¡Generá tu primer outfit para empezar a medir tu impacto!
+          ¡Genera tu primer outfit para empezar a medir tu impacto!
         </p>
       )}
 
@@ -281,12 +281,12 @@ function DashboardConDatos({
         ) : (
           <div className="rounded-xl border-2 border-dashed border-border bg-surface-2 p-6 text-center">
             <p className="text-sm text-text-muted">
-              Subí tus primeras 6 prendas para tu primer outfit
+              Sube tus primeras 6 prendas para tu primer outfit
             </p>
             <div className="mt-3 flex justify-center">
               <Link href="/wardrobe/upload">
                 <Button variant="primary" size="md">
-                  Subí tu primera prenda
+                  Sube tu primera prenda
                 </Button>
               </Link>
             </div>
@@ -318,7 +318,7 @@ function DashboardConDatos({
                 {prendaOlvidada.nombre}
               </p>
               <p className="mt-0.5 text-sm text-text-muted">
-                ¿La usás hoy?
+                ¿La usas hoy?
               </p>
             </div>
             <Link href="/outfits">

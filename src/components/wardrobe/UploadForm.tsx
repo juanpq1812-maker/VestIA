@@ -82,7 +82,7 @@ export default function UploadForm() {
       {/* Selector de modo */}
       <Card padding="md">
         <h2 className="font-display text-lg font-semibold text-text">
-          ¿Cómo querés agregar la prenda?
+          ¿Cómo quieres agregar la prenda?
         </h2>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <ModeButton
@@ -225,10 +225,10 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
 
   function validar(): FieldErrors {
     const errs: FieldErrors = {};
-    if (!file) errs.image = "Subí una foto de la prenda.";
-    if (!category) errs.category = "Elegí una categoría.";
-    if (!subcategory) errs.subcategory = "Elegí una subcategoría.";
-    if (!color) errs.color = "Seleccioná el color principal.";
+    if (!file) errs.image = "Sube una foto de la prenda.";
+    if (!category) errs.category = "Elige una categoría.";
+    if (!subcategory) errs.subcategory = "Elige una subcategoría.";
+    if (!color) errs.color = "Selecciona el color principal.";
     if (occasions.length === 0)
       errs.occasions = "Marcá al menos una ocasión para esta prenda.";
     if (name.length > NAME_MAX_LENGTH)
@@ -252,7 +252,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
         error: authError,
       } = await supabase.auth.getUser();
       if (authError || !user) {
-        setGeneralError("Tu sesión expiró. Volvé a iniciar sesión.");
+        setGeneralError("Tu sesión expiró. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -266,7 +266,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
           fileType: file.type,
         });
       } catch {
-        setGeneralError("No pudimos procesar la imagen. Probá con otra foto.");
+        setGeneralError("No pudimos procesar la imagen. Prueba con otra foto.");
         return;
       }
 
@@ -365,7 +365,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
               <p className="mt-1 text-xs text-text-muted">
                 {mode === "single-camera"
                   ? "Abre la cámara directamente."
-                  : "Seleccioná una foto de tu carrete."}
+                  : "Selecciona una foto de tu carrete."}
               </p>
             </div>
             <input
@@ -413,7 +413,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
       {/* Categoria */}
       <Card padding="md">
         <h2 className="font-display text-lg font-semibold text-text">Categoría</h2>
-        <p className="mt-1 text-xs text-text-muted">Elegí el tipo amplio de prenda.</p>
+        <p className="mt-1 text-xs text-text-muted">Elige el tipo amplio de prenda.</p>
         <div role="radiogroup" aria-label="Categoría" className="mt-3 flex flex-wrap gap-2">
           {CLOTHING_CATEGORIES.map((cat) => (
             <Chip
@@ -467,7 +467,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
       {/* Color */}
       <Card padding="md">
         <h2 className="font-display text-lg font-semibold text-text">Color principal</h2>
-        <p className="mt-1 text-xs text-text-muted">Elegí el color que más predomina en la prenda.</p>
+        <p className="mt-1 text-xs text-text-muted">Elige el color que más predomina en la prenda.</p>
         <div role="radiogroup" aria-label="Color principal" className="mt-4 flex flex-wrap gap-3">
           {COLOR_PALETTE.map((c) => {
             const seleccionado = color === c.name;
@@ -590,7 +590,7 @@ function BulkUploadSection() {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
     if (files.length > BULK_MAX_FILES) {
-      setFileError(`Podés subir hasta ${BULK_MAX_FILES} fotos a la vez. Seleccionaste ${files.length}.`);
+      setFileError(`Puedes subir hasta ${BULK_MAX_FILES} fotos a la vez. Seleccionaste ${files.length}.`);
       return;
     }
     setSelectedFiles(files);
@@ -610,7 +610,7 @@ function BulkUploadSection() {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      setFileError("Tu sesión expiró. Volvé a iniciar sesión.");
+      setFileError("Tu sesión expiró. Vuelve a iniciar sesión.");
       setUploading(false);
       setProgress(null);
       return;
@@ -719,7 +719,7 @@ function BulkUploadSection() {
         Subir varias fotos a la vez
       </h2>
       <p className="mt-1 text-sm text-text-muted">
-        Seleccioná hasta {BULK_MAX_FILES} fotos de tu galería. Las prendas se
+        Selecciona hasta {BULK_MAX_FILES} fotos de tu galería. Las prendas se
         crean como &quot;sin categorizar&quot; y las completás después.
       </p>
 

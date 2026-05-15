@@ -92,7 +92,7 @@ export default function OutfitGenerator({ totalItems, savedOutfitsCount = 0 }: P
     } else if (tab === "description") {
       const trimmed = description.trim();
       if (trimmed.length === 0) {
-        setError("Escribí una descripción antes de generar.");
+        setError("Escribe una descripción antes de generar.");
         return;
       }
       dispararGeneracion({ mode: "description", description: trimmed });
@@ -191,13 +191,13 @@ function ModeSelector({
     {
       id: "occasion",
       titulo: "Por ocasión",
-      sub: "Elegí una ocasión y dejá que la IA arme algo apropiado.",
+      sub: "Elige una ocasión y deja que la IA arme algo apropiado.",
       icono: "📅",
     },
     {
       id: "description",
       titulo: "Descripción libre",
-      sub: "Contá en tus palabras lo que necesitás.",
+      sub: "Cuenta en tus palabras lo que necesitas.",
       icono: "✍️",
     },
     {
@@ -264,7 +264,7 @@ function OccasionPicker({
         ¿Para qué ocasión?
       </label>
       <p className="mt-1 text-xs text-text-muted">
-        Elegí una y la IA priorizará prendas etiquetadas para ese contexto.
+        Elige una y la IA priorizará prendas etiquetadas para ese contexto.
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
         {OCASIONES.map((o) => {
@@ -304,7 +304,7 @@ function DescriptionInput({
         htmlFor="outfit-description"
         className="block text-sm font-semibold text-text"
       >
-        Describí el outfit que necesitás...
+        Describe el outfit que necesitas...
       </label>
       <textarea
         id="outfit-description"
@@ -620,7 +620,7 @@ function SavedOutfitsBanner({ count }: { count: number }) {
         <div>
           <p className="font-semibold text-text">Ver mis outfits guardados</p>
           <p className="text-xs text-text-muted">
-            {count === 1 ? "Tenés 1 outfit guardado" : `Tenés ${count} outfits guardados`}
+            {count === 1 ? "Tienes 1 outfit guardado" : `Tienes ${count} outfits guardados`}
           </p>
         </div>
       </div>

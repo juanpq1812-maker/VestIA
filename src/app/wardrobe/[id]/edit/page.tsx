@@ -67,7 +67,7 @@ export default async function EditItemPage({ params }: Props) {
                 Editar prenda
               </h1>
               <p className="mt-2 max-w-xl text-base text-text-muted">
-                Completá los datos para que la IA pueda combinarla mejor en
+                Completa los datos para que la IA pueda combinarla mejor en
                 tus outfits.
               </p>
             </div>
