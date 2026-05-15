@@ -155,7 +155,7 @@ export default function SavedOutfitCard({
             <li key={it.id} className="text-center">
               <div
                 className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border"
-                style={{ backgroundColor: it.primary_color ?? "#c4b5fd" }}
+                style={{ backgroundColor: it.primary_color ?? "#E8EFE7" }}
                 title={it.name ?? it.subcategory ?? it.category}
               >
                 {it.image_url ? (

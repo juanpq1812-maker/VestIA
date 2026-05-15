@@ -69,7 +69,7 @@ export default function CategoryFilter({ items }: Props) {
 
       {visibles.length === 0 ? (
         <p className="mt-8 rounded-xl border border-dashed border-border bg-surface-2 p-6 text-center text-sm text-text-muted">
-          No tienes prendas en esta categoria todavia.
+          No tienes prendas en esta categoría todavía.
         </p>
       ) : (
         <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">

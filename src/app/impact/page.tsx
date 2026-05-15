@@ -247,7 +247,7 @@ function ProjectedRow({
         {icon}
       </span>
       <div className="flex-1">
-        <p className="text-xl font-bold text-primary sm:text-2xl">{value}</p>
+        <p className="text-xl font-bold text-success sm:text-2xl">{value}</p>
         <p className="text-xs text-text-muted">{label}</p>
       </div>
     </li>

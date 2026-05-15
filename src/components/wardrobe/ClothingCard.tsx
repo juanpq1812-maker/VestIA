@@ -26,7 +26,7 @@ export default function ClothingCard({ item }: Props) {
     item.name?.trim() ||
     item.subcategory?.trim() ||
     CATEGORY_LABELS[item.category];
-  const colorBase = item.primary_color ?? "#F3F0FF";
+  const colorBase = item.primary_color ?? "#E8EFE7";
 
   return (
     <article className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow duration-200 hover:shadow-md">
