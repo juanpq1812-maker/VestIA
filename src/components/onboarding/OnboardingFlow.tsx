@@ -94,7 +94,7 @@ export default function OnboardingFlow() {
       return;
     }
     if (paso === 3 && ocasiones.length === 0) {
-      setError("Elegí al menos una ocasión.");
+      setError("Elige al menos una ocasión.");
       return;
     }
     if (paso < TOTAL_PASOS) {
@@ -163,7 +163,7 @@ export default function OnboardingFlow() {
             {paso === 2 && (
               <PasoChips
                 titulo="¿Qué estilos te representan?"
-                subtitulo="Seleccioná todos los que apliquen. Esto le ayuda a la IA a sugerirte combinaciones que de verdad te gusten."
+                subtitulo="Selecciona todos los que apliquen. Esto le ayuda a la IA a sugerirte combinaciones que de verdad te gusten."
                 opciones={[...STYLE_TAGS]}
                 seleccionadas={estilos}
                 onToggle={(v) => setEstilos((arr) => toggle(arr, v))}
@@ -305,11 +305,11 @@ function PasoBienvenida({ nombre, onNombreChange }: PasoBienvenidaProps) {
         Hola 👋, vamos a armar tu primer outfit
       </h1>
       <p className="mx-auto mt-3 max-w-lg text-base text-text-muted">
-        Para tu primer outfit solo necesitás{" "}
+        Para tu primer outfit solo necesitas{" "}
         <strong>6 prendas</strong>: 2 tops + 2 bottoms + 1 zapato +
         1 accesorio.{" "}
         <span className="text-primary font-medium">
-          ¡En 10 minutos tenés tu primer look generado por IA!
+          ¡En 10 minutos tienes tu primer look generado por IA!
         </span>
       </p>
       <p className="mx-auto mt-2 max-w-lg text-sm text-text-muted">
@@ -483,8 +483,8 @@ function PasoMedidas({ medidas, onChange }: PasoMedidasProps) {
         Medidas (opcional)
       </h2>
       <p className="mt-2 text-sm text-text-muted">
-        Si nos compartís tus medidas en cm, podremos afinar todavía más las
-        recomendaciones. Podés saltarte este paso.
+        Si nos compartes tus medidas en cm, podremos afinar todavía más las
+        recomendaciones. Puedes saltarte este paso.
       </p>
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <MedidaInput

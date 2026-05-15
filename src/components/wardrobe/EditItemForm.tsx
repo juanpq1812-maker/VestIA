@@ -82,9 +82,9 @@ export default function EditItemForm({ item, imageUrl }: Props) {
 
   function validar(): FieldErrors {
     const errs: FieldErrors = {};
-    if (!category) errs.category = "Elegí una categoría.";
-    if (!subcategory) errs.subcategory = "Elegí una subcategoría.";
-    if (!color) errs.color = "Seleccioná el color principal.";
+    if (!category) errs.category = "Elige una categoría.";
+    if (!subcategory) errs.subcategory = "Elige una subcategoría.";
+    if (!color) errs.color = "Selecciona el color principal.";
     if (occasions.length === 0)
       errs.occasions = "Marcá al menos una ocasión para esta prenda.";
     if (name.length > NAME_MAX_LENGTH)
@@ -107,7 +107,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
         error: authError,
       } = await supabase.auth.getUser();
       if (authError || !user) {
-        setGeneralError("Tu sesión expiró. Volvé a iniciar sesión.");
+        setGeneralError("Tu sesión expiró. Vuelve a iniciar sesión.");
         return;
       }
 

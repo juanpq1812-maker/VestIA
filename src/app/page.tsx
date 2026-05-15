@@ -14,7 +14,7 @@ import LandingContent from "@/components/landing/LandingContent";
 export const metadata: Metadata = {
   title: "VestIA — Tu armario digital con IA",
   description:
-    "Generá outfits con la ropa que ya tenés. Reducí el impacto de tu armario, descubrí prendas olvidadas y vestite con conciencia.",
+    "Genera outfits con la ropa que ya tienes. Reduce el impacto de tu armario, descubre prendas olvidadas y vístete con conciencia.",
 };
 
 export default async function RootPage() {

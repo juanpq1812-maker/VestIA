@@ -83,7 +83,7 @@ export default async function WardrobePage({ searchParams }: Props) {
               <p className="text-sm text-text">
                 <span className="mr-1">📝</span>
                 <strong>
-                  Tenés {sinCategorizar.length}{" "}
+                  Tienes {sinCategorizar.length}{" "}
                   {sinCategorizar.length === 1
                     ? "prenda sin categorizar"
                     : "prendas sin categorizar"}
@@ -109,8 +109,8 @@ export default async function WardrobePage({ searchParams }: Props) {
               </h1>
               <p className="mt-2 max-w-xl text-base text-text-muted">
                 {tienePrendas
-                  ? "Aquí está tu armario digital. Filtrá por categoría o subí una nueva prenda."
-                  : "Subí tus primeras 6 prendas para tu primer outfit con IA."}
+                  ? "Aquí está tu armario digital. Filtra por categoría o sube una nueva prenda."
+                  : "Sube tus primeras 6 prendas para tu primer outfit con IA."}
               </p>
             </div>
             <div className="flex gap-3">
@@ -162,11 +162,11 @@ function EmptyWardrobe() {
         </svg>
       </div>
       <h3 className="mt-4 font-display text-xl font-semibold text-text">
-        Subí 6 prendas para tu primer outfit
+        Sube 6 prendas para tu primer outfit
       </h3>
       <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
-        2 tops + 2 bottoms + 1 zapato + 1 accesorio es todo lo que necesitás.
-        ¡En 10 minutos tenés tu primer look generado por IA!
+        2 tops + 2 bottoms + 1 zapato + 1 accesorio es todo lo que necesitas.
+        ¡En 10 minutos tienes tu primer look generado por IA!
       </p>
       <div className="mt-6 flex justify-center">
         <Link href="/wardrobe/upload">

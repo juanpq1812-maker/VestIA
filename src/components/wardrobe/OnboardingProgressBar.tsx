@@ -35,7 +35,7 @@ export default function OnboardingProgressBar({ itemCount }: Props) {
           {itemCount} de {TARGET} prendas
         </span>
         <span className="text-text-muted text-xs">
-          ¡Subí {restantes} más y generá tu primer outfit!
+          ¡Sube {restantes} más y genera tu primer outfit!
         </span>
       </div>
       <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-primary-mid/30">

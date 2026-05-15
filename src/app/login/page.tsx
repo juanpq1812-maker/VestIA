@@ -53,11 +53,11 @@ export default function LoginPage() {
     <AuthShell
       eyebrow="Bienvenido de vuelta"
       brandTitle="Tu armario te está esperando."
-      brandSubtitle="Entrá a VestIA y dejá que la IA te combine outfits con la ropa que ya tenés."
+      brandSubtitle="Entra a VestIA y deja que la IA te combine outfits con la ropa que ya tienes."
     >
       <header>
         <h2 className="font-display text-3xl font-bold text-text sm:text-4xl">
-          Iniciá sesión
+          Inicia sesión
         </h2>
         <p className="mt-2 text-sm text-text-muted">
           Vuelve a tu armario digital.
@@ -104,7 +104,7 @@ export default function LoginPage() {
           href="/register"
           className="font-semibold text-primary underline-offset-4 hover:underline"
         >
-          Registráte
+          Regístrate
         </Link>
       </p>
     </AuthShell>

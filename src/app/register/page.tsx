@@ -29,7 +29,7 @@ export default function RegisterPage() {
     // pero asi le damos feedback rapido al usuario antes del request.
     const emailLimpio = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpio)) {
-      setError("Ingresá un email válido.");
+      setError("Ingresa un email válido.");
       return;
     }
     if (password.length < 6) {
@@ -59,15 +59,15 @@ export default function RegisterPage() {
   return (
     <AuthShell
       eyebrow="Crea tu cuenta"
-      brandTitle="Empezá a digitalizar tu armario."
-      brandSubtitle="Subí tus prendas, dejá que la IA te combine outfits y descubrí cuánto podés aprovechar lo que ya tenés."
+      brandTitle="Empieza a digitalizar tu armario."
+      brandSubtitle="Sube tus prendas, deja que la IA te combine outfits y descubre cuánto puedes aprovechar lo que ya tienes."
     >
       <header>
         <h2 className="font-display text-3xl font-bold text-text sm:text-4xl">
           Crea tu cuenta
         </h2>
         <p className="mt-2 text-sm text-text-muted">
-          Empezá en menos de un minuto.
+          Empieza en menos de un minuto.
         </p>
       </header>
 
@@ -91,7 +91,7 @@ export default function RegisterPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Mínimo 6 caracteres"
-          hint="Usá al menos 6 caracteres."
+          hint="Usa al menos 6 caracteres."
           error={error}
         />
 
@@ -113,7 +113,7 @@ export default function RegisterPage() {
           href="/login"
           className="font-semibold text-primary underline-offset-4 hover:underline"
         >
-          Iniciá sesión
+          Inicia sesión
         </Link>
       </p>
     </AuthShell>

@@ -10,18 +10,18 @@ import Button from "@/components/ui/Button";
 const features = [
   {
     emoji: "📸",
-    titulo: "Catalogá tu armario",
-    descripcion: "Subí fotos de tu ropa y armá tu armario digital en minutos.",
+    titulo: "Cataloga tu armario",
+    descripcion: "Sube fotos de tu ropa y arma tu armario digital en minutos.",
   },
   {
     emoji: "✨",
-    titulo: "Generá outfits con IA",
-    descripcion: "Combinaciones inteligentes con lo que ya tenés.",
+    titulo: "Genera outfits con IA",
+    descripcion: "Combinaciones inteligentes con lo que ya tienes.",
   },
   {
     emoji: "🌱",
-    titulo: "Medí tu impacto",
-    descripcion: "Visualizá cuánto CO₂ evitás reusando tu ropa.",
+    titulo: "Mide tu impacto",
+    descripcion: "Visualiza cuánto CO₂ evitas reusando tu ropa.",
   },
 ];
 
@@ -90,8 +90,8 @@ export default function LandingContent() {
               </h1>
 
               <p className="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg lg:mx-0 mx-auto">
-                Generá outfits con la ropa que ya tenés. Reducí el impacto de
-                tu armario, descubrí prendas olvidadas y vestite con
+                Genera outfits con la ropa que ya tienes. Reduce el impacto de
+                tu armario, descubre prendas olvidadas y vístete con
                 conciencia.
               </p>
 
@@ -173,7 +173,7 @@ export default function LandingContent() {
         <Container size="lg" className="py-16 sm:py-20">
           <div className="text-center">
             <p className="text-xs font-bold uppercase tracking-widest text-primary">
-              Qué hacés con VestIA
+              Qué haces con VestIA
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold text-text sm:text-4xl">
               Tu armario, ahora inteligente
@@ -210,7 +210,7 @@ export default function LandingContent() {
         <Container size="md" className="py-14 sm:py-20 text-center">
           <p className="font-display text-2xl font-bold leading-snug text-text sm:text-3xl">
             &ldquo;Cada año, la industria textil genera 92 millones de toneladas
-            de residuos. VestIA te ayuda a usar lo que ya tenés, una prenda a la
+            de residuos. VestIA te ayuda a usar lo que ya tienes, una prenda a la
             vez.&rdquo;
           </p>
           <p className="mt-4 text-xs text-text-faint">
@@ -226,7 +226,7 @@ export default function LandingContent() {
             ¿Listo para conocer tu armario?
           </h2>
           <p className="mx-auto mt-4 max-w-md text-base text-text-muted">
-            Empezá hoy y descubrí todo lo que podés armar con lo que ya tenés.
+            Empieza hoy y descubre todo lo que puedes armar con lo que ya tienes.
           </p>
           <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link href="/register" className="w-full sm:w-auto">
