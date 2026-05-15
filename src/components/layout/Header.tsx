@@ -79,7 +79,7 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
             alt="VestIA"
             width={120}
             height={36}
-            className="block md:hidden h-12 w-auto""
+            className="block md:hidden h-12 w-auto"
             priority
           />
           {/* Desktop */}
