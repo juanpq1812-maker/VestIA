@@ -73,9 +73,9 @@ export const ITEM_OCCASIONS: readonly string[] = [
 // ---------------------------------------------------------------------------
 // Limites de la imagen subida.
 // ---------------------------------------------------------------------------
-export const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_COMPRESSED_BYTES = 2 * 1024 * 1024; // 2 MB — validación post-compresión
 export const COMPRESS_MAX_WIDTH_OR_HEIGHT = 1200;
-export const COMPRESS_QUALITY = 0.85;
+export const COMPRESS_QUALITY = 0.8;
 export const ALLOWED_MIME_TYPES = [
   "image/jpeg",
   "image/png",

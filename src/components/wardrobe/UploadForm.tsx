@@ -32,7 +32,7 @@ import {
   COMPRESS_MAX_WIDTH_OR_HEIGHT,
   COMPRESS_QUALITY,
   ITEM_OCCASIONS,
-  MAX_FILE_BYTES,
+  MAX_COMPRESSED_BYTES,
   NAME_MAX_LENGTH,
   SUBCATEGORIES,
 } from "@/lib/wardrobe/constants";
@@ -193,13 +193,6 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
       }));
       return;
     }
-    if (selected.size > MAX_FILE_BYTES) {
-      setFieldErrors((prev) => ({
-        ...prev,
-        image: `La imagen pesa ${bytesToReadable(selected.size)}. El máximo permitido es 5 MB.`,
-      }));
-      return;
-    }
 
     clearFieldError("image");
     if (preview) URL.revokeObjectURL(preview);
@@ -259,14 +252,21 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
       let comprimido: File;
       try {
         comprimido = await imageCompression(file, {
-          maxSizeMB: 5,
+          maxSizeMB: 1,
           maxWidthOrHeight: COMPRESS_MAX_WIDTH_OR_HEIGHT,
-          initialQuality: COMPRESS_QUALITY,
           useWebWorker: true,
-          fileType: file.type,
+          fileType: "image/webp",
+          initialQuality: COMPRESS_QUALITY,
         });
       } catch {
         setGeneralError("No pudimos procesar la imagen. Prueba con otra foto.");
+        return;
+      }
+
+      if (comprimido.size > MAX_COMPRESSED_BYTES) {
+        setGeneralError(
+          `La imagen comprimida pesa ${bytesToReadable(comprimido.size)}. Prueba con una foto de menor resolución.`
+        );
         return;
       }
 
@@ -631,11 +631,11 @@ function BulkUploadSection() {
             let comprimido: File;
             try {
               comprimido = await imageCompression(file, {
-                maxSizeMB: 5,
+                maxSizeMB: 1,
                 maxWidthOrHeight: COMPRESS_MAX_WIDTH_OR_HEIGHT,
-                initialQuality: COMPRESS_QUALITY,
                 useWebWorker: true,
-                fileType: file.type.startsWith("image/") ? file.type : "image/jpeg",
+                fileType: "image/webp",
+                initialQuality: COMPRESS_QUALITY,
               });
             } catch {
               comprimido = file; // Si falla la compresión, subir original
