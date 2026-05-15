@@ -73,22 +73,22 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
           className="flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           aria-label="Ir al inicio"
         >
-          {/* Mobile: sólo el ícono */}
-          <Image
-            src="/logo-mark.png"
-            alt="VestIA"
-            width={32}
-            height={32}
-            className="block md:hidden h-8 w-auto"
-            priority
-          />
-          {/* Desktop: logo completo con texto */}
+          {/* Mobile */}
           <Image
             src="/logo-vestia.png"
             alt="VestIA"
             width={120}
             height={36}
-            className="hidden md:block h-9 w-auto"
+            className="block md:hidden h-8 w-auto"
+            priority
+          />
+          {/* Desktop */}
+          <Image
+            src="/logo-vestia.png"
+            alt="VestIA"
+            width={120}
+            height={36}
+            className="hidden md:block h-10 w-auto"
             priority
           />
         </Link>

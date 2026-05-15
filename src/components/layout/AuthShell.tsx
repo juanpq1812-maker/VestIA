@@ -5,10 +5,9 @@
 // formulario a la derecha. Da una sensacion de app cuidada en pantallas grandes
 // sin sacrificar la simplicidad en mobile.
 
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import Logo from "@/components/ui/Logo";
-import Wordmark from "@/components/ui/Wordmark";
 
 type Props = {
   /** Eyebrow corto sobre el titulo (ej: "Bienvenido de vuelta"). */
@@ -52,8 +51,14 @@ export default function AuthShell({
             className="inline-flex items-center gap-2 self-start rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
             aria-label="Ir al inicio"
           >
-            <Logo size={32} tone="inverse" />
-            <Wordmark className="text-xl" tone="inverse" />
+            <Image
+              src="/logo-vestia.png"
+              alt="VestIA"
+              width={120}
+              height={36}
+              className="h-9 w-auto"
+              priority
+            />
           </Link>
 
           {/* En mobile el panel se ve corto: solo logo + tagline minimo. */}
