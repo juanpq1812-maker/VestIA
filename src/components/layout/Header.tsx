@@ -79,7 +79,7 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
             alt="VestIA"
             width={120}
             height={36}
-            className="block md:hidden h-8 w-auto"
+            className="block md:hidden h-12 w-auto""
             priority
           />
           {/* Desktop */}
@@ -88,7 +88,7 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
             alt="VestIA"
             width={120}
             height={36}
-            className="hidden md:block h-10 w-auto"
+            className="hidden md:block h-14 w-auto"
             priority
           />
         </Link>
