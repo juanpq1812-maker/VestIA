@@ -49,6 +49,7 @@ export async function callAnthropicApi(args: {
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
+    cache: "no-store",
     headers: {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
@@ -64,7 +65,17 @@ export async function callAnthropicApi(args: {
   });
 
   if (!response.ok) {
-    const errBody = await response.json().catch(() => ({} as AnthropicApiResponse));
+    const rawErrorText = await response.text().catch(() => "");
+    let errBody: AnthropicApiResponse = {} as AnthropicApiResponse;
+    try {
+      errBody = JSON.parse(rawErrorText);
+    } catch {
+      // body no es JSON válido — lo logueamos igual
+    }
+    console.error(
+      `[callAnthropicApi] HTTP ${response.status} desde Anthropic API`,
+      { status: response.status, body: rawErrorText }
+    );
     const httpError = new Error(
       errBody?.error?.message ?? `HTTP ${response.status}`
     );
