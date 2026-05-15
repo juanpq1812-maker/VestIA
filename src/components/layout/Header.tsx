@@ -5,10 +5,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import Logo from "@/components/ui/Logo";
-import Wordmark from "@/components/ui/Wordmark";
 import LogoutButton from "@/components/auth/LogoutButton";
 
 type LinkNav = {
@@ -71,11 +70,27 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+          className="flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           aria-label="Ir al inicio"
         >
-          <Logo size={32} />
-          <Wordmark className="text-lg sm:text-xl" />
+          {/* Mobile: sólo el ícono */}
+          <Image
+            src="/logo-mark.png"
+            alt="VestIA"
+            width={32}
+            height={32}
+            className="block md:hidden h-8 w-auto"
+            priority
+          />
+          {/* Desktop: logo completo con texto */}
+          <Image
+            src="/logo-vestia.png"
+            alt="VestIA"
+            width={120}
+            height={36}
+            className="hidden md:block h-9 w-auto"
+            priority
+          />
         </Link>
 
         {/* Nav desktop */}

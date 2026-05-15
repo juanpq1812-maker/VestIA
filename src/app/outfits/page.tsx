@@ -29,6 +29,11 @@ export default async function OutfitsPage() {
 
   const totalItems = itemsCount ?? 0;
 
+  const { count: savedOutfitsCount } = await supabase
+    .from("outfits")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user?.id ?? "");
+
   return (
     <div className="flex flex-1 flex-col">
       <Header email={user?.email} displayName={profile?.display_name} />
@@ -47,7 +52,7 @@ export default async function OutfitsPage() {
           </header>
 
           <div className="mt-10">
-            <OutfitGenerator totalItems={totalItems} />
+            <OutfitGenerator totalItems={totalItems} savedOutfitsCount={savedOutfitsCount ?? 0} />
           </div>
         </Container>
       </main>

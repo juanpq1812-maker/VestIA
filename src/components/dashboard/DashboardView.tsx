@@ -260,7 +260,7 @@ function DashboardConDatos({
                   <div
                     className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border bg-surface-2"
                     style={{
-                      backgroundColor: item.primary_color ?? "#F3F0FF",
+                      backgroundColor: item.primary_color ?? "#E8EFE7",
                     }}
                   >
                     {item.image_url ? (
@@ -347,7 +347,7 @@ function MiniImagen({
   return (
     <div
       className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border"
-      style={{ backgroundColor: color ?? "#F3F0FF" }}
+      style={{ backgroundColor: color ?? "#E8EFE7" }}
     >
       {imageUrl ? (
         <LazyImage

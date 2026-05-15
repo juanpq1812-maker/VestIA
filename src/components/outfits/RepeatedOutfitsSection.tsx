@@ -94,7 +94,7 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
                 <div
                   className="relative aspect-square w-full overflow-hidden"
                   style={{
-                    backgroundColor: o.cover?.primary_color ?? "#c4b5fd",
+                    backgroundColor: o.cover?.primary_color ?? "#E8EFE7",
                   }}
                 >
                   {o.cover?.image_url ? (

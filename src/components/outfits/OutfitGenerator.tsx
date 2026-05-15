@@ -53,9 +53,11 @@ type Tab = "occasion" | "description" | "surprise";
 type Props = {
   /** Cantidad total de prendas en el armario. Si <2 el componente no renderiza el generador. */
   totalItems: number;
+  /** Outfits guardados del usuario. Se muestra un acceso rápido si > 0. */
+  savedOutfitsCount?: number;
 };
 
-export default function OutfitGenerator({ totalItems }: Props) {
+export default function OutfitGenerator({ totalItems, savedOutfitsCount = 0 }: Props) {
   const [tab, setTab] = useState<Tab>("occasion");
   const [occasion, setOccasion] = useState<string>(OCASIONES[1]); // "Casual"
   const [description, setDescription] = useState<string>("");
@@ -106,6 +108,9 @@ export default function OutfitGenerator({ totalItems }: Props) {
 
   return (
     <div className="space-y-10">
+      {savedOutfitsCount > 0 && (
+        <SavedOutfitsBanner count={savedOutfitsCount} />
+      )}
       <ModeSelector tab={tab} setTab={setTab} />
 
       <section className="rounded-xl border border-border bg-surface p-6 shadow-sm sm:p-8">
@@ -580,7 +585,7 @@ function OutfitCard({
 }
 
 function ItemThumb({ item }: { item: ClothingItem }) {
-  const fallback = item.primary_color ?? "#c4b5fd";
+  const fallback = item.primary_color ?? "#E8EFE7";
   return (
     <div
       className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border"
@@ -597,6 +602,30 @@ function ItemThumb({ item }: { item: ClothingItem }) {
         />
       ) : null}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Banner de acceso rápido a outfits guardados.
+// ---------------------------------------------------------------------------
+
+function SavedOutfitsBanner({ count }: { count: number }) {
+  return (
+    <Link
+      href="/outfits/saved"
+      className="flex items-center justify-between gap-4 rounded-xl border border-primary bg-primary-light px-5 py-4 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+    >
+      <div className="flex items-center gap-3">
+        <span aria-hidden="true" className="text-2xl">👗</span>
+        <div>
+          <p className="font-semibold text-text">Ver mis outfits guardados</p>
+          <p className="text-xs text-text-muted">
+            {count === 1 ? "Tenés 1 outfit guardado" : `Tenés ${count} outfits guardados`}
+          </p>
+        </div>
+      </div>
+      <span aria-hidden="true" className="text-text-muted text-lg">→</span>
+    </Link>
   );
 }
 
