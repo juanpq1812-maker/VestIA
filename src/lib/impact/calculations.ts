@@ -1,4 +1,4 @@
-// Calculos de impacto ambiental de VestIA.
+// Calculos de impacto ambiental de StrandIA.
 //
 // Toda la matematica vive aqui (puro, sin acceso a base de datos) para que
 // sea trivial de testear y reutilizar entre la pantalla actual y futuras
@@ -8,7 +8,7 @@
 // - Producir una prenda nueva implica ~8.5 kg CO2 y ~2.500 L de agua.
 // - Un árbol adulto absorbe ~22 kg CO2 al año.
 //
-// La metrica base de VestIA es `usos_unicos`: cuantas filas tiene el usuario
+// La metrica base de StrandIA es `usos_unicos`: cuantas filas tiene el usuario
 // en la tabla `outfit_uses`. Es decir, cuantas veces de verdad uso un outfit
 // armado con su armario en lugar de comprar ropa nueva.
 

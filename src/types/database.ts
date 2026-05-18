@@ -1,4 +1,4 @@
-// Tipos de la base de datos de VestIA.
+// Tipos de la base de datos de StrandIA.
 //
 // Estos tipos imitan el formato que genera `supabase gen types typescript`.
 // Si en el futuro instalas la CLI de Supabase, puedes regenerarlos con:

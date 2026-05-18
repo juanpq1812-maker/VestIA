@@ -1,4 +1,4 @@
-// Logo SVG de VestIA. Lo usamos en el header, en la landing y en pantallas
+// Logo SVG de StrandIA. Lo usamos en el header, en la landing y en pantallas
 // de carga. El "tone" controla los colores: 'default' usa la marca violeta,
 // 'inverse' usa blanco para superficies oscuras o gradientes.
 
@@ -13,7 +13,7 @@ export default function Logo({
   size = 40,
   tone = "default",
   className,
-  title = "VestIA",
+  title = "StrandIA",
 }: Props) {
   const principal = tone === "inverse" ? "#ffffff" : "var(--color-primary)";
   const secundario =

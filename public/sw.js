@@ -1,7 +1,7 @@
-// Service Worker de VestIA — estrategia Network First, Cache Fallback.
+// Service Worker de StrandIA — estrategia Network First, Cache Fallback.
 // Se instala automáticamente desde layout.tsx.
 
-const CACHE_NAME = "vestia-v1";
+const CACHE_NAME = "strandia-v1";
 
 // Assets estáticos que cacheamos al instalar
 const PRECACHE_URLS = [

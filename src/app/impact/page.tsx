@@ -1,4 +1,4 @@
-// /impact — pantalla de impacto ambiental de VestIA.
+// /impact — pantalla de impacto ambiental de StrandIA.
 //
 // Server Component: hacemos UNA sola query con HEAD + count exacto sobre
 // `outfit_uses` para saber cuántos usos reales tiene el usuario. Esa cifra

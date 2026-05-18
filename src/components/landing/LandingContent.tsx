@@ -1,4 +1,4 @@
-// Landing pública de VestIA. Extracted from app/page.tsx para que la raíz
+// Landing pública de StrandIA. Extracted from app/page.tsx para que la raíz
 // pueda alternar entre landing (sin sesión) y dashboard (con sesión).
 
 import Link from "next/link";
@@ -168,12 +168,12 @@ export default function LandingContent() {
         </Container>
       </section>
 
-      {/* ── QUÉ HACÉS CON VESTIA ─────────────────────────────────────────── */}
+      {/* ── QUÉ HACÉS CON STRANDIA ─────────────────────────────────────────── */}
       <section className="border-t border-divider bg-surface">
         <Container size="lg" className="py-16 sm:py-20">
           <div className="text-center">
             <p className="text-xs font-bold uppercase tracking-widest text-primary">
-              Qué haces con VestIA
+              Qué haces con StrandIA
             </p>
             <h2 className="mt-3 font-display text-3xl font-bold text-text sm:text-4xl">
               Tu armario, ahora inteligente
@@ -205,12 +205,12 @@ export default function LandingContent() {
         </Container>
       </section>
 
-      {/* ── POR QUÉ VESTIA ───────────────────────────────────────────────── */}
+      {/* ── POR QUÉ STRANDIA ───────────────────────────────────────────────── */}
       <section className="border-t border-divider bg-primary-light">
         <Container size="md" className="py-14 sm:py-20 text-center">
           <p className="font-display text-2xl font-bold leading-snug text-text sm:text-3xl">
             &ldquo;Cada año, la industria textil genera 92 millones de toneladas
-            de residuos. VestIA te ayuda a usar lo que ya tienes, una prenda a la
+            de residuos. StrandIA te ayuda a usar lo que ya tienes, una prenda a la
             vez.&rdquo;
           </p>
           <p className="mt-4 text-xs text-text-faint">
@@ -249,7 +249,7 @@ export default function LandingContent() {
           size="lg"
           className="py-8 text-center text-xs text-text-muted"
         >
-          VestIA — Proyecto de grado · Juan Pablo · Universidad Sergio Arboleda
+          StrandIA — Proyecto de grado · Juan Pablo · Universidad Sergio Arboleda
         </Container>
       </footer>
     </main>

@@ -53,7 +53,7 @@ export default function LoginPage() {
     <AuthShell
       eyebrow="Bienvenido de vuelta"
       brandTitle="Tu armario te está esperando."
-      brandSubtitle="Entra a VestIA y deja que la IA te combine outfits con la ropa que ya tienes."
+      brandSubtitle="Entra a StrandIA y deja que la IA te combine outfits con la ropa que ya tienes."
     >
       <header>
         <h2 className="font-display text-3xl font-bold text-text sm:text-4xl">

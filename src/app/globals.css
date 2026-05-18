@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /*
-  Tokens del sistema de diseno de VestIA.
+  Tokens del sistema de diseno de StrandIA.
   Inspirados en `prototipo-original.html`. Aqui defines colores, tipografias,
   bordes y sombras una sola vez. Si quieres cambiar la paleta, cambia los valores
   de `:root` y todo el resto de la app se actualiza.
@@ -21,7 +21,7 @@
   --color-text-faint: #b8b8a8;
   --color-text-inverse: #FDFAF7;
 
-  /* Marca (sage VestIA) */
+  /* Marca (sage StrandIA) */
   --color-primary: #8B9E8A;
   --color-primary-hover: #6B7F6A;
   --color-primary-active: #5a6e59;

@@ -1,4 +1,4 @@
-// Boton reutilizable de VestIA.
+// Boton reutilizable de StrandIA.
 //
 // Variantes:
 //   - primary: fondo violeta, para la accion principal de la pantalla.
