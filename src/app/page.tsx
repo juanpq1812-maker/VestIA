@@ -1,4 +1,4 @@
-// Raíz de VestIA (/).
+// Raíz de StrandIA (/).
 //
 // Sin sesión → Landing pública (estática, sin DB).
 // Con sesión → Dashboard personalizado (Server Component con queries en paralelo).
@@ -12,9 +12,9 @@ import DashboardView from "@/components/dashboard/DashboardView";
 import LandingContent from "@/components/landing/LandingContent";
 
 export const metadata: Metadata = {
-  title: "VestIA — Tu armario digital con IA",
+  title: "StrandIA — Tu armario digital con IA",
   description:
-    "Genera outfits con la ropa que ya tienes. Reduce el impacto de tu armario, descubre prendas olvidadas y vístete con conciencia.",
+    "Genera outfits con la ropa que ya tienes. StrandIA combina inteligencia artificial con tu armario para ayudarte a vestir mejor y comprar de forma más inteligente.",
 };
 
 export default async function RootPage() {

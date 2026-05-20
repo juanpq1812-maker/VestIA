@@ -10,7 +10,7 @@ export default function Wordmark({ className, tone = "default" }: Props) {
   const color = tone === "inverse" ? "text-white" : "text-text";
   return (
     <span className={`font-display font-bold ${color} ${className ?? ""}`}>
-      Vest<span className="italic">IA</span>
+      Strand<span className="italic">IA</span>
     </span>
   );
 }

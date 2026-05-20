@@ -52,11 +52,11 @@ export default function AuthShell({
             aria-label="Ir al inicio"
           >
             <Image
-              src="/logo-vestia.png"
-              alt="VestIA"
-              width={120}
-              height={36}
-              className="h-9 w-auto"
+              src="/logo-strandia.png"
+              alt="StrandIA"
+              width={160}
+              height={48}
+              className="h-12 w-auto"
               priority
             />
           </Link>

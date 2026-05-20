@@ -21,7 +21,7 @@ export default function IOSInstallBanner() {
     // Solo mostrar en iOS Safari, no instalada, y si el usuario no la cerró antes
     if (isIOS && !isStandalone) {
       try {
-        const yaVisto = localStorage.getItem("vestia_pwa_banner_dismissed");
+        const yaVisto = localStorage.getItem("strandia_pwa_banner_dismissed");
         if (!yaVisto) setVisible(true);
       } catch {
         // localStorage puede no estar disponible en modo privado
@@ -32,7 +32,7 @@ export default function IOSInstallBanner() {
   function cerrar() {
     setVisible(false);
     try {
-      localStorage.setItem("vestia_pwa_banner_dismissed", "1");
+      localStorage.setItem("strandia_pwa_banner_dismissed", "1");
     } catch {
       // silencioso
     }
@@ -52,7 +52,7 @@ export default function IOSInstallBanner() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-text">
-            Instala VestIA en tu iPhone
+            Instala StrandIA en tu iPhone
           </p>
           <p className="mt-0.5 text-xs text-text-muted">
             Toca{" "}

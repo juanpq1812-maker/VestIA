@@ -1,4 +1,4 @@
-// Tipos compartidos del MVP de VestIA.
+// Tipos compartidos del MVP de StrandIA.
 // Iremos completando estos tipos a medida que conectemos Supabase y la API de Anthropic.
 
 import type { User } from "@supabase/supabase-js";

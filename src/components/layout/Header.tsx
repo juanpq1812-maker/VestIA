@@ -75,20 +75,20 @@ export default function Header({ email, displayName, hideNav = false }: Props) {
         >
           {/* Mobile */}
           <Image
-            src="/logo-vestia.png"
-            alt="VestIA"
-            width={120}
-            height={36}
-            className="block md:hidden h-12 w-auto"
+            src="/logo-mark-strandia.png"
+            alt="StrandIA"
+            width={40}
+            height={40}
+            className="block md:hidden h-10 w-auto"
             priority
           />
           {/* Desktop */}
           <Image
-            src="/logo-vestia.png"
-            alt="VestIA"
-            width={120}
-            height={36}
-            className="hidden md:block h-14 w-auto"
+            src="/logo-strandia.png"
+            alt="StrandIA"
+            width={160}
+            height={48}
+            className="hidden md:block h-12 w-auto"
             priority
           />
         </Link>

@@ -1,4 +1,4 @@
-// Cliente de IA para VestIA, usando la API oficial de Anthropic.
+// Cliente de IA para StrandIA, usando la API oficial de Anthropic.
 //
 // IMPORTANTE: este archivo NO se debe importar desde Client Components. La API
 // key (`ANTHROPIC_API_KEY`) es secreta y vive solo del lado del servidor. Si

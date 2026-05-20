@@ -18,14 +18,15 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "VestIA — Tu armario digital con IA",
+  title: "StrandIA — Tu armario digital con IA",
   description:
-    "Armario digital que genera outfits con IA y mide el impacto sostenible de tu ropa.",
+    "Genera outfits con la ropa que ya tienes. StrandIA combina inteligencia artificial con tu armario para ayudarte a vestir mejor y comprar de forma más inteligente.",
+  keywords: ["armario digital", "outfits IA", "moda inteligente", "StrandIA"],
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "VestIA",
+    title: "StrandIA",
   },
   other: {
     "mobile-web-app-capable": "yes",
