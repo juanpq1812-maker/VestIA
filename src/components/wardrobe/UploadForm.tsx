@@ -1,12 +1,11 @@
 // Formulario para subir prenda(s) al armario.
 //
-// Tres modos de subida:
-//   1. single-camera  → input con capture="environment" (abre cámara en mobile)
-//   2. single-gallery → input sin capture (abre galería del carrete)
-//   3. bulk           → input con multiple (varias fotos a la vez, máx 10)
+// Dos modos de subida:
+//   1. single → input sin capture (Android muestra menú cámara/galería automáticamente)
+//   2. bulk   → input con multiple (varias fotos a la vez, máx 10)
 //
-// El flujo de subida individual (modos 1 y 2) analiza la foto automáticamente
-// con Claude Vision y pre-llena los campos del formulario.
+// El flujo de subida individual analiza la foto automáticamente con Claude Vision
+// y pre-llena los campos del formulario.
 //
 // El flujo bulk crea prendas con subcategory=null y category="top" como
 // defaults; el usuario las categoriza después desde el banner en /wardrobe.
@@ -53,7 +52,7 @@ import {
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-type UploadMode = "single-camera" | "single-gallery" | "bulk";
+type UploadMode = "single" | "bulk";
 
 type FieldErrors = {
   image?: string;
@@ -264,11 +263,12 @@ function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-// Disable eyedropper on viewports narrower than 768 px (mobile).
-// Desktop and tablet keep full eyedropper support.
+// Eyedropper is available on all devices. Without capture="environment" the
+// browser passes a pre-processed blob that is safe for Canvas operations.
+// The try/catch in handleEyedropperPointer silently hides the button if a
+// device unexpectedly fails.
 function canUseEyedropper(): boolean {
-  if (typeof window === "undefined") return true;
-  return window.innerWidth >= 768;
+  return true;
 }
 
 function bytesToReadable(bytes: number): string {
@@ -284,7 +284,7 @@ const BULK_CONCURRENCY = 3;
 
 export default function UploadForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<UploadMode>("single-camera");
+  const [mode, setMode] = useState<UploadMode>("single");
 
   return (
     <div className="flex flex-col gap-6">
@@ -295,16 +295,10 @@ export default function UploadForm() {
         </h2>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <ModeButton
-            icon="📸"
-            label="Tomar foto"
-            active={mode === "single-camera"}
-            onClick={() => setMode("single-camera")}
-          />
-          <ModeButton
-            icon="🖼️"
-            label="Elegir de galería"
-            active={mode === "single-gallery"}
-            onClick={() => setMode("single-gallery")}
+            icon="📷"
+            label="Subir prenda"
+            active={mode === "single"}
+            onClick={() => setMode("single")}
           />
           <ModeButton
             icon="🖼️🖼️"
@@ -318,7 +312,7 @@ export default function UploadForm() {
       {mode === "bulk" ? (
         <BulkUploadSection />
       ) : (
-        <SingleUploadForm mode={mode} />
+        <SingleUploadForm />
       )}
     </div>
   );
@@ -356,7 +350,7 @@ function ModeButton({
 
 // ── Subida individual ─────────────────────────────────────────────────────────
 
-function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }) {
+function SingleUploadForm() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
@@ -502,17 +496,14 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     setPreview(URL.createObjectURL(workingFile));
 
     // Paso 2: versión reducida (máx 800×800) para el eyedropper (canvas 1×1).
-    // Solo en desktop/tablet — en móvil el eyedropper está desactivado.
-    if (eyedropperEnabled) {
-      imageCompression(workingFile, {
-        maxWidthOrHeight: 800,
-        useWebWorker: true,
-        fileType: "image/jpeg",
-        initialQuality: 0.85,
-      })
-        .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
-        .catch(() => setEyedropperSrc(URL.createObjectURL(workingFile)));
-    }
+    imageCompression(workingFile, {
+      maxWidthOrHeight: 800,
+      useWebWorker: true,
+      fileType: "image/jpeg",
+      initialQuality: 0.85,
+    })
+      .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
+      .catch(() => setEyedropperSrc(URL.createObjectURL(workingFile)));
 
     // Paso 3: análisis IA con la imagen ya reducida.
     analyzeImage(workingFile);
@@ -719,22 +710,17 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
             </div>
             <div>
               <p className="text-sm font-semibold text-text">
-                {mode === "single-camera"
-                  ? "Toca para tomar una foto"
-                  : "Toca para elegir una foto de tu galería"}
+                Toca para elegir o tomar una foto
               </p>
               <p className="mt-1 text-xs text-text-muted">
-                {mode === "single-camera"
-                  ? "Abre la cámara directamente."
-                  : "Selecciona una foto de tu carrete."}
+                Selecciona desde tu galería o toma una foto nueva.
               </p>
             </div>
             <input
               ref={fileInputRef}
               id="clothing-photo"
               type="file"
-              accept={ALLOWED_MIME_TYPES.join(",")}
-              {...(mode === "single-camera" ? { capture: "environment" } : {})}
+              accept="image/*"
               className="sr-only"
               onChange={handleFileChange}
             />
@@ -937,7 +923,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
                   Elige el color que más predomina en la prenda.
                 </p>
               </div>
-              {preview && !eyedropperActive && eyedropperEnabled && !eyedropperError ? (
+              {preview && !eyedropperActive && !eyedropperError ? (
                 <button
                   type="button"
                   onClick={handleActivateEyedropper}
@@ -984,14 +970,6 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
                 );
               })}
             </div>
-            {eyedropperError ? (
-              <p
-                role="alert"
-                className="mt-3 rounded-md bg-warning-light px-3 py-2 text-sm font-medium text-warning"
-              >
-                Tu dispositivo no soporta esta función. El color fue detectado por IA automáticamente.
-              </p>
-            ) : null}
             {fieldErrors.color ? (
               <p
                 role="alert"
