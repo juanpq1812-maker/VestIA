@@ -55,9 +55,18 @@ type Props = {
   totalItems: number;
   /** Outfits guardados del usuario. Se muestra un acceso rápido si > 0. */
   savedOutfitsCount?: number;
+  /** ID de la prenda que la IA debe incluir obligatoriamente en todos los outfits. */
+  lockedItemId?: string | null;
+  /** Nombre de la prenda bloqueada para mostrar en el badge. */
+  lockedItemName?: string | null;
 };
 
-export default function OutfitGenerator({ totalItems, savedOutfitsCount = 0 }: Props) {
+export default function OutfitGenerator({
+  totalItems,
+  savedOutfitsCount = 0,
+  lockedItemId,
+  lockedItemName,
+}: Props) {
   const [tab, setTab] = useState<Tab>("occasion");
   const [occasion, setOccasion] = useState<string>(OCASIONES[1]); // "Casual"
   const [description, setDescription] = useState<string>("");
@@ -67,6 +76,8 @@ export default function OutfitGenerator({ totalItems, savedOutfitsCount = 0 }: P
   const [error, setError] = useState<string | null>(null);
   const [lastInput, setLastInput] = useState<GenerateActionInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
+
+  const tieneLockedItem = Boolean(lockedItemId);
 
   if (totalItems < 2) {
     return <EmptyWardrobeCallout />;
@@ -87,17 +98,18 @@ export default function OutfitGenerator({ totalItems, savedOutfitsCount = 0 }: P
   }
 
   function onGenerar() {
+    const locked = lockedItemId ?? undefined;
     if (tab === "occasion") {
-      dispararGeneracion({ mode: "occasion", occasion });
+      dispararGeneracion({ mode: "occasion", occasion, lockedItemId: locked });
     } else if (tab === "description") {
       const trimmed = description.trim();
       if (trimmed.length === 0) {
         setError("Escribe una descripción antes de generar.");
         return;
       }
-      dispararGeneracion({ mode: "description", description: trimmed });
+      dispararGeneracion({ mode: "description", description: trimmed, lockedItemId: locked });
     } else {
-      dispararGeneracion({ mode: "surprise" });
+      dispararGeneracion({ mode: "surprise", lockedItemId: locked });
     }
   }
 
@@ -108,7 +120,10 @@ export default function OutfitGenerator({ totalItems, savedOutfitsCount = 0 }: P
 
   return (
     <div className="space-y-10">
-      {savedOutfitsCount > 0 && (
+      {tieneLockedItem && (
+        <LockedGarmentBanner itemName={lockedItemName} onGenerar={onGenerar} isPending={isPending} />
+      )}
+      {!tieneLockedItem && savedOutfitsCount > 0 && (
         <SavedOutfitsBanner count={savedOutfitsCount} />
       )}
       <ModeSelector tab={tab} setTab={setTab} />
@@ -601,6 +616,54 @@ function ItemThumb({ item }: { item: ClothingItem }) {
           loading="lazy"
         />
       ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Banner cuando viene una prenda pre-seleccionada desde el armario.
+// ---------------------------------------------------------------------------
+
+function LockedGarmentBanner({
+  itemName,
+  onGenerar,
+  isPending,
+}: {
+  itemName?: string | null;
+  onGenerar: () => void;
+  isPending: boolean;
+}) {
+  const nombre = itemName?.trim() || "esta prenda";
+
+  // Auto-dispara la generacion la primera vez que se monta el banner.
+  useEffect(() => {
+    onGenerar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-primary bg-primary-light px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-3">
+        <span aria-hidden="true" className="text-2xl">✨</span>
+        <div>
+          <p className="font-semibold text-text">
+            Basado en:{" "}
+            <span className="text-primary">{nombre}</span>
+          </p>
+          <p className="text-xs text-text-muted">
+            La IA incluirá esta prenda en todos los outfits generados.
+          </p>
+        </div>
+      </div>
+      <Button
+        variant="primary"
+        size="md"
+        onClick={onGenerar}
+        isLoading={isPending}
+        loadingText="Generando..."
+      >
+        🔄 Regenerar
+      </Button>
     </div>
   );
 }

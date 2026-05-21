@@ -30,6 +30,8 @@ export type GenerateOutfitsInput = {
   occasion?: string;
   /** Solo se usa cuando mode === "description". Limite blando: 200 chars. */
   description?: string;
+  /** ID de la prenda que DEBE aparecer en todos los outfits generados. */
+  lockedItemId?: string;
 };
 
 /** Codigos de error que la UI puede traducir a mensajes amigables. */
@@ -122,6 +124,7 @@ export async function generateOutfits(
     mode: input.mode,
     occasion: input.occasion,
     description: input.description,
+    lockedItemId: input.lockedItemId,
   });
 
   const rawJson = await callAiModel(prompt);
@@ -184,8 +187,9 @@ function buildPrompt(args: {
   mode: GenerateMode;
   occasion?: string;
   description?: string;
+  lockedItemId?: string;
 }): string {
-  const { items, prefs, mode, occasion, description } = args;
+  const { items, prefs, mode, occasion, description, lockedItemId } = args;
 
   // Listamos las prendas en formato compacto: ID + categoria/subcategoria +
   // color + ocasiones. Suficiente para que la IA combine sin pasarnos del
@@ -223,8 +227,13 @@ function buildPrompt(args: {
     instruccionDeOcasion = `Modo "sorprendeme": elige libremente. Combina prendas de forma creativa pero usable, mezclando colores que armonicen.`;
   }
 
+  const reglaLockedItem = lockedItemId
+    ? `REGLA OBLIGATORIA: CADA outfit generado DEBE incluir la prenda con id="${lockedItemId}". Esta regla no es negociable ni opcional; es un requisito estricto.`
+    : "";
+
   return [
     `Eres un estilista personal. Tu tarea es proponer EXACTAMENTE 2 outfits distintos combinando SOLO prendas del armario del usuario que se lista más abajo.`,
+    ...(reglaLockedItem ? [reglaLockedItem, ``] : []),
     ``,
     `Reglas de composición (importantes):`,
     `- Cada outfit debe incluir entre 3 y 6 prendas en total.`,

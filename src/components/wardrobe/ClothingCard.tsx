@@ -5,6 +5,7 @@
 // Es un componente "tonto": recibe los datos por props y los renderiza. La
 // pagina del armario es la que decide si usarlo (mobile: 2 cols, desktop: 3-4).
 
+import Link from "next/link";
 import type { ClothingCategory, ClothingItem } from "@/types/database";
 import LazyImage from "@/components/ui/LazyImage";
 
@@ -80,6 +81,13 @@ export default function ClothingCard({ item }: Props) {
             {item.subcategory}
           </p>
         ) : null}
+
+        <Link
+          href={`/outfits?prenda=${item.id}&nombre=${encodeURIComponent(titulo)}`}
+          className="mt-3 block w-full rounded-lg bg-primary-light px-3 py-2 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          ✨ Crear outfit con esta prenda
+        </Link>
       </div>
     </article>
   );

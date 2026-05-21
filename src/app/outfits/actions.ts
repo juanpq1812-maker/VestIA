@@ -22,6 +22,8 @@ export type GenerateActionInput = {
   mode: GenerateMode;
   occasion?: string;
   description?: string;
+  /** ID de la prenda que la IA debe incluir obligatoriamente en todos los outfits. */
+  lockedItemId?: string;
 };
 
 export type GenerateActionResult =
@@ -50,6 +52,7 @@ export async function generateOutfitsAction(
       mode: input.mode,
       occasion: input.occasion,
       description: input.description,
+      lockedItemId: input.lockedItemId,
     });
     return { ok: true, outfits };
   } catch (err) {
