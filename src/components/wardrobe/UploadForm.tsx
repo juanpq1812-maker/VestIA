@@ -187,6 +187,46 @@ function extractPixelColor(
 
 // ── Helpers generales ─────────────────────────────────────────────────────────
 
+// Max long-edge (px) used when downscaling camera photos before any processing.
+const CAMERA_DOWNSCALE_MAX_PX = 1200;
+
+// Decode `file` into a canvas capped at `maxPx` on the long edge, then return a
+// new JPEG File. The original objectURL is revoked inside this function right
+// after the Image element decodes it, so the full-resolution bitmap is freed
+// from memory before the caller proceeds. If the image is already within limits,
+// the original File is returned unchanged (no canvas work).
+function downscaleToMaxPx(file: File, maxPx: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url); // liberar bitmap original inmediatamente
+      const { naturalWidth: w, naturalHeight: h } = img;
+      if (w <= maxPx && h <= maxPx) {
+        resolve(file);
+        return;
+      }
+      const scale = maxPx / Math.max(w, h);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(w * scale);
+      canvas.height = Math.round(h * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("no canvas ctx")); return; }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { reject(new Error("toBlob failed")); return; }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
+        },
+        "image/jpeg",
+        0.92,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load failed")); };
+    img.src = url;
+  });
+}
+
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
@@ -373,7 +413,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     }
   }
 
-  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     setGeneralError(null);
     const selected = e.target.files?.[0];
     if (!selected) return;
@@ -393,22 +433,9 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     clearFieldError("image");
     if (preview) URL.revokeObjectURL(preview);
     if (eyedropperSrc) URL.revokeObjectURL(eyedropperSrc);
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
+    setPreview(null);
+    setFile(null);
     setEyedropperSrc(null);
-
-    // Crear versión reducida (máx 800×800) para el eyedropper: evita OOM en Android
-    // al hacer drawImage de una foto de cámara de 10-15 MB.
-    imageCompression(selected, {
-      maxWidthOrHeight: 800,
-      useWebWorker: true,
-      fileType: "image/jpeg",
-      initialQuality: 0.85,
-    })
-      .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
-      .catch(() => setEyedropperSrc(URL.createObjectURL(selected)));
-
-    // Resetear form y lanzar análisis IA
     setCategory("");
     setSubcategory("");
     setColor("");
@@ -416,7 +443,33 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     setAiAnalyzed(false);
     setEyedropperActive(false);
 
-    analyzeImage(selected);
+    // Paso 1: redimensionar a máx 1200px ANTES de cualquier otra operación.
+    // Las fotos de cámara Android llegan en full resolution (12-50 MP). Cargarlas
+    // en memoria completas causa OOM. downscaleToMaxPx crea el objectURL, decodifica
+    // el JPEG en un canvas pequeño y revoca el objectURL original de inmediato,
+    // liberando el bitmap full-res antes de continuar.
+    let workingFile = selected;
+    try {
+      workingFile = await downscaleToMaxPx(selected, CAMERA_DOWNSCALE_MAX_PX);
+    } catch {
+      workingFile = selected; // fallback: continuar con el original
+    }
+
+    setFile(workingFile);
+    setPreview(URL.createObjectURL(workingFile));
+
+    // Paso 2: versión reducida (máx 800×800) para el eyedropper (canvas 1×1).
+    imageCompression(workingFile, {
+      maxWidthOrHeight: 800,
+      useWebWorker: true,
+      fileType: "image/jpeg",
+      initialQuality: 0.85,
+    })
+      .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
+      .catch(() => setEyedropperSrc(URL.createObjectURL(workingFile)));
+
+    // Paso 3: análisis IA con la imagen ya reducida.
+    analyzeImage(workingFile);
   }
 
   function handleCambiarFoto() {
