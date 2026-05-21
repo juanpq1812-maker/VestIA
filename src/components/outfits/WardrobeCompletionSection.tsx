@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
-import { getTiendasParaCategoria, buildStoreUrl } from "@/lib/outfits/tiendas";
+import { getTiendasMixtas, buildStoreUrl } from "@/lib/outfits/tiendas";
 
 type Sugerencia = {
   emoji: string;
@@ -83,7 +83,7 @@ export default function WardrobeCompletionSection({
 
       <div className="space-y-5">
         {sugerencias.map((sug, i) => {
-          const tiendas = getTiendasParaCategoria(sug.categoria);
+          const tiendas = getTiendasMixtas(sug.categoria);
           return (
             <div key={i}>
               <p className="mb-2 text-sm font-semibold text-text">

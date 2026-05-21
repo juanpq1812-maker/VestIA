@@ -33,12 +33,14 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
   const [preview, setPreview] = useState<string | null>(null);
   const [prendas, setPrendas] = useState<DetectedGarment[] | null>(null);
   const [estiloGeneral, setEstiloGeneral] = useState<string>("");
+  const [estilo, setEstilo] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function resetState() {
     setPrendas(null);
     setEstiloGeneral("");
+    setEstilo("");
     setError(null);
     setPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -83,6 +85,7 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
         if (res.ok) {
           setPrendas(res.prendas);
           setEstiloGeneral(res.estilo_general);
+          setEstilo(res.estilo);
         } else {
           setError(res.error);
         }
@@ -193,7 +196,8 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
                 {prendas.map((prenda, i) => {
                   const tiendas = getTiendasParaCategoria(
                     prenda.categoria,
-                    prenda.genero
+                    prenda.genero,
+                    estilo
                   );
                   const emoji = CATEGORY_EMOJI[prenda.categoria] ?? "👔";
                   return (
