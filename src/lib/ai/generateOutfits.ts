@@ -136,8 +136,8 @@ export async function generateOutfits(
   const validOutfits = parsed
     .map((o) => {
       const cleanIds = o.clothing_item_ids.filter((id) => validIds.has(id));
-      // Sin al menos 2 prendas validas, el outfit no tiene sentido.
-      if (cleanIds.length < 2) return null;
+      // Sin al menos 3 prendas validas el outfit queda incompleto (base minima: top+bottom+footwear o dress+footwear no alcanza 3 si se pierde una).
+      if (cleanIds.length < 3) return null;
       return { ...o, clothing_item_ids: cleanIds };
     })
     .filter((o): o is NonNullable<typeof o> => o !== null);
@@ -227,12 +227,13 @@ function buildPrompt(args: {
     `Eres un estilista personal. Tu tarea es proponer EXACTAMENTE 2 outfits distintos combinando SOLO prendas del armario del usuario que se lista más abajo.`,
     ``,
     `Reglas de composición (importantes):`,
-    `- Cada outfit debe tener: 1 prenda superior (top) + 1 prenda inferior (bottom), O bien 1 vestido (dress).`,
-    `- Cada outfit debe tener 1 calzado (footwear).`,
-    `- Opcionalmente puedes añadir 1 outerwear y 1-2 accesorios si combinan.`,
+    `- Cada outfit debe incluir entre 3 y 6 prendas en total.`,
+    `- Base mínima obligatoria (siempre que existan en el armario): 1 prenda superior (top) + 1 prenda inferior (bottom), O bien 1 vestido/jumpsuit (dress); más 1 calzado (footwear).`,
+    `- Si el armario lo permite, enriquece el outfit con prendas opcionales: outerwear (chaqueta, abrigo, blazer), accesorios (bolso, cinturón, gafas, bufanda, joyería), gorra o sombrero (hat/cap).`,
+    `- Adapta la cantidad al armario real: si hay accesorios, gorras u outerwear disponibles y tienen sentido estético, úsalos. No fuerces prendas que no combinen.`,
     `- No repitas IDs dentro del mismo outfit.`,
     `- Los 2 outfits deben ser claramente distintos entre sí (diferente vibe o paleta).`,
-    `- Solo podés usar IDs que aparecen en el armario. NO inventes IDs nuevos.`,
+    `- Solo puedes usar IDs que aparecen en el armario. NO inventes IDs nuevos.`,
     ``,
     `Preferencias del usuario (recomendación, no obligación):`,
     `- Estilos favoritos: ${stylePrefs}`,
@@ -248,7 +249,7 @@ function buildPrompt(args: {
     `  "outfits": [`,
     `    {`,
     `      "name": "Nombre corto del outfit, ej: Casual relajado",`,
-    `      "clothing_item_ids": ["uuid1", "uuid2", "uuid3"],`,
+    `      "clothing_item_ids": ["uuid1", "uuid2", "uuid3", "uuid4"],`,
     `      "explanation": "1-2 frases explicando por que esta combinacion funciona."`,
     `    },`,
     `    {`,
