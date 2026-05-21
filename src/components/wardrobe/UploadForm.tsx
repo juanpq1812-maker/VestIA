@@ -151,26 +151,33 @@ function mapAiOccasions(aiOccasions: string[]): string[] {
     .filter((o): o is string => o !== null);
 }
 
+// visibleImg is used only for coordinate mapping (bounding rect).
+// srcImg is the actual image drawn to canvas — must be the downscaled
+// eyedropper version (max 800×800) to avoid OOM on Android.
 function extractPixelColor(
-  imgEl: HTMLImageElement,
+  visibleImg: HTMLImageElement,
+  srcImg: HTMLImageElement,
   clientX: number,
   clientY: number
 ): string | null {
-  const rect = imgEl.getBoundingClientRect();
-  const x = Math.floor(clientX - rect.left);
-  const y = Math.floor(clientY - rect.top);
-  if (x < 0 || y < 0 || x >= rect.width || y >= rect.height) return null;
+  const rect = visibleImg.getBoundingClientRect();
+  const nx = (clientX - rect.left) / rect.width;
+  const ny = (clientY - rect.top) / rect.height;
+  if (nx < 0 || ny < 0 || nx > 1 || ny > 1) return null;
 
+  // Draw only the single target pixel into a 1×1 canvas to minimise memory.
   const canvas = document.createElement("canvas");
-  canvas.width = Math.floor(rect.width);
-  canvas.height = Math.floor(rect.height);
+  canvas.width = 1;
+  canvas.height = 1;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+  const sx = nx * srcImg.naturalWidth;
+  const sy = ny * srcImg.naturalHeight;
+  ctx.drawImage(srcImg, sx, sy, 1, 1, 0, 0, 1, 1);
 
   try {
-    const [r, g, b] = ctx.getImageData(x, y, 1, 1).data;
+    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
     const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
     return hexToColorName(hex);
   } catch {
@@ -273,9 +280,11 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
+  const eyedropperImgRef = useRef<HTMLImageElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [eyedropperSrc, setEyedropperSrc] = useState<string | null>(null);
   const [category, setCategory] = useState<ClothingCategory | "">("");
   const [subcategory, setSubcategory] = useState<string>("");
   const [color, setColor] = useState<string>("");
@@ -383,8 +392,21 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
 
     clearFieldError("image");
     if (preview) URL.revokeObjectURL(preview);
+    if (eyedropperSrc) URL.revokeObjectURL(eyedropperSrc);
     setFile(selected);
     setPreview(URL.createObjectURL(selected));
+    setEyedropperSrc(null);
+
+    // Crear versión reducida (máx 800×800) para el eyedropper: evita OOM en Android
+    // al hacer drawImage de una foto de cámara de 10-15 MB.
+    imageCompression(selected, {
+      maxWidthOrHeight: 800,
+      useWebWorker: true,
+      fileType: "image/jpeg",
+      initialQuality: 0.85,
+    })
+      .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
+      .catch(() => setEyedropperSrc(URL.createObjectURL(selected)));
 
     // Resetear form y lanzar análisis IA
     setCategory("");
@@ -399,8 +421,10 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
 
   function handleCambiarFoto() {
     if (preview) URL.revokeObjectURL(preview);
+    if (eyedropperSrc) URL.revokeObjectURL(eyedropperSrc);
     setFile(null);
     setPreview(null);
+    setEyedropperSrc(null);
     setAiAnalyzing(false);
     setAiAnalyzed(false);
     setAiConfidence(null);
@@ -430,7 +454,8 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
 
   function handleEyedropperPointer(clientX: number, clientY: number) {
     if (!previewImgRef.current) return;
-    const colorName = extractPixelColor(previewImgRef.current, clientX, clientY);
+    const srcImg = eyedropperImgRef.current ?? previewImgRef.current;
+    const colorName = extractPixelColor(previewImgRef.current, srcImg, clientX, clientY);
     if (colorName) {
       setColor(colorName);
       clearFieldError("color");
@@ -638,6 +663,12 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
                 />
               ) : null}
             </div>
+
+            {/* Imagen reducida (max 800×800) usada exclusivamente por el eyedropper */}
+            {eyedropperSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img ref={eyedropperImgRef} src={eyedropperSrc} alt="" aria-hidden="true" className="sr-only" />
+            ) : null}
 
             {eyedropperActive ? (
               <div className="flex flex-col items-center gap-2">
