@@ -17,6 +17,7 @@ import {
   type GeneratedOutfit,
   type GenerateMode,
 } from "@/lib/ai/generateOutfits";
+import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
 
 export type GenerateActionInput = {
   mode: GenerateMode;
@@ -342,4 +343,117 @@ export async function saveAndUseOutfitTodayAction(
     useId: used.useId,
     usedDate: used.usedDate,
   };
+}
+
+// =============================================================================
+// ANÁLISIS DE FOTO DE INSPIRACIÓN (Feature 2)
+// =============================================================================
+
+export type DetectedGarment = {
+  tipo: string;
+  descripcion: string;
+  categoria: "top" | "bottom" | "dress" | "outerwear" | "footwear" | "accessory";
+  genero: "hombre" | "mujer" | "unisex";
+};
+
+export type AnalyzeInspirationResult =
+  | { ok: true; prendas: DetectedGarment[]; estilo_general: string }
+  | { ok: false; error: string };
+
+const INSPIRATION_SYSTEM_PROMPT =
+  "Eres el asistente de moda de StrandIA. Analizas fotos de outfits. Responde SOLO en JSON válido, sin texto adicional ni backticks. Usa español colombiano.";
+
+export async function analyzeInspirationPhotoAction(input: {
+  imageBase64: string;
+  mimeType: string;
+}): Promise<AnalyzeInspirationResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "Inicia sesión para usar esta función." };
+  }
+
+  const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+  if (!allowed.includes(input.mimeType)) {
+    return {
+      ok: false,
+      error: "Formato de imagen no soportado. Usa JPEG, PNG o WebP.",
+    };
+  }
+
+  const userPrompt = `Analiza esta foto de outfit/look y lista las prendas que ves.
+Para cada prenda responde en JSON:
+{
+  "prendas": [
+    {
+      "tipo": "nombre de la prenda en español",
+      "descripcion": "descripción breve del estilo/color",
+      "categoria": "top|bottom|dress|outerwear|footwear|accessory",
+      "genero": "hombre|mujer|unisex"
+    }
+  ],
+  "estilo_general": "descripción del estilo general del outfit"
+}
+Solo responde JSON, sin texto adicional.`;
+
+  try {
+    const raw = await callAnthropicVisionApi({
+      systemPrompt: INSPIRATION_SYSTEM_PROMPT,
+      userText: userPrompt,
+      imageBase64: input.imageBase64,
+      imageMimeType: input.mimeType,
+      maxTokens: 1024,
+    });
+
+    let jsonText = raw.trim();
+    const fenceMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    if (fenceMatch) jsonText = fenceMatch[1].trim();
+
+    const firstBrace = jsonText.indexOf("{");
+    const lastBrace = jsonText.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      jsonText = jsonText.slice(firstBrace, lastBrace + 1);
+    }
+
+    const parsed = JSON.parse(jsonText) as {
+      prendas: DetectedGarment[];
+      estilo_general: string;
+    };
+
+    if (!Array.isArray(parsed.prendas) || parsed.prendas.length === 0) {
+      return {
+        ok: false,
+        error:
+          "No pudimos identificar prendas en la imagen. Intenta con otra foto.",
+      };
+    }
+
+    return {
+      ok: true,
+      prendas: parsed.prendas.slice(0, 8),
+      estilo_general: typeof parsed.estilo_general === "string"
+        ? parsed.estilo_general
+        : "",
+    };
+  } catch (err) {
+    const httpErr = err as Error & { status?: number };
+    if (httpErr.status === 401) {
+      return {
+        ok: false,
+        error: "Error de configuración de IA. Contacta al soporte.",
+      };
+    }
+    if (httpErr.status === 429) {
+      return {
+        ok: false,
+        error:
+          "Demasiadas solicitudes. Espera unos segundos e intenta de nuevo.",
+      };
+    }
+    console.error("[analyzeInspirationPhotoAction] error", err);
+    return { ok: false, error: "No pudimos analizar la foto. Intenta de nuevo." };
+  }
 }

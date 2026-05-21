@@ -26,6 +26,9 @@ import {
 import type { GeneratedOutfit } from "@/lib/ai/generateOutfits";
 import type { ClothingItem } from "@/types/database";
 import Toast from "@/components/ui/Toast";
+import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSection";
+import InspirationSection from "@/components/outfits/InspirationSection";
+import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
 // `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
@@ -59,6 +62,8 @@ type Props = {
   lockedItemId?: string | null;
   /** Nombre de la prenda bloqueada para mostrar en el badge. */
   lockedItemName?: string | null;
+  /** Conteo de prendas por categoría para las sugerencias de completado. */
+  wardrobeSummary?: WardrobeSummary;
 };
 
 export default function OutfitGenerator({
@@ -66,6 +71,7 @@ export default function OutfitGenerator({
   savedOutfitsCount = 0,
   lockedItemId,
   lockedItemName,
+  wardrobeSummary = {},
 }: Props) {
   const [tab, setTab] = useState<Tab>("occasion");
   const [occasion, setOccasion] = useState<string>(OCASIONES[1]); // "Casual"
@@ -81,6 +87,12 @@ export default function OutfitGenerator({
 
   if (totalItems < 2) {
     return <EmptyWardrobeCallout />;
+  }
+
+  function applyInspiration(desc: string) {
+    setDescription(desc.slice(0, 200));
+    setTab("description");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function dispararGeneracion(input: GenerateActionInput) {
@@ -187,6 +199,9 @@ export default function OutfitGenerator({
           onDismiss={() => setToast(null)}
         />
       )}
+
+      <WardrobeCompletionSection summary={wardrobeSummary} />
+      <InspirationSection onApplyInspiration={applyInspiration} />
     </div>
   );
 }
