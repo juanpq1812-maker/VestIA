@@ -357,8 +357,17 @@ export type DetectedGarment = {
 };
 
 export type AnalyzeInspirationResult =
-  | { ok: true; prendas: DetectedGarment[]; estilo_general: string }
+  | { ok: true; prendas: DetectedGarment[]; estilo_general: string; estilo: string }
   | { ok: false; error: string };
+
+const ESTILOS_VALIDOS = [
+  "streetwear",
+  "casual",
+  "formal",
+  "femenino",
+  "deportivo",
+] as const;
+type EstiloKey = (typeof ESTILOS_VALIDOS)[number];
 
 const INSPIRATION_SYSTEM_PROMPT =
   "Eres el asistente de moda de StrandIA. Analizas fotos de outfits. Responde SOLO en JSON válido, sin texto adicional ni backticks. Usa español colombiano.";
@@ -385,7 +394,10 @@ export async function analyzeInspirationPhotoAction(input: {
   }
 
   const userPrompt = `Analiza esta foto de outfit/look y lista las prendas que ves.
-Para cada prenda responde en JSON:
+Además, clasifica el estilo general del outfit en UNO de estos valores exactos:
+"streetwear", "casual", "formal", "femenino", "deportivo"
+
+Responde en JSON con esta estructura exacta:
 {
   "prendas": [
     {
@@ -395,7 +407,8 @@ Para cada prenda responde en JSON:
       "genero": "hombre|mujer|unisex"
     }
   ],
-  "estilo_general": "descripción del estilo general del outfit"
+  "estilo_general": "descripción libre del estilo general del outfit",
+  "estilo": "streetwear|casual|formal|femenino|deportivo"
 }
 Solo responde JSON, sin texto adicional.`;
 
@@ -421,6 +434,7 @@ Solo responde JSON, sin texto adicional.`;
     const parsed = JSON.parse(jsonText) as {
       prendas: DetectedGarment[];
       estilo_general: string;
+      estilo?: unknown;
     };
 
     if (!Array.isArray(parsed.prendas) || parsed.prendas.length === 0) {
@@ -431,12 +445,20 @@ Solo responde JSON, sin texto adicional.`;
       };
     }
 
+    const estiloRaw =
+      typeof parsed.estilo === "string"
+        ? parsed.estilo.toLowerCase().trim()
+        : "";
+    const estilo: string = ESTILOS_VALIDOS.includes(estiloRaw as EstiloKey)
+      ? estiloRaw
+      : "casual";
+
     return {
       ok: true,
       prendas: parsed.prendas.slice(0, 8),
-      estilo_general: typeof parsed.estilo_general === "string"
-        ? parsed.estilo_general
-        : "",
+      estilo_general:
+        typeof parsed.estilo_general === "string" ? parsed.estilo_general : "",
+      estilo,
     };
   } catch (err) {
     const httpErr = err as Error & { status?: number };
