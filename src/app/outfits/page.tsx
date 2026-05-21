@@ -12,6 +12,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import OutfitGenerator from "@/components/outfits/OutfitGenerator";
+import type { WardrobeSummary } from "@/lib/outfits/tiendas";
+import type { ClothingCategory } from "@/types/database";
 
 type Props = {
   searchParams: Promise<{ prenda?: string; nombre?: string }>;
@@ -23,10 +25,10 @@ export default async function OutfitsPage({ searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [itemsCountRes, profileRes, savedOutfitsCountRes, sp] = await Promise.all([
+  const [categoriesRes, profileRes, savedOutfitsCountRes, sp] = await Promise.all([
     supabase
       .from("clothing_items")
-      .select("id", { count: "exact", head: true })
+      .select("category")
       .eq("user_id", user?.id ?? ""),
     supabase
       .from("profiles")
@@ -40,7 +42,14 @@ export default async function OutfitsPage({ searchParams }: Props) {
     searchParams,
   ]);
 
-  const totalItems = itemsCountRes.count ?? 0;
+  const categoryItems = categoriesRes.data ?? [];
+  const totalItems = categoryItems.length;
+  const wardrobeSummary: WardrobeSummary = {};
+  for (const item of categoryItems) {
+    const cat = item.category as ClothingCategory;
+    wardrobeSummary[cat] = (wardrobeSummary[cat] ?? 0) + 1;
+  }
+
   const lockedItemId = sp.prenda ?? null;
   const lockedItemName = sp.nombre ? decodeURIComponent(sp.nombre) : null;
 
@@ -67,6 +76,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
               savedOutfitsCount={savedOutfitsCountRes.count ?? 0}
               lockedItemId={lockedItemId}
               lockedItemName={lockedItemName}
+              wardrobeSummary={wardrobeSummary}
             />
           </div>
         </Container>
