@@ -35,7 +35,6 @@ import {
 import {
   ALLOWED_EXTENSIONS,
   ALLOWED_MIME_TYPES,
-  COLOR_PALETTE,
   COMPRESS_MAX_WIDTH_OR_HEIGHT,
   COMPRESS_QUALITY,
   ITEM_OCCASIONS,
@@ -67,23 +66,59 @@ type FieldErrors = {
 
 type BulkFileResult = { name: string; ok: boolean; error?: string };
 
-// ── Helpers de color ──────────────────────────────────────────────────────────
+// ── Paleta de colores ─────────────────────────────────────────────────────────
 
-// Valores RGB representativos de cada color de la paleta (sin multicolor).
-const COLOR_RGB: Record<string, [number, number, number]> = {
-  negro: [17, 17, 17],
-  blanco: [255, 255, 255],
-  gris: [107, 114, 128],
-  azul: [37, 99, 235],
-  rojo: [220, 38, 38],
-  verde: [22, 163, 74],
-  amarillo: [250, 204, 21],
-  rosa: [236, 72, 153],
-  morado: [124, 58, 237],
-  beige: [214, 199, 163],
-  café: [107, 63, 29],
-  naranja: [249, 115, 22],
-};
+type ColorEntry = { nombre: string; hex: string };
+
+const COLORES: ColorEntry[] = [
+  { nombre: "Negro", hex: "#1a1a1a" },
+  { nombre: "Blanco", hex: "#ffffff" },
+  { nombre: "Gris claro", hex: "#d1d1d1" },
+  { nombre: "Gris oscuro", hex: "#555555" },
+  { nombre: "Beige", hex: "#f5e6d3" },
+  { nombre: "Crema", hex: "#fffdd0" },
+  { nombre: "Café claro", hex: "#a0522d" },
+  { nombre: "Café oscuro", hex: "#4a2c0a" },
+  { nombre: "Rojo", hex: "#e53935" },
+  { nombre: "Rojo vino", hex: "#7b1c2e" },
+  { nombre: "Rosado", hex: "#f48fb1" },
+  { nombre: "Rosado palo", hex: "#f8c8c8" },
+  { nombre: "Coral", hex: "#ff6b6b" },
+  { nombre: "Salmón", hex: "#fa8072" },
+  { nombre: "Fucsia", hex: "#e91e8c" },
+  { nombre: "Burdeos", hex: "#800020" },
+  { nombre: "Naranja", hex: "#ff9800" },
+  { nombre: "Naranja quemado", hex: "#bf360c" },
+  { nombre: "Amarillo", hex: "#ffeb3b" },
+  { nombre: "Amarillo mostaza", hex: "#f9a825" },
+  { nombre: "Dorado", hex: "#ffd700" },
+  { nombre: "Champagne", hex: "#f7e7ce" },
+  { nombre: "Verde", hex: "#4caf50" },
+  { nombre: "Verde oliva", hex: "#808000" },
+  { nombre: "Verde militar", hex: "#4a5240" },
+  { nombre: "Verde menta", hex: "#98ff98" },
+  { nombre: "Verde esmeralda", hex: "#50c878" },
+  { nombre: "Verde botella", hex: "#006a4e" },
+  { nombre: "Turquesa", hex: "#40e0d0" },
+  { nombre: "Azul claro", hex: "#90caf9" },
+  { nombre: "Azul marino", hex: "#0d2137" },
+  { nombre: "Azul rey", hex: "#1a47b8" },
+  { nombre: "Azul cielo", hex: "#87ceeb" },
+  { nombre: "Azul petróleo", hex: "#005f73" },
+  { nombre: "Denim", hex: "#1560bd" },
+  { nombre: "Índigo", hex: "#3f51b5" },
+  { nombre: "Morado", hex: "#9c27b0" },
+  { nombre: "Lila", hex: "#c8a2c8" },
+  { nombre: "Lavanda", hex: "#e6e6fa" },
+  { nombre: "Violeta", hex: "#7f00ff" },
+  { nombre: "Malva", hex: "#e0b0ff" },
+  { nombre: "Plateado", hex: "#c0c0c0" },
+  { nombre: "Bronce", hex: "#cd7f32" },
+  { nombre: "Cobre", hex: "#b87333" },
+  { nombre: "Multicolor", hex: "#ff0000" },
+  { nombre: "Estampado", hex: "#888888" },
+  { nombre: "Animal print", hex: "#c8a000" },
+];
 
 function hexToRgb(hex: string): [number, number, number] | null {
   const clean = hex.replace("#", "");
@@ -95,16 +130,17 @@ function hexToRgb(hex: string): [number, number, number] | null {
 
 function hexToColorName(hex: string): string {
   const rgb = hexToRgb(hex);
-  if (!rgb) return "negro";
+  if (!rgb) return COLORES[0].nombre;
   let minDist = Infinity;
-  let closest = "negro";
-  for (const [name, rep] of Object.entries(COLOR_RGB)) {
-    const dist = Math.sqrt(
-      (rgb[0] - rep[0]) ** 2 + (rgb[1] - rep[1]) ** 2 + (rgb[2] - rep[2]) ** 2
-    );
+  let closest = COLORES[0].nombre;
+  for (const c of COLORES) {
+    const cr = hexToRgb(c.hex);
+    if (!cr) continue;
+    // Squared distance — no sqrt needed for comparison.
+    const dist = (rgb[0] - cr[0]) ** 2 + (rgb[1] - cr[1]) ** 2 + (rgb[2] - cr[2]) ** 2;
     if (dist < minDist) {
       minDist = dist;
-      closest = name;
+      closest = c.nombre;
     }
   }
   return closest;
@@ -119,13 +155,13 @@ function normStr(s: string) {
 
 function matchColorToPalette(colorName: string, colorHex: string): string {
   const n = normStr(colorName);
-  const exact = COLOR_PALETTE.find((c) => normStr(c.name) === n);
-  if (exact) return exact.name;
-  const partial = COLOR_PALETTE.find((c) => {
-    const p = normStr(c.name);
+  const exact = COLORES.find((c) => normStr(c.nombre) === n);
+  if (exact) return exact.nombre;
+  const partial = COLORES.find((c) => {
+    const p = normStr(c.nombre);
     return n.includes(p) || p.includes(n);
   });
-  if (partial) return partial.name;
+  if (partial) return partial.nombre;
   if (colorHex) return hexToColorName(colorHex);
   return "";
 }
@@ -228,11 +264,11 @@ function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-// Android Canvas operations can OOM on photos — disable eyedropper there.
-// iOS and desktop keep full eyedropper support.
+// Disable eyedropper on viewports narrower than 768 px (mobile).
+// Desktop and tablet keep full eyedropper support.
 function canUseEyedropper(): boolean {
-  if (typeof navigator === "undefined") return true;
-  return !/Android/i.test(navigator.userAgent);
+  if (typeof window === "undefined") return true;
+  return window.innerWidth >= 768;
 }
 
 function bytesToReadable(bytes: number): string {
@@ -466,14 +502,17 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     setPreview(URL.createObjectURL(workingFile));
 
     // Paso 2: versión reducida (máx 800×800) para el eyedropper (canvas 1×1).
-    imageCompression(workingFile, {
-      maxWidthOrHeight: 800,
-      useWebWorker: true,
-      fileType: "image/jpeg",
-      initialQuality: 0.85,
-    })
-      .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
-      .catch(() => setEyedropperSrc(URL.createObjectURL(workingFile)));
+    // Solo en desktop/tablet — en móvil el eyedropper está desactivado.
+    if (eyedropperEnabled) {
+      imageCompression(workingFile, {
+        maxWidthOrHeight: 800,
+        useWebWorker: true,
+        fileType: "image/jpeg",
+        initialQuality: 0.85,
+      })
+        .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
+        .catch(() => setEyedropperSrc(URL.createObjectURL(workingFile)));
+    }
 
     // Paso 3: análisis IA con la imagen ya reducida.
     analyzeImage(workingFile);
@@ -898,77 +937,49 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
                   Elige el color que más predomina en la prenda.
                 </p>
               </div>
-              {preview && !eyedropperActive ? (
-                eyedropperEnabled && !eyedropperError ? (
-                  <button
-                    type="button"
-                    onClick={handleActivateEyedropper}
-                    className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text"
-                    title="Selecciona el color directamente tocando la foto"
-                  >
-                    🎨 Tomar color de la foto
-                  </button>
-                ) : !eyedropperEnabled ? (
-                  <p className="shrink-0 text-right text-xs text-text-muted">
-                    Color detectado por IA · Edítalo manualmente si es necesario
-                  </p>
-                ) : null
+              {preview && !eyedropperActive && eyedropperEnabled && !eyedropperError ? (
+                <button
+                  type="button"
+                  onClick={handleActivateEyedropper}
+                  className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text"
+                  title="Selecciona el color directamente tocando la foto"
+                >
+                  🎨 Tomar color de la foto
+                </button>
               ) : null}
             </div>
             <div
               role="radiogroup"
               aria-label="Color principal"
-              className="mt-4 flex flex-wrap gap-3"
+              className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 max-h-72 overflow-y-auto pr-1"
             >
-              {COLOR_PALETTE.map((c) => {
-                const seleccionado = color === c.name;
-                const esBlanco = c.name === "blanco";
+              {COLORES.map((c) => {
+                const seleccionado = color === c.nombre;
                 return (
                   <button
-                    key={c.name}
+                    key={c.nombre}
                     type="button"
                     role="radio"
                     aria-checked={seleccionado}
-                    aria-label={c.name}
-                    title={c.name}
+                    aria-label={c.nombre}
                     onClick={() => {
-                      setColor(c.name);
+                      setColor(c.nombre);
                       clearFieldError("color");
                     }}
                     className={[
-                      "group flex flex-col items-center gap-1.5 rounded-md p-1 transition-transform",
+                      "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors",
                       "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                      seleccionado ? "scale-105" : "hover:scale-105",
+                      seleccionado
+                        ? "border-primary bg-primary-light font-semibold text-primary"
+                        : "border-border bg-surface text-text-muted hover:border-primary-mid hover:text-text",
                     ].join(" ")}
                   >
                     <span
-                      className={[
-                        "flex h-10 w-10 items-center justify-center rounded-full transition-shadow",
-                        seleccionado
-                          ? "ring-2 ring-primary ring-offset-2 ring-offset-surface shadow-md"
-                          : esBlanco
-                            ? "ring-1 ring-border"
-                            : "shadow-sm",
-                      ].join(" ")}
-                      style={{ background: c.swatch }}
+                      className="h-5 w-5 shrink-0 rounded-full border border-black/10"
+                      style={{ background: c.hex }}
                       aria-hidden="true"
-                    >
-                      {seleccionado ? (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={c.contrastText === "light" ? "#fff" : "#111"}
-                          strokeWidth="3"
-                        >
-                          <path d="M5 12l5 5L20 7" />
-                        </svg>
-                      ) : null}
-                    </span>
-                    <span className="text-[11px] capitalize text-text-muted">
-                      {c.name}
-                    </span>
+                    />
+                    <span className="truncate">{c.nombre}</span>
                   </button>
                 );
               })}
