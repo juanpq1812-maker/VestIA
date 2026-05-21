@@ -16,9 +16,27 @@ export const SUBCATEGORIES: Record<ClothingCategory, readonly string[]> = {
   top: ["Camisa", "Camiseta", "Blusa", "Suéter", "Hoodie", "Tank top"],
   bottom: ["Jean", "Pantalón", "Short", "Falda", "Leggings"],
   dress: ["Vestido corto", "Vestido largo", "Enterizo"],
-  outerwear: ["Chaqueta", "Abrigo", "Blazer", "Cardigan", "Gabardina"],
+  outerwear: [
+    "Chaqueta",
+    "Saco",
+    "Blazer",
+    "Gabán",
+    "Abrigo",
+    "Abrigo largo",
+    "Impermeable",
+    "Cardigan",
+    "Chaleco",
+    "Cortavientos",
+    "Gabardina",
+  ],
   footwear: ["Tenis", "Zapatos formales", "Sandalias", "Botas", "Tacones"],
   accessory: ["Gorra", "Bolso", "Cinturón", "Bufanda", "Joyería", "Reloj"],
+  body: [
+    "Body manga larga",
+    "Body manga corta",
+    "Body sin mangas",
+    "Body escotado",
+  ],
 };
 
 // ---------------------------------------------------------------------------

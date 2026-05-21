@@ -35,6 +35,12 @@ type AnthropicApiResponse = {
   error?: { message: string };
 };
 
+type AnthropicImageSource = {
+  type: "base64";
+  media_type: string;
+  data: string;
+};
+
 /**
  * Llama a la API de Anthropic con un system prompt y un mensaje de usuario.
  * Lanza un error con `.status` si la respuesta HTTP no es 2xx.
@@ -74,6 +80,72 @@ export async function callAnthropicApi(args: {
     }
     console.error(
       `[callAnthropicApi] HTTP ${response.status} desde Anthropic API`,
+      { status: response.status, body: rawErrorText }
+    );
+    const httpError = new Error(
+      errBody?.error?.message ?? `HTTP ${response.status}`
+    );
+    (httpError as Error & { status: number }).status = response.status;
+    throw httpError;
+  }
+
+  const data = (await response.json()) as AnthropicApiResponse;
+  return data.content?.[0]?.text ?? "";
+}
+
+/**
+ * Llama a la API de Anthropic con una imagen (vision) y un texto de usuario.
+ * Solo se debe usar desde Server Components o Server Actions.
+ */
+export async function callAnthropicVisionApi(args: {
+  systemPrompt: string;
+  userText: string;
+  imageBase64: string;
+  imageMimeType: string;
+  maxTokens?: number;
+}): Promise<string> {
+  const apiKey = getAnthropicApiKey();
+
+  const imageSource: AnthropicImageSource = {
+    type: "base64",
+    media_type: args.imageMimeType,
+    data: args.imageBase64,
+  };
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: getAiModelName(),
+      max_tokens: args.maxTokens ?? 512,
+      system: args.systemPrompt,
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "image", source: imageSource },
+            { type: "text", text: args.userText },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const rawErrorText = await response.text().catch(() => "");
+    let errBody: AnthropicApiResponse = {} as AnthropicApiResponse;
+    try {
+      errBody = JSON.parse(rawErrorText);
+    } catch {
+      // body no es JSON válido
+    }
+    console.error(
+      `[callAnthropicVisionApi] HTTP ${response.status} desde Anthropic API`,
       { status: response.status, body: rawErrorText }
     );
     const httpError = new Error(
