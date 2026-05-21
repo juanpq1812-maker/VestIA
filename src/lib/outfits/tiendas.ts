@@ -46,17 +46,17 @@ export const TIENDAS: Record<string, Tienda> = {
   },
   Undergold: {
     nombre: "Undergold",
-    url: "https://undergold.co/search?q=",
+    url: "https://undergoldapparel.com/search?q=",
     logo: "🛍️",
   },
   Monoic: {
     nombre: "Monoic",
-    url: "https://monoic.co/search?q=",
+    url: "https://monoicstudios.com/search?q=",
     logo: "🛍️",
   },
   True: {
     nombre: "True",
-    url: "https://truepeople.co/search?q=",
+    url: "https://trueshop.co/search?q=",
     logo: "🛍️",
   },
   Nike: {
