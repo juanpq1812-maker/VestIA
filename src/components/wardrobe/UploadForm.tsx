@@ -170,19 +170,16 @@ function extractPixelColor(
   canvas.width = 1;
   canvas.height = 1;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
+  if (!ctx) throw new Error("no canvas context");
 
   const sx = nx * srcImg.naturalWidth;
   const sy = ny * srcImg.naturalHeight;
+  // drawImage / getImageData may throw OOM or SecurityError — let them propagate
+  // so the caller can show a friendly error instead of silently doing nothing.
   ctx.drawImage(srcImg, sx, sy, 1, 1, 0, 0, 1, 1);
-
-  try {
-    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-    const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
-    return hexToColorName(hex);
-  } catch {
-    return null;
-  }
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+  return hexToColorName(hex);
 }
 
 // ── Helpers generales ─────────────────────────────────────────────────────────
@@ -229,6 +226,16 @@ function downscaleToMaxPx(file: File, maxPx: number): Promise<File> {
 
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
+}
+
+// Desktop → always allowed. Mobile → only when navigator.deviceMemory >= 4 GB.
+// deviceMemory is undefined on Firefox/Safari, which defaults to disabled on mobile.
+function canUseEyedropper(): boolean {
+  if (typeof navigator === "undefined") return true;
+  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (!isMobile) return true;
+  const mem = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
+  return mem !== undefined && mem >= 4;
 }
 
 function bytesToReadable(bytes: number): string {
@@ -337,7 +344,9 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
   const [aiConfidence, setAiConfidence] = useState<AIClothingAnalysis["confianza"] | null>(null);
 
   // Eyedropper
+  const [eyedropperEnabled] = useState(() => canUseEyedropper());
   const [eyedropperActive, setEyedropperActive] = useState(false);
+  const [eyedropperError, setEyedropperError] = useState(false);
   const [colorBeforeEyedropper, setColorBeforeEyedropper] = useState<string>("");
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -442,6 +451,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     setOccasions([]);
     setAiAnalyzed(false);
     setEyedropperActive(false);
+    setEyedropperError(false);
 
     // Paso 1: redimensionar a máx 1200px ANTES de cualquier otra operación.
     // Las fotos de cámara Android llegan en full resolution (12-50 MP). Cargarlas
@@ -508,10 +518,14 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
   function handleEyedropperPointer(clientX: number, clientY: number) {
     if (!previewImgRef.current) return;
     const srcImg = eyedropperImgRef.current ?? previewImgRef.current;
-    const colorName = extractPixelColor(previewImgRef.current, srcImg, clientX, clientY);
-    if (colorName) {
-      setColor(colorName);
-      clearFieldError("color");
+    try {
+      const colorName = extractPixelColor(previewImgRef.current, srcImg, clientX, clientY);
+      if (colorName) {
+        setColor(colorName);
+        clearFieldError("color");
+      }
+    } catch {
+      setEyedropperError(true);
     }
     setEyedropperActive(false);
   }
@@ -888,14 +902,20 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
                 </p>
               </div>
               {preview && !eyedropperActive ? (
-                <button
-                  type="button"
-                  onClick={handleActivateEyedropper}
-                  className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text"
-                  title="Selecciona el color directamente tocando la foto"
-                >
-                  🎨 Tomar color de la foto
-                </button>
+                eyedropperEnabled && !eyedropperError ? (
+                  <button
+                    type="button"
+                    onClick={handleActivateEyedropper}
+                    className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text"
+                    title="Selecciona el color directamente tocando la foto"
+                  >
+                    🎨 Tomar color de la foto
+                  </button>
+                ) : !eyedropperEnabled ? (
+                  <p className="shrink-0 text-right text-xs text-text-muted">
+                    Color detectado por IA · Edítalo manualmente si es necesario
+                  </p>
+                ) : null
               ) : null}
             </div>
             <div
@@ -956,6 +976,14 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
                 );
               })}
             </div>
+            {eyedropperError ? (
+              <p
+                role="alert"
+                className="mt-3 rounded-md bg-warning-light px-3 py-2 text-sm font-medium text-warning"
+              >
+                Tu dispositivo no soporta esta función. El color fue detectado por IA automáticamente.
+              </p>
+            ) : null}
             {fieldErrors.color ? (
               <p
                 role="alert"
