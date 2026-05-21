@@ -228,14 +228,11 @@ function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
-// Desktop → always allowed. Mobile → only when navigator.deviceMemory >= 4 GB.
-// deviceMemory is undefined on Firefox/Safari, which defaults to disabled on mobile.
+// Android Canvas operations can OOM on photos — disable eyedropper there.
+// iOS and desktop keep full eyedropper support.
 function canUseEyedropper(): boolean {
   if (typeof navigator === "undefined") return true;
-  const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if (!isMobile) return true;
-  const mem = (navigator as unknown as { deviceMemory?: number }).deviceMemory;
-  return mem !== undefined && mem >= 4;
+  return !/Android/i.test(navigator.userAgent);
 }
 
 function bytesToReadable(bytes: number): string {
