@@ -308,7 +308,7 @@ function DashboardConDatos({
           <p className="text-xs font-bold uppercase tracking-widest text-warning">
             😴 Olvidada hace {prendaOlvidada.diasOlvidada} días
           </p>
-          <div className="mt-3 flex items-center gap-4">
+          <div className="mt-3 flex items-start gap-4">
             <MiniImagen
               imageUrl={prendaOlvidada.image_url ?? null}
               alt={prendaOlvidada.nombre}
@@ -318,15 +318,16 @@ function DashboardConDatos({
               <p className="font-semibold text-text truncate">
                 {prendaOlvidada.nombre}
               </p>
-              <p className="mt-0.5 text-sm text-text-muted">
-                ¿La usas hoy?
+              <p className="mt-1 text-sm text-text-muted">
+                La IA puede armar outfits con esta prenda
               </p>
+              <Link
+                href={`/outfits?prenda=${prendaOlvidada.id}&nombre=${encodeURIComponent(prendaOlvidada.nombre)}`}
+                className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                Ver outfits sugeridos →
+              </Link>
             </div>
-            <Link href="/outfits">
-              <Button variant="secondary" size="md">
-                → Generar outfit
-              </Button>
-            </Link>
           </div>
         </Card>
       ) : null}

@@ -1,15 +1,13 @@
-// /impact — pantalla de impacto ambiental de StrandIA.
+// /impact — Tu consumo inteligente.
 //
-// Server Component: hacemos UNA sola query con HEAD + count exacto sobre
-// `outfit_uses` para saber cuántos usos reales tiene el usuario. Esa cifra
-// alimenta los 3 números (CO2, árboles, agua) via `computeImpact`.
+// Muestra qué tan activo está el armario del usuario: qué porcentaje de
+// sus prendas ha sido parte de un outfit registrado, cuántos outfits únicos
+// se han generado, y el promedio de usos por prenda.
 //
-// Bifurcacion de UI:
-//   - usos === 0  -> pantalla motivacional con proyeccion a 1 ano + CTA.
-//   - usos >= 1   -> pantalla con datos reales + numero "heroe" animado.
-//
-// Toda la matematica vive en `lib/impact/calculations.ts` para mantener la
-// pagina legible y poder reutilizar los factores en el futuro.
+// Server Component: consultas en paralelo a Supabase.
+// Bifurcación de UI:
+//   - totalUses === 0 → estado vacío con CTA.
+//   - totalUses >= 1  → métricas reales con número héroe animado.
 
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
@@ -18,16 +16,7 @@ import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import CountUpNumber from "@/components/impact/CountUpNumber";
-import {
-  computeImpact,
-  formatEsNumber,
-  projectedImpact,
-  PROJECTED_USES_PER_YEAR,
-  CO2_KG_PER_USE,
-  WATER_LITERS_PER_USE,
-} from "@/lib/impact/calculations";
-
-const FUENTE = "Fuente: ONU Environment 2024 — Industria Textil";
+import { formatEsNumber } from "@/lib/impact/calculations";
 
 export default async function ImpactPage() {
   const supabase = await createSupabaseServerClient();
@@ -35,22 +24,63 @@ export default async function ImpactPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Profile (display_name) en paralelo con el count: son tablas distintas y
-  // no se bloquean entre si.
-  const [profileRes, usesCountRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name")
-      .eq("id", user?.id ?? "")
-      .maybeSingle(),
-    supabase
-      .from("outfit_uses")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user?.id ?? ""),
-  ]);
+  const userId = user?.id ?? "";
+
+  const [profileRes, itemsCountRes, usesCountRes, outfitsCountRes] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", userId)
+        .maybeSingle(),
+      supabase
+        .from("clothing_items")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId),
+      supabase
+        .from("outfit_uses")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId),
+      supabase
+        .from("outfits")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId),
+    ]);
 
   const displayName = profileRes.data?.display_name ?? null;
-  const uses = usesCountRes.count ?? 0;
+  const totalItems = itemsCountRes.count ?? 0;
+  const totalUses = usesCountRes.count ?? 0;
+  const totalOutfits = outfitsCountRes.count ?? 0;
+
+  // Calcular prendas activas (aparecen en al menos un outfit que fue usado).
+  // Solo hacemos estas consultas si hay usos registrados.
+  let activeItemsCount = 0;
+  if (totalUses > 0 && totalItems > 0) {
+    const { data: usesData } = await supabase
+      .from("outfit_uses")
+      .select("outfit_id")
+      .eq("user_id", userId);
+
+    const usedOutfitIds = [
+      ...new Set(
+        (usesData ?? []).map((u: { outfit_id: string }) => u.outfit_id)
+      ),
+    ];
+
+    if (usedOutfitIds.length > 0) {
+      const { data: outfitsData } = await supabase
+        .from("outfits")
+        .select("clothing_item_ids")
+        .in("id", usedOutfitIds);
+
+      const activeIds = new Set(
+        (outfitsData ?? []).flatMap(
+          (o: { clothing_item_ids: string[] | null }) => o.clothing_item_ids ?? []
+        )
+      );
+      activeItemsCount = activeIds.size;
+    }
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -59,15 +89,27 @@ export default async function ImpactPage() {
         <Container size="md">
           <header className="text-center">
             <p className="text-sm font-medium uppercase tracking-widest text-primary">
-              Tu impacto positivo
+              Tu consumo inteligente
+            </p>
+            <p className="mx-auto mt-3 max-w-sm text-sm text-text-muted">
+              El colombiano promedio usa solo el 30% de su armario.
+              <br />
+              Tú estás haciendo mejor.
             </p>
           </header>
 
           <div className="mt-8">
-            {uses === 0 ? <EmptyImpact /> : <RealImpact uses={uses} />}
+            {totalUses === 0 ? (
+              <EmptyConsumption />
+            ) : (
+              <RealConsumption
+                totalItems={totalItems}
+                totalUses={totalUses}
+                totalOutfits={totalOutfits}
+                activeItemsCount={activeItemsCount}
+              />
+            )}
           </div>
-
-          <p className="mt-10 text-center text-xs text-text-faint">{FUENTE}</p>
         </Container>
       </main>
     </div>
@@ -75,41 +117,51 @@ export default async function ImpactPage() {
 }
 
 // ---------------------------------------------------------------------------
-// CASO 1: usuario CON datos. Numero gigante animado + 2 datos secundarios.
+// CASO 1: usuario CON datos.
 // ---------------------------------------------------------------------------
 
-function RealImpact({ uses }: { uses: number }) {
-  const { co2Kg, trees, waterLiters } = computeImpact(uses);
+function RealConsumption({
+  totalItems,
+  totalUses,
+  totalOutfits,
+  activeItemsCount,
+}: {
+  totalItems: number;
+  totalUses: number;
+  totalOutfits: number;
+  activeItemsCount: number;
+}) {
+  const activePercent =
+    totalItems > 0 ? Math.round((activeItemsCount / totalItems) * 100) : 0;
+  const avgUsesPerItem =
+    totalItems > 0 ? (totalUses / totalItems).toFixed(1) : "0.0";
+  const unusedCount = Math.max(0, totalItems - activeItemsCount);
 
   return (
     <Card padding="lg" className="text-center">
-      {/* Icono heroe */}
+      {/* Icono héroe */}
       <div
         aria-hidden="true"
         className="mx-auto flex h-24 w-24 items-center justify-center text-7xl"
       >
-        🌳
+        👗
       </div>
 
-      {/* Numero heroe */}
+      {/* Número héroe */}
       <h1 className="mt-4 font-display text-5xl font-bold leading-none text-text sm:text-6xl">
-        <CountUpNumber value={co2Kg} />
-        <span className="ml-2 text-2xl font-semibold text-text-muted sm:text-3xl">
-          kg
+        <CountUpNumber value={activePercent} />
+        <span className="ml-1 text-3xl font-semibold text-text-muted sm:text-4xl">
+          %
         </span>
       </h1>
       <p className="mt-3 text-base font-medium text-text sm:text-lg">
-        de CO<sub>2</sub> evitados
+        de tu armario activo
       </p>
 
-      <p className="mt-2 text-sm text-text-muted">
-        ≈ <span className="font-semibold text-text">{formatEsNumber(trees)}</span>{" "}
-        {trees === 1 ? "árbol plantado" : "árboles plantados"} al año
-      </p>
-
-      {/* Microcopy */}
-      <p className="mx-auto mt-6 max-w-md text-sm leading-relaxed text-text-muted">
-        Cada outfit que armas con tu armario evita producir ropa nueva.
+      <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-muted">
+        {activeItemsCount} de tus {totalItems}{" "}
+        {totalItems === 1 ? "prenda ha" : "prendas han"} aparecido en un outfit
+        registrado.
       </p>
 
       {/* Separador */}
@@ -119,17 +171,22 @@ function RealImpact({ uses }: { uses: number }) {
         <span className="h-px flex-1 bg-divider" />
       </div>
 
-      {/* Datos secundarios */}
-      <dl className="mt-6 grid gap-4 text-left sm:grid-cols-2">
-        <SecondaryStat
-          icon="💧"
-          value={`${formatEsNumber(waterLiters)} L`}
-          label="de agua ahorrados"
-        />
+      {/* Métricas secundarias */}
+      <dl className="mt-6 grid gap-4 text-left sm:grid-cols-3">
         <SecondaryStat
           icon="✨"
-          value={`${formatEsNumber(uses)}`}
-          label={uses === 1 ? "outfit realmente usado" : "outfits realmente usados"}
+          value={formatEsNumber(totalOutfits)}
+          label={totalOutfits === 1 ? "outfit único generado" : "outfits únicos generados"}
+        />
+        <SecondaryStat
+          icon="👗"
+          value={avgUsesPerItem}
+          label="usos promedio por prenda"
+        />
+        <SecondaryStat
+          icon="😴"
+          value={formatEsNumber(unusedCount)}
+          label={unusedCount === 1 ? "prenda sin usar" : "prendas sin usar"}
         />
       </dl>
     </Card>
@@ -159,97 +216,34 @@ function SecondaryStat({
 }
 
 // ---------------------------------------------------------------------------
-// CASO 2: usuario SIN datos. Mensaje motivacional + proyeccion + CTA.
+// CASO 2: usuario SIN datos.
 // ---------------------------------------------------------------------------
 
-function EmptyImpact() {
-  const { co2Kg, trees, waterLiters } = projectedImpact();
-
+function EmptyConsumption() {
   return (
     <Card padding="lg" className="text-center">
-      {/* Icono motivacional con pulso suave (CSS puro). */}
       <div
         aria-hidden="true"
         className="mx-auto flex h-24 w-24 animate-pulse items-center justify-center text-7xl"
       >
-        🌱
+        👗
       </div>
 
       <h1 className="mt-4 font-display text-3xl font-bold text-text sm:text-4xl">
-        Tu impacto está esperando
+        ¿Qué tan activo está tu armario?
       </h1>
 
       <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-text-muted">
-        Cada outfit que uses con tu armario en vez de comprar ropa nueva,
-        evitas producir{" "}
-        <span className="font-semibold text-text">{CO2_KG_PER_USE} kg</span> de
-        CO<sub>2</sub> y ahorras{" "}
-        <span className="font-semibold text-text">
-          {formatEsNumber(WATER_LITERS_PER_USE)} L
-        </span>{" "}
-        de agua.
+        Registra el uso de tus outfits para ver qué tan activo está tu armario.
       </p>
 
-      {/* Separador */}
-      <div className="mt-8 flex items-center gap-3 text-xs uppercase tracking-widest text-text-faint">
-        <span className="h-px flex-1 bg-divider" />
-        Tu potencial en 1 año
-        <span className="h-px flex-1 bg-divider" />
-      </div>
-
-      {/* Proyeccion: 3 numeros destacados */}
-      <ul className="mt-6 grid gap-3 text-left">
-        <ProjectedRow
-          icon="🌍"
-          value={`${formatEsNumber(co2Kg)} kg`}
-          label="de CO2 evitados"
-        />
-        <ProjectedRow
-          icon="🌳"
-          value={`${formatEsNumber(trees)}`}
-          label="árboles equivalentes"
-        />
-        <ProjectedRow
-          icon="💧"
-          value={`${formatEsNumber(waterLiters)} L`}
-          label="de agua ahorrados"
-        />
-      </ul>
-
-      <p className="mt-4 text-xs text-text-faint">
-        Basado en uso de 3 outfits por semana ({PROJECTED_USES_PER_YEAR} al año).
-      </p>
-
-      {/* CTA */}
       <div className="mt-8 flex justify-center">
         <Link href="/outfits" aria-label="Ir a generar outfits con IA">
           <Button variant="primary" size="lg">
-            ✨ Generar mi primer outfit
+            ✨ Generar mi primer outfit →
           </Button>
         </Link>
       </div>
     </Card>
-  );
-}
-
-function ProjectedRow({
-  icon,
-  value,
-  label,
-}: {
-  icon: string;
-  value: string;
-  label: string;
-}) {
-  return (
-    <li className="flex items-center gap-4 rounded-lg bg-primary-light/60 p-4">
-      <span aria-hidden="true" className="text-3xl">
-        {icon}
-      </span>
-      <div className="flex-1">
-        <p className="text-xl font-bold text-success sm:text-2xl">{value}</p>
-        <p className="text-xs text-text-muted">{label}</p>
-      </div>
-    </li>
   );
 }

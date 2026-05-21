@@ -30,7 +30,7 @@ export default async function RootPage() {
   // ── Queries del dashboard (todas en paralelo) ─────────────────────────────
   const today = new Date();
   const sevenDaysAgoStr = offsetDate(today, -7);
-  const thirtyDaysAgoStr = offsetDate(today, -30);
+  const fifteenDaysAgoStr = offsetDate(today, -15);
 
   const [
     profileRes,
@@ -101,10 +101,10 @@ export default async function RootPage() {
     }
   }
 
-  // ── Prenda olvidada: sin uso en outfit_uses en los últimos 30 días ───────
+  // ── Prenda olvidada: sin uso en outfit_uses en los últimos 15 días ───────
   const recentlyUsedItemIds = new Set<string>();
   for (const use of allUses) {
-    if (use.used_date >= thirtyDaysAgoStr) {
+    if (use.used_date >= fifteenDaysAgoStr) {
       for (const itemId of outfitMap.get(use.outfit_id) ?? []) {
         recentlyUsedItemIds.add(itemId);
       }
@@ -120,13 +120,13 @@ export default async function RootPage() {
     }
   }
 
-  // Candidatas: prendas no usadas en 30 días Y creadas hace 30+ días
+  // Candidatas: prendas no usadas en 15 días Y creadas hace 15+ días
   type Candidata = { id: string; nombre: string; image_path: string | null; diasOlvidada: number };
   const candidatas: Candidata[] = [];
   for (const item of allItems) {
     if (recentlyUsedItemIds.has(item.id)) continue;
     const createdDaysAgo = daysBetween(new Date(item.created_at), today);
-    if (createdDaysAgo < 30) continue;
+    if (createdDaysAgo < 15) continue;
 
     // Buscar última fecha de uso (puede ser null si nunca se usó)
     let lastUseDate: string | null = null;
