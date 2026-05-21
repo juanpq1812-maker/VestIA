@@ -5,15 +5,22 @@
 //   2. single-gallery → input sin capture (abre galería del carrete)
 //   3. bulk           → input con multiple (varias fotos a la vez, máx 10)
 //
-// El flujo de subida individual (modos 1 y 2) mantiene toda la lógica
-// original de metadatos obligatorios.
+// El flujo de subida individual (modos 1 y 2) analiza la foto automáticamente
+// con Claude Vision y pre-llena los campos del formulario.
 //
 // El flujo bulk crea prendas con subcategory=null y category="top" como
 // defaults; el usuario las categoriza después desde el banner en /wardrobe.
 
 "use client";
 
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type MouseEvent,
+  type TouchEvent,
+} from "react";
 import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
 import Button from "@/components/ui/Button";
@@ -40,6 +47,10 @@ import {
   CLOTHING_CATEGORIES,
   type ClothingCategory,
 } from "@/types/database";
+import {
+  analyzeClothingImageAction,
+  type AIClothingAnalysis,
+} from "@/app/wardrobe/upload/actions";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -56,7 +67,118 @@ type FieldErrors = {
 
 type BulkFileResult = { name: string; ok: boolean; error?: string };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers de color ──────────────────────────────────────────────────────────
+
+// Valores RGB representativos de cada color de la paleta (sin multicolor).
+const COLOR_RGB: Record<string, [number, number, number]> = {
+  negro: [17, 17, 17],
+  blanco: [255, 255, 255],
+  gris: [107, 114, 128],
+  azul: [37, 99, 235],
+  rojo: [220, 38, 38],
+  verde: [22, 163, 74],
+  amarillo: [250, 204, 21],
+  rosa: [236, 72, 153],
+  morado: [124, 58, 237],
+  beige: [214, 199, 163],
+  café: [107, 63, 29],
+  naranja: [249, 115, 22],
+};
+
+function hexToRgb(hex: string): [number, number, number] | null {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return null;
+  const n = parseInt(clean, 16);
+  if (isNaN(n)) return null;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+function hexToColorName(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return "negro";
+  let minDist = Infinity;
+  let closest = "negro";
+  for (const [name, rep] of Object.entries(COLOR_RGB)) {
+    const dist = Math.sqrt(
+      (rgb[0] - rep[0]) ** 2 + (rgb[1] - rep[1]) ** 2 + (rgb[2] - rep[2]) ** 2
+    );
+    if (dist < minDist) {
+      minDist = dist;
+      closest = name;
+    }
+  }
+  return closest;
+}
+
+function normStr(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function matchColorToPalette(colorName: string, colorHex: string): string {
+  const n = normStr(colorName);
+  const exact = COLOR_PALETTE.find((c) => normStr(c.name) === n);
+  if (exact) return exact.name;
+  const partial = COLOR_PALETTE.find((c) => {
+    const p = normStr(c.name);
+    return n.includes(p) || p.includes(n);
+  });
+  if (partial) return partial.name;
+  if (colorHex) return hexToColorName(colorHex);
+  return "";
+}
+
+function matchSubcategory(category: string, aiSubcat: string): string {
+  const opts = SUBCATEGORIES[category as ClothingCategory] ?? [];
+  const n = normStr(aiSubcat);
+  const exact = opts.find((o) => normStr(o) === n);
+  if (exact) return exact;
+  const partial = opts.find((o) => {
+    const on = normStr(o);
+    return n.includes(on) || on.includes(n);
+  });
+  return partial ?? "";
+}
+
+function mapAiOccasions(aiOccasions: string[]): string[] {
+  return aiOccasions
+    .map((o) => {
+      const norm = o.toLowerCase();
+      return ITEM_OCCASIONS.find((io) => io.toLowerCase() === norm) ?? null;
+    })
+    .filter((o): o is string => o !== null);
+}
+
+function extractPixelColor(
+  imgEl: HTMLImageElement,
+  clientX: number,
+  clientY: number
+): string | null {
+  const rect = imgEl.getBoundingClientRect();
+  const x = Math.floor(clientX - rect.left);
+  const y = Math.floor(clientY - rect.top);
+  if (x < 0 || y < 0 || x >= rect.width || y >= rect.height) return null;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.floor(rect.width);
+  canvas.height = Math.floor(rect.height);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.drawImage(imgEl, 0, 0, canvas.width, canvas.height);
+
+  try {
+    const [r, g, b] = ctx.getImageData(x, y, 1, 1).data;
+    const hex = `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+    return hexToColorName(hex);
+  } catch {
+    return null;
+  }
+}
+
+// ── Helpers generales ─────────────────────────────────────────────────────────
 
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
@@ -69,7 +191,7 @@ function bytesToReadable(bytes: number): string {
 }
 
 const BULK_MAX_FILES = 10;
-const BULK_CONCURRENCY = 3; // subidas en paralelo
+const BULK_CONCURRENCY = 3;
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -150,6 +272,7 @@ function ModeButton({
 function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewImgRef = useRef<HTMLImageElement>(null);
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -158,6 +281,15 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
   const [color, setColor] = useState<string>("");
   const [occasions, setOccasions] = useState<string[]>([]);
   const [name, setName] = useState<string>("");
+
+  // IA analysis
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
+  const [aiAnalyzed, setAiAnalyzed] = useState(false);
+  const [aiConfidence, setAiConfidence] = useState<AIClothingAnalysis["confianza"] | null>(null);
+
+  // Eyedropper
+  const [eyedropperActive, setEyedropperActive] = useState(false);
+  const [colorBeforeEyedropper, setColorBeforeEyedropper] = useState<string>("");
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -175,6 +307,61 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
       delete copy[key];
       return copy;
     });
+  }
+
+  async function analyzeImage(selectedFile: File) {
+    setAiAnalyzing(true);
+    setAiAnalyzed(false);
+    setAiConfidence(null);
+    try {
+      // Comprimir a resolución pequeña solo para el análisis de IA
+      let forAI: File;
+      try {
+        forAI = await imageCompression(selectedFile, {
+          maxSizeMB: 0.5,
+          maxWidthOrHeight: 800,
+          useWebWorker: true,
+          fileType: "image/jpeg",
+          initialQuality: 0.8,
+        });
+      } catch {
+        forAI = selectedFile;
+      }
+
+      const fd = new FormData();
+      fd.append("image", forAI);
+
+      const result = await analyzeClothingImageAction(fd);
+
+      if (result.ok) {
+        const { categoria, subcategoria, color_principal, color_hex, ocasiones, confianza } =
+          result.data;
+
+        const validCategories: ClothingCategory[] = [
+          "top", "bottom", "dress", "outerwear", "footwear", "accessory", "body",
+        ];
+        if (categoria && validCategories.includes(categoria as ClothingCategory)) {
+          setCategory(categoria as ClothingCategory);
+          const matchedSub = matchSubcategory(categoria, subcategoria ?? "");
+          if (matchedSub) setSubcategory(matchedSub);
+        }
+
+        if (color_principal || color_hex) {
+          const matchedColor = matchColorToPalette(color_principal ?? "", color_hex ?? "");
+          if (matchedColor) setColor(matchedColor);
+        }
+
+        const mappedOcasiones = mapAiOccasions(ocasiones ?? []);
+        if (mappedOcasiones.length > 0) setOccasions(mappedOcasiones);
+
+        setAiConfidence(confianza ?? "baja");
+      }
+    } catch {
+      // Falla silenciosa — el formulario queda en blanco para que el usuario llene
+    } finally {
+      setAiAnalyzing(false);
+      setAiAnalyzed(true);
+    }
   }
 
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
@@ -198,12 +385,26 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     if (preview) URL.revokeObjectURL(preview);
     setFile(selected);
     setPreview(URL.createObjectURL(selected));
+
+    // Resetear form y lanzar análisis IA
+    setCategory("");
+    setSubcategory("");
+    setColor("");
+    setOccasions([]);
+    setAiAnalyzed(false);
+    setEyedropperActive(false);
+
+    analyzeImage(selected);
   }
 
   function handleCambiarFoto() {
     if (preview) URL.revokeObjectURL(preview);
     setFile(null);
     setPreview(null);
+    setAiAnalyzing(false);
+    setAiAnalyzed(false);
+    setAiConfidence(null);
+    setEyedropperActive(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     clearFieldError("image");
   }
@@ -214,6 +415,38 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     setSubcategory("");
     clearFieldError("category");
     clearFieldError("subcategory");
+  }
+
+  // Eyedropper handlers
+  function handleActivateEyedropper() {
+    setColorBeforeEyedropper(color);
+    setEyedropperActive(true);
+  }
+
+  function handleCancelEyedropper() {
+    setColor(colorBeforeEyedropper);
+    setEyedropperActive(false);
+  }
+
+  function handleEyedropperPointer(clientX: number, clientY: number) {
+    if (!previewImgRef.current) return;
+    const colorName = extractPixelColor(previewImgRef.current, clientX, clientY);
+    if (colorName) {
+      setColor(colorName);
+      clearFieldError("color");
+    }
+    setEyedropperActive(false);
+  }
+
+  function handleEyedropperClick(e: MouseEvent<HTMLDivElement>) {
+    e.preventDefault();
+    handleEyedropperPointer(e.clientX, e.clientY);
+  }
+
+  function handleEyedropperTouch(e: TouchEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    if (touch) handleEyedropperPointer(touch.clientX, touch.clientY);
   }
 
   function validar(): FieldErrors {
@@ -380,194 +613,361 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
           </label>
         ) : (
           <div className="mt-4 flex flex-col items-center gap-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={preview}
-              alt="Vista previa de la prenda"
-              className="max-h-80 w-auto rounded-lg border border-border object-contain"
-            />
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button
-                variant="ghost"
-                onClick={handleCambiarFoto}
-                disabled={submitting}
-              >
-                Cambiar foto
-              </Button>
-              {file ? (
-                <span className="text-xs text-text-muted">
-                  {file.name} · {bytesToReadable(file.size)}
-                </span>
+            {/* Wrapper relativo para el overlay del eyedropper */}
+            <div className="relative inline-block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={previewImgRef}
+                src={preview}
+                alt="Vista previa de la prenda"
+                className="max-h-80 w-auto rounded-lg border border-border object-contain"
+                draggable={false}
+              />
+              {eyedropperActive ? (
+                <div
+                  className="absolute inset-0 rounded-lg"
+                  style={{ cursor: "crosshair", zIndex: 10 }}
+                  onClick={handleEyedropperClick}
+                  onTouchStart={handleEyedropperTouch}
+                  aria-label="Toca el color que quieres seleccionar"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") handleCancelEyedropper();
+                  }}
+                />
               ) : null}
             </div>
+
+            {eyedropperActive ? (
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-sm font-medium text-primary">
+                  Toca el color que quieres seleccionar en la foto
+                </p>
+                <Button variant="ghost" onClick={handleCancelEyedropper}>
+                  Cancelar
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={handleCambiarFoto}
+                  disabled={submitting}
+                >
+                  Cambiar foto
+                </Button>
+                {file ? (
+                  <span className="text-xs text-text-muted">
+                    {file.name} · {bytesToReadable(file.size)}
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
         )}
 
         {fieldErrors.image ? (
-          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
+          <p
+            role="alert"
+            className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+          >
             {fieldErrors.image}
           </p>
         ) : null}
       </Card>
 
-      {/* Categoria */}
-      <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">Categoría</h2>
-        <p className="mt-1 text-xs text-text-muted">Elige el tipo amplio de prenda.</p>
-        <div role="radiogroup" aria-label="Categoría" className="mt-3 flex flex-wrap gap-2">
-          {CLOTHING_CATEGORIES.map((cat) => (
-            <Chip
-              key={cat.value}
-              role="radio"
-              aria-checked={category === cat.value}
-              active={category === cat.value}
-              onClick={() => handleCategoria(cat.value)}
-            >
-              {cat.label}
-            </Chip>
-          ))}
-        </div>
-        {fieldErrors.category ? (
-          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
-            {fieldErrors.category}
+      {/* Estado de análisis IA (se muestra mientras analiza, antes del formulario) */}
+      {aiAnalyzing ? (
+        <Card padding="md">
+          <div className="flex items-center gap-3 py-2">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <p className="text-sm font-medium text-text">
+              🔍 Analizando tu prenda…
+            </p>
+          </div>
+          <p className="mt-1 text-xs text-text-muted">
+            Detectando categoría, color y ocasiones automáticamente.
           </p>
-        ) : null}
-      </Card>
-
-      {/* Subcategoria */}
-      <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">Subcategoría</h2>
-        <p className="mt-1 text-xs text-text-muted">
-          {category ? "Especificá qué tipo de prenda es dentro de la categoría." : "Primero elegí una categoría arriba."}
-        </p>
-        <div role="radiogroup" aria-label="Subcategoría" className="mt-3 flex flex-wrap gap-2">
-          {subcategoryOptions.length === 0 ? (
-            <p className="text-sm text-text-faint">Las opciones aparecen al elegir la categoría.</p>
-          ) : (
-            subcategoryOptions.map((opt) => (
-              <Chip
-                key={opt}
-                role="radio"
-                aria-checked={subcategory === opt}
-                active={subcategory === opt}
-                onClick={() => { setSubcategory(opt); clearFieldError("subcategory"); }}
-              >
-                {opt}
-              </Chip>
-            ))
-          )}
-        </div>
-        {fieldErrors.subcategory ? (
-          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
-            {fieldErrors.subcategory}
-          </p>
-        ) : null}
-      </Card>
-
-      {/* Color */}
-      <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">Color principal</h2>
-        <p className="mt-1 text-xs text-text-muted">Elige el color que más predomina en la prenda.</p>
-        <div role="radiogroup" aria-label="Color principal" className="mt-4 flex flex-wrap gap-3">
-          {COLOR_PALETTE.map((c) => {
-            const seleccionado = color === c.name;
-            const esBlanco = c.name === "blanco";
-            return (
-              <button
-                key={c.name}
-                type="button"
-                role="radio"
-                aria-checked={seleccionado}
-                aria-label={c.name}
-                title={c.name}
-                onClick={() => { setColor(c.name); clearFieldError("color"); }}
-                className={[
-                  "group flex flex-col items-center gap-1.5 rounded-md p-1 transition-transform",
-                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                  seleccionado ? "scale-105" : "hover:scale-105",
-                ].join(" ")}
-              >
-                <span
-                  className={[
-                    "flex h-10 w-10 items-center justify-center rounded-full transition-shadow",
-                    seleccionado
-                      ? "ring-2 ring-primary ring-offset-2 ring-offset-surface shadow-md"
-                      : esBlanco ? "ring-1 ring-border" : "shadow-sm",
-                  ].join(" ")}
-                  style={{ background: c.swatch }}
-                  aria-hidden="true"
-                >
-                  {seleccionado ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-                      stroke={c.contrastText === "light" ? "#fff" : "#111"} strokeWidth="3">
-                      <path d="M5 12l5 5L20 7" />
-                    </svg>
-                  ) : null}
-                </span>
-                <span className="text-[11px] capitalize text-text-muted">{c.name}</span>
-              </button>
-            );
-          })}
-        </div>
-        {fieldErrors.color ? (
-          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
-            {fieldErrors.color}
-          </p>
-        ) : null}
-      </Card>
-
-      {/* Ocasiones */}
-      <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">¿Para qué ocasiones sirve?</h2>
-        <p className="mt-1 text-xs text-text-muted">
-          Marcá todas las que apliquen (mínimo 1). Esto ayuda a la IA a combinarla mejor.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {ITEM_OCCASIONS.map((o) => (
-            <Chip
-              key={o}
-              active={occasions.includes(o)}
-              onClick={() => { setOccasions((arr) => toggle(arr, o)); clearFieldError("occasions"); }}
-            >
-              {o}
-            </Chip>
-          ))}
-        </div>
-        {fieldErrors.occasions ? (
-          <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
-            {fieldErrors.occasions}
-          </p>
-        ) : null}
-      </Card>
-
-      {/* Nombre opcional */}
-      <Card padding="md">
-        <Input
-          label="Nombre (opcional)"
-          type="text"
-          maxLength={NAME_MAX_LENGTH}
-          placeholder="Camisa azul oxford"
-          value={name}
-          onChange={(e) => { setName(e.target.value); clearFieldError("name"); }}
-          hint={`${name.length}/${NAME_MAX_LENGTH} caracteres`}
-          error={fieldErrors.name}
-        />
-      </Card>
-
-      {generalError ? (
-        <p role="alert" className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
-          {generalError}
-        </p>
+        </Card>
       ) : null}
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
-        <Button variant="ghost" onClick={() => router.push("/wardrobe")} disabled={submitting}>
-          Cancelar
-        </Button>
-        <Button onClick={handleSubmit} isLoading={submitting} loadingText={progress ?? "Subiendo…"}>
-          Guardar prenda
-        </Button>
-      </div>
+      {/* Formulario: se muestra solo cuando hay foto y ya terminó el análisis */}
+      {preview && !aiAnalyzing ? (
+        <>
+          {/* Badge de confianza */}
+          {aiAnalyzed && aiConfidence ? (
+            <div
+              className={[
+                "rounded-xl border px-4 py-3 text-sm font-medium",
+                aiConfidence === "alta"
+                  ? "border-success bg-success-light text-success"
+                  : "border-warning bg-warning-light text-warning",
+              ].join(" ")}
+            >
+              {aiConfidence === "alta"
+                ? "✓ Detectado automáticamente — puedes editar cualquier campo"
+                : "⚠️ Verifica los datos — la IA no está muy segura"}
+            </div>
+          ) : null}
+
+          {/* Categoria */}
+          <Card padding="md">
+            <h2 className="font-display text-lg font-semibold text-text">
+              Categoría
+            </h2>
+            <p className="mt-1 text-xs text-text-muted">
+              Elige el tipo amplio de prenda.
+            </p>
+            <div
+              role="radiogroup"
+              aria-label="Categoría"
+              className="mt-3 flex flex-wrap gap-2"
+            >
+              {CLOTHING_CATEGORIES.map((cat) => (
+                <Chip
+                  key={cat.value}
+                  role="radio"
+                  aria-checked={category === cat.value}
+                  active={category === cat.value}
+                  onClick={() => handleCategoria(cat.value)}
+                >
+                  {cat.label}
+                </Chip>
+              ))}
+            </div>
+            {fieldErrors.category ? (
+              <p
+                role="alert"
+                className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+              >
+                {fieldErrors.category}
+              </p>
+            ) : null}
+          </Card>
+
+          {/* Subcategoria */}
+          <Card padding="md">
+            <h2 className="font-display text-lg font-semibold text-text">
+              Subcategoría
+            </h2>
+            <p className="mt-1 text-xs text-text-muted">
+              {category
+                ? "Especificá qué tipo de prenda es dentro de la categoría."
+                : "Primero elegí una categoría arriba."}
+            </p>
+            <div
+              role="radiogroup"
+              aria-label="Subcategoría"
+              className="mt-3 flex flex-wrap gap-2"
+            >
+              {subcategoryOptions.length === 0 ? (
+                <p className="text-sm text-text-faint">
+                  Las opciones aparecen al elegir la categoría.
+                </p>
+              ) : (
+                subcategoryOptions.map((opt) => (
+                  <Chip
+                    key={opt}
+                    role="radio"
+                    aria-checked={subcategory === opt}
+                    active={subcategory === opt}
+                    onClick={() => {
+                      setSubcategory(opt);
+                      clearFieldError("subcategory");
+                    }}
+                  >
+                    {opt}
+                  </Chip>
+                ))
+              )}
+            </div>
+            {fieldErrors.subcategory ? (
+              <p
+                role="alert"
+                className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+              >
+                {fieldErrors.subcategory}
+              </p>
+            ) : null}
+          </Card>
+
+          {/* Color */}
+          <Card padding="md">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-display text-lg font-semibold text-text">
+                  Color principal
+                </h2>
+                <p className="mt-1 text-xs text-text-muted">
+                  Elige el color que más predomina en la prenda.
+                </p>
+              </div>
+              {preview && !eyedropperActive ? (
+                <button
+                  type="button"
+                  onClick={handleActivateEyedropper}
+                  className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text"
+                  title="Selecciona el color directamente tocando la foto"
+                >
+                  🎨 Tomar color de la foto
+                </button>
+              ) : null}
+            </div>
+            <div
+              role="radiogroup"
+              aria-label="Color principal"
+              className="mt-4 flex flex-wrap gap-3"
+            >
+              {COLOR_PALETTE.map((c) => {
+                const seleccionado = color === c.name;
+                const esBlanco = c.name === "blanco";
+                return (
+                  <button
+                    key={c.name}
+                    type="button"
+                    role="radio"
+                    aria-checked={seleccionado}
+                    aria-label={c.name}
+                    title={c.name}
+                    onClick={() => {
+                      setColor(c.name);
+                      clearFieldError("color");
+                    }}
+                    className={[
+                      "group flex flex-col items-center gap-1.5 rounded-md p-1 transition-transform",
+                      "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                      seleccionado ? "scale-105" : "hover:scale-105",
+                    ].join(" ")}
+                  >
+                    <span
+                      className={[
+                        "flex h-10 w-10 items-center justify-center rounded-full transition-shadow",
+                        seleccionado
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-surface shadow-md"
+                          : esBlanco
+                            ? "ring-1 ring-border"
+                            : "shadow-sm",
+                      ].join(" ")}
+                      style={{ background: c.swatch }}
+                      aria-hidden="true"
+                    >
+                      {seleccionado ? (
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke={c.contrastText === "light" ? "#fff" : "#111"}
+                          strokeWidth="3"
+                        >
+                          <path d="M5 12l5 5L20 7" />
+                        </svg>
+                      ) : null}
+                    </span>
+                    <span className="text-[11px] capitalize text-text-muted">
+                      {c.name}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {fieldErrors.color ? (
+              <p
+                role="alert"
+                className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+              >
+                {fieldErrors.color}
+              </p>
+            ) : null}
+          </Card>
+
+          {/* Ocasiones */}
+          <Card padding="md">
+            <h2 className="font-display text-lg font-semibold text-text">
+              ¿Para qué ocasiones sirve?
+            </h2>
+            <p className="mt-1 text-xs text-text-muted">
+              Marcá todas las que apliquen (mínimo 1). Esto ayuda a la IA a
+              combinarla mejor.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {ITEM_OCCASIONS.map((o) => (
+                <Chip
+                  key={o}
+                  active={occasions.includes(o)}
+                  onClick={() => {
+                    setOccasions((arr) => toggle(arr, o));
+                    clearFieldError("occasions");
+                  }}
+                >
+                  {o}
+                </Chip>
+              ))}
+            </div>
+            {fieldErrors.occasions ? (
+              <p
+                role="alert"
+                className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+              >
+                {fieldErrors.occasions}
+              </p>
+            ) : null}
+          </Card>
+
+          {/* Nombre opcional */}
+          <Card padding="md">
+            <Input
+              label="Nombre (opcional)"
+              type="text"
+              maxLength={NAME_MAX_LENGTH}
+              placeholder="Camisa azul oxford"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                clearFieldError("name");
+              }}
+              hint={`${name.length}/${NAME_MAX_LENGTH} caracteres`}
+              error={fieldErrors.name}
+            />
+          </Card>
+
+          {generalError ? (
+            <p
+              role="alert"
+              className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+            >
+              {generalError}
+            </p>
+          ) : null}
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+            <Button
+              variant="ghost"
+              onClick={() => router.push("/wardrobe")}
+              disabled={submitting}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              isLoading={submitting}
+              loadingText={progress ?? "Subiendo…"}
+            >
+              Guardar prenda
+            </Button>
+          </div>
+        </>
+      ) : null}
+
+      {/* Si no hay foto aún, mostrar el cancel button */}
+      {!preview ? (
+        <div className="flex justify-start">
+          <Button variant="ghost" onClick={() => router.push("/wardrobe")}>
+            Cancelar
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -590,7 +990,9 @@ function BulkUploadSection() {
     const files = Array.from(e.target.files ?? []);
     if (files.length === 0) return;
     if (files.length > BULK_MAX_FILES) {
-      setFileError(`Puedes subir hasta ${BULK_MAX_FILES} fotos a la vez. Seleccionaste ${files.length}.`);
+      setFileError(
+        `Puedes subir hasta ${BULK_MAX_FILES} fotos a la vez. Seleccionaste ${files.length}.`
+      );
       return;
     }
     setSelectedFiles(files);
@@ -619,7 +1021,6 @@ function BulkUploadSection() {
     const allResults: BulkFileResult[] = new Array(selectedFiles.length);
     let doneSoFar = 0;
 
-    // Procesar en lotes de BULK_CONCURRENCY para no saturar Supabase
     for (let i = 0; i < selectedFiles.length; i += BULK_CONCURRENCY) {
       const batch = selectedFiles.slice(i, i + BULK_CONCURRENCY);
 
@@ -627,7 +1028,6 @@ function BulkUploadSection() {
         batch.map(async (file, batchIdx) => {
           const globalIdx = i + batchIdx;
           try {
-            // Comprimir
             let comprimido: File;
             try {
               comprimido = await imageCompression(file, {
@@ -638,10 +1038,9 @@ function BulkUploadSection() {
                 initialQuality: COMPRESS_QUALITY,
               });
             } catch {
-              comprimido = file; // Si falla la compresión, subir original
+              comprimido = file;
             }
 
-            // Subir a Storage
             const uuid = crypto.randomUUID();
             const path = buildClothingImagePath({
               userId: user.id,
@@ -658,13 +1057,12 @@ function BulkUploadSection() {
 
             if (uploadError) throw new Error(uploadError.message);
 
-            // Insertar en clothing_items con defaults (sin categorizar)
             const { error: insertError } = await supabase
               .from("clothing_items")
               .insert({
                 user_id: user.id,
-                category: "top" as const,  // default; usuario lo cambia en /edit
-                subcategory: null,          // null = "sin categorizar" (muestra badge)
+                category: "top" as const,
+                subcategory: null,
                 name: null,
                 primary_color: null,
                 occasions: [],
@@ -701,7 +1099,6 @@ function BulkUploadSection() {
 
     const exitos = allResults.filter((r) => r?.ok).length;
     if (exitos > 0) {
-      // Pequeño delay para que el usuario vea el resumen antes del redirect
       setTimeout(() => {
         router.push("/wardrobe");
         router.refresh();
@@ -767,7 +1164,10 @@ function BulkUploadSection() {
           </label>
 
           {fileError ? (
-            <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
+            <p
+              role="alert"
+              className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+            >
               {fileError}
             </p>
           ) : null}
@@ -785,23 +1185,26 @@ function BulkUploadSection() {
                 ))}
               </ul>
               <Button fullWidth onClick={handleUpload}>
-                Subir {selectedFiles.length} foto{selectedFiles.length > 1 ? "s" : ""}
+                Subir {selectedFiles.length} foto
+                {selectedFiles.length > 1 ? "s" : ""}
               </Button>
             </div>
           ) : null}
         </div>
       ) : null}
 
-      {/* Progreso */}
       {uploading && progress ? (
         <div className="mt-5">
           <p className="text-center text-sm font-semibold text-text">
-            Subiendo {progress.done} de {progress.total} foto{progress.total > 1 ? "s" : ""}…
+            Subiendo {progress.done} de {progress.total} foto
+            {progress.total > 1 ? "s" : ""}…
           </p>
           <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-surface-offset">
             <div
               className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+              style={{
+                width: `${Math.round((progress.done / progress.total) * 100)}%`,
+              }}
               aria-hidden="true"
             />
           </div>
@@ -811,13 +1214,13 @@ function BulkUploadSection() {
         </div>
       ) : null}
 
-      {/* Resultado */}
       {results !== null && !uploading ? (
         <div className="mt-5 flex flex-col gap-3">
           {doneOk ? (
             <div className="rounded-xl border border-success bg-success-light px-4 py-3 text-sm text-success">
               <p className="font-semibold">
-                ✅ {exitosCount} prenda{exitosCount > 1 ? "s" : ""} agregada{exitosCount > 1 ? "s" : ""} con éxito
+                ✅ {exitosCount} prenda{exitosCount > 1 ? "s" : ""} agregada
+                {exitosCount > 1 ? "s" : ""} con éxito
               </p>
               <p className="mt-0.5 text-xs">
                 Ahora podés categorizarlas desde tu armario. Redirigiendo…
@@ -828,7 +1231,8 @@ function BulkUploadSection() {
           {erroresCount > 0 ? (
             <div className="rounded-xl border border-danger bg-danger-light px-4 py-3 text-sm text-danger">
               <p className="font-semibold mb-1">
-                ⚠️ {erroresCount} foto{erroresCount > 1 ? "s" : ""} no se {erroresCount > 1 ? "pudieron subir" : "pudo subir"}:
+                ⚠️ {erroresCount} foto{erroresCount > 1 ? "s" : ""} no se{" "}
+                {erroresCount > 1 ? "pudieron subir" : "pudo subir"}:
               </p>
               <ul className="space-y-0.5 text-xs">
                 {results

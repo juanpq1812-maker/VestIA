@@ -15,7 +15,8 @@ export type ClothingCategory =
   | "dress"
   | "outerwear"
   | "footwear"
-  | "accessory";
+  | "accessory"
+  | "body";
 
 // Etiquetas que ofrecemos en el onboarding (chips multi-select).
 export type StyleTag =
@@ -253,7 +254,8 @@ export const CLOTHING_CATEGORIES: readonly {
   { value: "top", label: "Tops" },
   { value: "bottom", label: "Bottoms" },
   { value: "dress", label: "Vestidos" },
-  { value: "outerwear", label: "Outerwear" },
+  { value: "outerwear", label: "Abrigos" },
   { value: "footwear", label: "Calzado" },
   { value: "accessory", label: "Accesorios" },
+  { value: "body", label: "Body" },
 ] as const;
