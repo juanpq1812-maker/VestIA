@@ -1,7 +1,9 @@
 // Formulario para subir prenda(s) al armario.
 //
 // Dos modos de subida:
-//   1. single → input sin capture (Android muestra menú cámara/galería automáticamente)
+//   1. single → dos botones: "Tomar foto" (capture="environment") y "Elegir de galería" (sin capture)
+//              El eyedropper solo se activa cuando la foto viene de galería; las fotos de cámara
+//              pueden ser full-res y provocar OOM en el Canvas, así que se oculta el eyedropper.
 //   2. bulk   → input con multiple (varias fotos a la vez, máx 10)
 //
 // El flujo de subida individual analiza la foto automáticamente con Claude Vision
@@ -352,7 +354,8 @@ function ModeButton({
 
 function SingleUploadForm() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
   const eyedropperImgRef = useRef<HTMLImageElement>(null);
 
@@ -372,6 +375,7 @@ function SingleUploadForm() {
 
   // Eyedropper
   const [eyedropperEnabled] = useState(() => canUseEyedropper());
+  const [fotoEsDeCamara, setFotoEsDeCamara] = useState(false);
   const [eyedropperActive, setEyedropperActive] = useState(false);
   const [eyedropperError, setEyedropperError] = useState(false);
   const [colorBeforeEyedropper, setColorBeforeEyedropper] = useState<string>("");
@@ -449,10 +453,11 @@ function SingleUploadForm() {
     }
   }
 
-  async function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: ChangeEvent<HTMLInputElement>, fromCamera: boolean) {
     setGeneralError(null);
     const selected = e.target.files?.[0];
     if (!selected) return;
+    setFotoEsDeCamara(fromCamera);
 
     if (
       !ALLOWED_MIME_TYPES.includes(
@@ -496,14 +501,18 @@ function SingleUploadForm() {
     setPreview(URL.createObjectURL(workingFile));
 
     // Paso 2: versión reducida (máx 800×800) para el eyedropper (canvas 1×1).
-    imageCompression(workingFile, {
-      maxWidthOrHeight: 800,
-      useWebWorker: true,
-      fileType: "image/jpeg",
-      initialQuality: 0.85,
-    })
-      .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
-      .catch(() => setEyedropperSrc(URL.createObjectURL(workingFile)));
+    // No se crea cuando la foto viene de cámara — esas pueden ser full-res y
+    // provocar OOM en el Canvas aunque se haya bajado a 1200px.
+    if (!fromCamera) {
+      imageCompression(workingFile, {
+        maxWidthOrHeight: 800,
+        useWebWorker: true,
+        fileType: "image/jpeg",
+        initialQuality: 0.85,
+      })
+        .then((resized) => setEyedropperSrc(URL.createObjectURL(resized)))
+        .catch(() => setEyedropperSrc(URL.createObjectURL(workingFile)));
+    }
 
     // Paso 3: análisis IA con la imagen ya reducida.
     analyzeImage(workingFile);
@@ -515,11 +524,13 @@ function SingleUploadForm() {
     setFile(null);
     setPreview(null);
     setEyedropperSrc(null);
+    setFotoEsDeCamara(false);
     setAiAnalyzing(false);
     setAiAnalyzed(false);
     setAiConfidence(null);
     setEyedropperActive(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
     clearFieldError("image");
   }
 
@@ -690,41 +701,39 @@ function SingleUploadForm() {
         </p>
 
         {!preview ? (
-          <label
-            htmlFor="clothing-photo"
-            className="mt-4 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-surface-2 p-8 text-center transition-colors hover:border-primary-mid"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-primary">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path d="M3 7h4l2-3h6l2 3h4v12H3z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-text">
-                Toca para elegir o tomar una foto
-              </p>
-              <p className="mt-1 text-xs text-text-muted">
-                Selecciona desde tu galería o toma una foto nueva.
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              id="clothing-photo"
-              type="file"
-              accept="image/*"
-              className="sr-only"
-              onChange={handleFileChange}
-            />
-          </label>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            <label
+              htmlFor="clothing-photo-camera"
+              className="flex flex-1 cursor-pointer items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-surface-2 p-6 text-center transition-colors hover:border-primary-mid"
+            >
+              <span className="text-2xl" aria-hidden="true">📷</span>
+              <span className="text-sm font-semibold text-text">Tomar foto</span>
+              <input
+                ref={cameraInputRef}
+                id="clothing-photo-camera"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                onChange={(e) => handleFileChange(e, true)}
+              />
+            </label>
+            <label
+              htmlFor="clothing-photo-gallery"
+              className="flex flex-1 cursor-pointer items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-surface-2 p-6 text-center transition-colors hover:border-primary-mid"
+            >
+              <span className="text-2xl" aria-hidden="true">🖼️</span>
+              <span className="text-sm font-semibold text-text">Elegir de galería</span>
+              <input
+                ref={galleryInputRef}
+                id="clothing-photo-gallery"
+                type="file"
+                accept="image/*"
+                className="sr-only"
+                onChange={(e) => handleFileChange(e, false)}
+              />
+            </label>
+          </div>
         ) : (
           <div className="mt-4 flex flex-col items-center gap-3">
             {/* Wrapper relativo para el overlay del eyedropper */}
@@ -923,7 +932,7 @@ function SingleUploadForm() {
                   Elige el color que más predomina en la prenda.
                 </p>
               </div>
-              {preview && !eyedropperActive && !eyedropperError ? (
+              {preview && !eyedropperActive && !eyedropperError && !fotoEsDeCamara ? (
                 <button
                   type="button"
                   onClick={handleActivateEyedropper}
