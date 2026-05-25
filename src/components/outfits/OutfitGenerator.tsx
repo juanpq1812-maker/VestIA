@@ -26,6 +26,7 @@ import {
 import type { GeneratedOutfit } from "@/lib/ai/generateOutfits";
 import type { ClothingItem } from "@/types/database";
 import Toast from "@/components/ui/Toast";
+import AiUsageGateModal from "@/components/ui/AiUsageGateModal";
 import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSection";
 import InspirationSection from "@/components/outfits/InspirationSection";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
@@ -82,6 +83,7 @@ export default function OutfitGenerator({
   const [error, setError] = useState<string | null>(null);
   const [lastInput, setLastInput] = useState<GenerateActionInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
+  const [showGate, setShowGate] = useState(false);
 
   const tieneLockedItem = Boolean(lockedItemId);
 
@@ -102,6 +104,10 @@ export default function OutfitGenerator({
     startTransition(async () => {
       const res = await generateOutfitsAction(input);
       if (!res.ok) {
+        if (res.code === "USAGE_GATE_REQUIRED") {
+          setShowGate(true);
+          return;
+        }
         setError(res.error);
         return;
       }
@@ -199,6 +205,8 @@ export default function OutfitGenerator({
           onDismiss={() => setToast(null)}
         />
       )}
+
+      <AiUsageGateModal open={showGate} onClose={() => setShowGate(false)} />
 
       <WardrobeCompletionSection summary={wardrobeSummary} />
       <InspirationSection onApplyInspiration={applyInspiration} />

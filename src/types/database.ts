@@ -57,6 +57,8 @@ export type Profile = {
   id: string;
   display_name: string | null;
   onboarding_completed: boolean;
+  /** Cuántas veces ha usado funciones IA. 0 = no ha usado; >= 1 = agotó el uso gratuito. */
+  ai_uses: number;
   created_at: string;
   updated_at: string;
 };
@@ -65,6 +67,7 @@ export type ProfileInsert = {
   id: string;
   display_name?: string | null;
   onboarding_completed?: boolean;
+  ai_uses?: number;
   created_at?: string;
   updated_at?: string;
 };

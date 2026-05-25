@@ -2,6 +2,7 @@
 
 import { useState, useRef, useTransition, type ChangeEvent } from "react";
 import Button from "@/components/ui/Button";
+import AiUsageGateModal from "@/components/ui/AiUsageGateModal";
 import {
   analyzeInspirationPhotoAction,
   type DetectedGarment,
@@ -36,6 +37,7 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
   const [estilo, setEstilo] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [showGate, setShowGate] = useState(false);
 
   function resetState() {
     setPrendas(null);
@@ -86,6 +88,11 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
           setPrendas(res.prendas);
           setEstiloGeneral(res.estilo_general);
           setEstilo(res.estilo);
+        } else if (res.code === "USAGE_GATE_REQUIRED") {
+          // Limpiar la preview para que no quede la foto sin análisis.
+          setPreview(null);
+          if (fileInputRef.current) fileInputRef.current.value = "";
+          setShowGate(true);
         } else {
           setError(res.error);
         }
@@ -110,6 +117,7 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
 
   return (
     <section className="rounded-xl border border-border bg-surface p-6 shadow-sm sm:p-8">
+      <AiUsageGateModal open={showGate} onClose={() => setShowGate(false)} />
       <div className="mb-6">
         <h2 className="font-display text-xl font-bold text-text">
           📸 Inspírate

@@ -18,6 +18,7 @@ import {
   type GenerateMode,
 } from "@/lib/ai/generateOutfits";
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
+import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
 
 export type GenerateActionInput = {
   mode: GenerateMode;
@@ -44,6 +45,16 @@ export async function generateOutfitsAction(
       ok: false,
       code: "UNAUTHENTICATED",
       error: "Inicia sesion para generar outfits.",
+    };
+  }
+
+  // Gate de uso IA: 1 uso gratuito por usuario.
+  const gate = await checkAndConsumeAiUse(user.id, supabase);
+  if (!gate.allowed) {
+    return {
+      ok: false,
+      code: "USAGE_GATE_REQUIRED",
+      error: "Has usado tu acceso gratuito a la IA.",
     };
   }
 
@@ -358,7 +369,7 @@ export type DetectedGarment = {
 
 export type AnalyzeInspirationResult =
   | { ok: true; prendas: DetectedGarment[]; estilo_general: string; estilo: string }
-  | { ok: false; error: string };
+  | { ok: false; error: string; code?: string };
 
 const ESTILOS_VALIDOS = [
   "streetwear",
@@ -383,6 +394,16 @@ export async function analyzeInspirationPhotoAction(input: {
 
   if (!user) {
     return { ok: false, error: "Inicia sesión para usar esta función." };
+  }
+
+  // Gate de uso IA: 1 uso gratuito por usuario.
+  const gate = await checkAndConsumeAiUse(user.id, supabase);
+  if (!gate.allowed) {
+    return {
+      ok: false,
+      code: "USAGE_GATE_REQUIRED",
+      error: "Has usado tu acceso gratuito a la IA.",
+    };
   }
 
   const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
