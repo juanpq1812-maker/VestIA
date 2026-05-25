@@ -49,8 +49,20 @@ export async function generateOutfitsAction(
   }
 
   // Gate de uso IA: 1 uso gratuito por usuario.
-  const gate = await checkAndConsumeAiUse(user.id, supabase);
-  if (!gate.allowed) {
+  // El try/catch propio garantiza que cualquier fallo del gate (Supabase caído,
+  // columna ausente, etc.) devuelva USAGE_GATE_REQUIRED en vez de lanzar una
+  // excepción no controlada que Next.js convertiría en un error de red en el
+  // cliente, impidiendo que el modal aparezca.
+  let gateAllowed = false;
+  try {
+    const gate = await checkAndConsumeAiUse(user.id, supabase);
+    gateAllowed = gate.allowed;
+  } catch (gateErr) {
+    console.error("[generateOutfitsAction] error en gate check", gateErr);
+    gateAllowed = false;
+  }
+
+  if (!gateAllowed) {
     return {
       ok: false,
       code: "USAGE_GATE_REQUIRED",
@@ -397,8 +409,19 @@ export async function analyzeInspirationPhotoAction(input: {
   }
 
   // Gate de uso IA: 1 uso gratuito por usuario.
-  const gate = await checkAndConsumeAiUse(user.id, supabase);
-  if (!gate.allowed) {
+  // Try/catch propio: si el gate falla por cualquier razón (Supabase, columna
+  // ausente, etc.) devolvemos USAGE_GATE_REQUIRED en lugar de lanzar una
+  // excepción que el cliente no podría capturar correctamente.
+  let gateAllowed = false;
+  try {
+    const gate = await checkAndConsumeAiUse(user.id, supabase);
+    gateAllowed = gate.allowed;
+  } catch (gateErr) {
+    console.error("[analyzeInspirationPhotoAction] error en gate check", gateErr);
+    gateAllowed = false;
+  }
+
+  if (!gateAllowed) {
     return {
       ok: false,
       code: "USAGE_GATE_REQUIRED",

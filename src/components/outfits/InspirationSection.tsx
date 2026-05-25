@@ -27,9 +27,13 @@ const ALLOWED_MIME_TYPES = [
 
 type Props = {
   onApplyInspiration: (description: string) => void;
+  /** Usos IA actuales (del contador local de OutfitGenerator). Pre-check client-side. */
+  aiUses?: number;
+  /** Callback para notificar a OutfitGenerator que se consumió un uso de IA. */
+  onAiUsed?: () => void;
 };
 
-export default function InspirationSection({ onApplyInspiration }: Props) {
+export default function InspirationSection({ onApplyInspiration, aiUses = 0, onAiUsed }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [prendas, setPrendas] = useState<DetectedGarment[] | null>(null);
@@ -51,6 +55,14 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
   function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Pre-verificación client-side: si ya agotó el uso gratuito, mostramos el
+    // modal de inmediato sin leer la imagen ni llamar al server action.
+    if (aiUses >= 1) {
+      setShowGate(true);
+      e.target.value = "";
+      return;
+    }
 
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
       setError("Formato no soportado. Usa JPEG, PNG o WebP.");
@@ -88,6 +100,8 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
           setPrendas(res.prendas);
           setEstiloGeneral(res.estilo_general);
           setEstilo(res.estilo);
+          // Notificar al padre que se consumió un uso de IA.
+          onAiUsed?.();
         } else if (res.code === "USAGE_GATE_REQUIRED") {
           // Limpiar la preview para que no quede la foto sin análisis.
           setPreview(null);
