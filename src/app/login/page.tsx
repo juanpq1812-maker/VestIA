@@ -183,12 +183,6 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          <Link
-            href="/"
-            className="text-white/60 transition-colors hover:text-white"
-          >
-            Continuar sin cuenta
-          </Link>
         </div>
 
         {/* ── Footer legal ──────────────────────────────────────────────── */}
