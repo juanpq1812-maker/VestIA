@@ -16,6 +16,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useId, type FormEvent } from "react";
 import type { InputHTMLAttributes } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import Button from "@/components/ui/Button";
 
@@ -31,11 +32,13 @@ function DarkField({
   hint,
   id: idProp,
   className,
+  type: typeProp = "text",
   ...rest
 }: {
   label: string;
   error?: string | null;
   hint?: string;
+  type?: string;
 } & InputHTMLAttributes<HTMLInputElement>) {
   const reactId = useId();
   const id = idProp ?? reactId;
@@ -44,28 +47,46 @@ function DarkField({
   const describedBy =
     [hintId, errorId].filter(Boolean).join(" ") || undefined;
 
+  const isPassword = typeProp === "password";
+  const [showPassword, setShowPassword] = useState(false);
+  const inputType = isPassword ? (showPassword ? "text" : "password") : typeProp;
+
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={id} className="text-sm font-semibold text-[#FAF0E6]/80">
         {label}
       </label>
-      <input
-        id={id}
-        aria-invalid={Boolean(error) || undefined}
-        aria-describedby={describedBy}
-        className={[
-          "w-full rounded-lg border px-4 py-3 text-base text-white",
-          "bg-white/10 placeholder:text-white/30 backdrop-blur-sm",
-          "transition-colors duration-150 focus:outline-none focus:ring-2",
-          error
-            ? "border-red-400/50 focus:border-red-400/60 focus:ring-red-400/20"
-            : "border-white/20 focus:border-[#8B9E8A]/70 focus:ring-[#8B9E8A]/25",
-          className ?? "",
-        ]
-          .filter(Boolean)
-          .join(" ")}
-        {...rest}
-      />
+      <div className="relative">
+        <input
+          id={id}
+          type={inputType}
+          aria-invalid={Boolean(error) || undefined}
+          aria-describedby={describedBy}
+          className={[
+            "w-full rounded-lg border px-4 py-3 text-base text-white",
+            isPassword ? "pr-12" : "",
+            "bg-white/10 placeholder:text-white/30 backdrop-blur-sm",
+            "transition-colors duration-150 focus:outline-none focus:ring-2",
+            error
+              ? "border-red-400/50 focus:border-red-400/60 focus:ring-red-400/20"
+              : "border-white/20 focus:border-[#8B9E8A]/70 focus:ring-[#8B9E8A]/25",
+            className ?? "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          {...rest}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-white/50 transition-colors hover:text-white/80"
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        )}
+      </div>
       {hint && !error ? (
         <p id={hintId} className="text-xs text-white/40">
           {hint}
