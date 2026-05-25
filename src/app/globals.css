@@ -92,8 +92,8 @@
   --shadow-lg: var(--shadow-lg);
 
   /* Tipografias servidas por next/font (definidas en layout.tsx). */
-  --font-sans: var(--font-dm-sans), "Helvetica Neue", system-ui, sans-serif;
-  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-hanken-grotesk), "Helvetica Neue", system-ui, sans-serif;
+  --font-display: var(--font-libre-caslon), Georgia, "Times New Roman", serif;
 }
 
 html {

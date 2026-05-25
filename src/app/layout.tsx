@@ -1,20 +1,20 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans, Playfair_Display } from "next/font/google";
+import { Hanken_Grotesk, Libre_Caslon_Text } from "next/font/google";
 import "./globals.css";
 import IOSInstallBanner from "@/components/pwa/IOSInstallBanner";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
 
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
+const hankenGrotesk = Hanken_Grotesk({
+  variable: "--font-hanken-grotesk",
   subsets: ["latin"],
   display: "swap",
 });
 
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
+const libreCaslon = Libre_Caslon_Text({
+  variable: "--font-libre-caslon",
   subsets: ["latin"],
   display: "swap",
-  weight: ["400", "600", "700"],
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
@@ -45,7 +45,7 @@ export default function RootLayout({
   return (
     <html
       lang="es"
-      className={`${dmSans.variable} ${playfair.variable} h-full`}
+      className={`${hankenGrotesk.variable} ${libreCaslon.variable} h-full`}
     >
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
