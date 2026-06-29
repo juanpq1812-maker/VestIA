@@ -32,7 +32,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
       .eq("user_id", user?.id ?? ""),
     supabase
       .from("profiles")
-      .select("display_name, ai_uses")
+      .select("display_name")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
     supabase
@@ -77,7 +77,6 @@ export default async function OutfitsPage({ searchParams }: Props) {
               lockedItemId={lockedItemId}
               lockedItemName={lockedItemName}
               wardrobeSummary={wardrobeSummary}
-              aiUses={profileRes.data?.ai_uses ?? 0}
             />
           </div>
         </Container>
