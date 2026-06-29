@@ -18,8 +18,6 @@ import {
   type GenerateMode,
 } from "@/lib/ai/generateOutfits";
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
-import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
-
 export type GenerateActionInput = {
   mode: GenerateMode;
   occasion?: string;
@@ -45,28 +43,6 @@ export async function generateOutfitsAction(
       ok: false,
       code: "UNAUTHENTICATED",
       error: "Inicia sesion para generar outfits.",
-    };
-  }
-
-  // Gate de uso IA: 1 uso gratuito por usuario.
-  // El try/catch propio garantiza que cualquier fallo del gate (Supabase caído,
-  // columna ausente, etc.) devuelva USAGE_GATE_REQUIRED en vez de lanzar una
-  // excepción no controlada que Next.js convertiría en un error de red en el
-  // cliente, impidiendo que el modal aparezca.
-  let gateAllowed = false;
-  try {
-    const gate = await checkAndConsumeAiUse(user.id, supabase);
-    gateAllowed = gate.allowed;
-  } catch (gateErr) {
-    console.error("[generateOutfitsAction] error en gate check", gateErr);
-    gateAllowed = false;
-  }
-
-  if (!gateAllowed) {
-    return {
-      ok: false,
-      code: "USAGE_GATE_REQUIRED",
-      error: "Has usado tu acceso gratuito a la IA.",
     };
   }
 
@@ -406,27 +382,6 @@ export async function analyzeInspirationPhotoAction(input: {
 
   if (!user) {
     return { ok: false, error: "Inicia sesión para usar esta función." };
-  }
-
-  // Gate de uso IA: 1 uso gratuito por usuario.
-  // Try/catch propio: si el gate falla por cualquier razón (Supabase, columna
-  // ausente, etc.) devolvemos USAGE_GATE_REQUIRED en lugar de lanzar una
-  // excepción que el cliente no podría capturar correctamente.
-  let gateAllowed = false;
-  try {
-    const gate = await checkAndConsumeAiUse(user.id, supabase);
-    gateAllowed = gate.allowed;
-  } catch (gateErr) {
-    console.error("[analyzeInspirationPhotoAction] error en gate check", gateErr);
-    gateAllowed = false;
-  }
-
-  if (!gateAllowed) {
-    return {
-      ok: false,
-      code: "USAGE_GATE_REQUIRED",
-      error: "Has usado tu acceso gratuito a la IA.",
-    };
   }
 
   const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];

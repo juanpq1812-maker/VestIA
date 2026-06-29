@@ -26,7 +26,6 @@ import {
 import type { GeneratedOutfit } from "@/lib/ai/generateOutfits";
 import type { ClothingItem } from "@/types/database";
 import Toast from "@/components/ui/Toast";
-import AiUsageGateModal from "@/components/ui/AiUsageGateModal";
 import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSection";
 import InspirationSection from "@/components/outfits/InspirationSection";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
@@ -65,12 +64,6 @@ type Props = {
   lockedItemName?: string | null;
   /** Conteo de prendas por categoría para las sugerencias de completado. */
   wardrobeSummary?: WardrobeSummary;
-  /**
-   * Valor inicial de ai_uses leído por el Server Component al renderizar la
-   * página. Permite la pre-verificación client-side: si >= 1, el modal se
-   * muestra instantáneamente sin necesidad de llamar al server action.
-   */
-  aiUses?: number;
 };
 
 export default function OutfitGenerator({
@@ -79,7 +72,6 @@ export default function OutfitGenerator({
   lockedItemId,
   lockedItemName,
   wardrobeSummary = {},
-  aiUses = 0,
 }: Props) {
   const [tab, setTab] = useState<Tab>("occasion");
   const [occasion, setOccasion] = useState<string>(OCASIONES[1]); // "Casual"
@@ -90,11 +82,6 @@ export default function OutfitGenerator({
   const [error, setError] = useState<string | null>(null);
   const [lastInput, setLastInput] = useState<GenerateActionInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
-  const [showGate, setShowGate] = useState(false);
-  // Contador local sincronizado con el valor inicial del server component.
-  // Permite mostrar el modal sin hacer una llamada al server action cuando
-  // ai_uses ya era >= 1 al cargar la página.
-  const [usosIa, setUsosIa] = useState(aiUses);
 
   const tieneLockedItem = Boolean(lockedItemId);
 
@@ -109,34 +96,15 @@ export default function OutfitGenerator({
   }
 
   function dispararGeneracion(input: GenerateActionInput) {
-    // Pre-verificación client-side: si ya agotó el uso gratuito según el
-    // estado local (inicializado desde el server component), mostramos el
-    // modal instantáneamente sin llamar al server action. Esto evita que una
-    // excepción en el server action deje el modal sin aparecer.
-    if (usosIa >= 1) {
-      setShowGate(true);
-      return;
-    }
-
     setError(null);
     setOutfits(null);
     setLastInput(input);
     startTransition(async () => {
       const res = await generateOutfitsAction(input);
       if (!res.ok) {
-        if (res.code === "USAGE_GATE_REQUIRED") {
-          // El server bloqueó: sincronizamos el estado local para que futuros
-          // clicks muestren el modal sin llamar al server action.
-          setUsosIa(1);
-          setShowGate(true);
-          return;
-        }
         setError(res.error);
         return;
       }
-      // Generación exitosa: el gate fue consumido en el server, actualizamos
-      // el contador local para que el próximo intento muestre el modal.
-      setUsosIa((prev) => prev + 1);
       setOutfits(res.outfits);
     });
   }
@@ -232,13 +200,9 @@ export default function OutfitGenerator({
         />
       )}
 
-      <AiUsageGateModal open={showGate} onClose={() => setShowGate(false)} />
-
       <WardrobeCompletionSection summary={wardrobeSummary} />
       <InspirationSection
         onApplyInspiration={applyInspiration}
-        aiUses={usosIa}
-        onAiUsed={() => setUsosIa((prev) => prev + 1)}
       />
     </div>
   );
