@@ -1,16 +1,11 @@
-// Pagina de Registro (/register).
-//
-// Es un Client Component porque maneja estado de formulario y llama a Supabase desde
-// el navegador (el cliente del navegador escribe la cookie de sesion automaticamente
-// si el registro es exitoso).
-
 "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import AuthShell from "@/components/layout/AuthShell";
+import GoogleButton from "@/components/auth/GoogleButton";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
@@ -21,12 +16,17 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("error") === "oauth") {
+      setError("No se pudo registrar con Google. Inténtalo de nuevo.");
+    }
+  }, []);
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
 
-    // Validacion basica del lado del cliente. Supabase tambien valida en el servidor,
-    // pero asi le damos feedback rapido al usuario antes del request.
     const emailLimpio = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpio)) {
       setError("Ingresa un email válido.");
@@ -50,8 +50,6 @@ export default function RegisterPage() {
       return;
     }
 
-    // Como en Supabase tienes deshabilitada la confirmacion por email para desarrollo,
-    // el usuario queda con sesion activa inmediatamente y podemos mandarlo al onboarding.
     router.push("/onboarding");
     router.refresh();
   }
@@ -71,7 +69,32 @@ export default function RegisterPage() {
         </p>
       </header>
 
-      <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5" noValidate>
+      {/* Error de OAuth */}
+      {error && !cargando && (
+        <p
+          role="alert"
+          className="mt-5 rounded-xl bg-danger-light px-4 py-3 text-sm text-danger"
+        >
+          {error}
+        </p>
+      )}
+
+      {/* Google OAuth */}
+      <div className="mt-6">
+        <GoogleButton />
+      </div>
+
+      {/* Separador */}
+      <div className="relative my-6 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs font-medium text-text-faint">
+          o regístrate con email
+        </span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      {/* Formulario email + contraseña */}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
         <Input
           label="Email"
           type="email"
@@ -92,7 +115,7 @@ export default function RegisterPage() {
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Mínimo 6 caracteres"
           hint="Usa al menos 6 caracteres."
-          error={error}
+          error={cargando ? null : error}
         />
 
         <Button
