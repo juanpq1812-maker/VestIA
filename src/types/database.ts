@@ -57,8 +57,10 @@ export type Profile = {
   id: string;
   display_name: string | null;
   onboarding_completed: boolean;
-  /** Cuántas veces ha usado funciones IA. 0 = no ha usado; >= 1 = agotó el uso gratuito. */
+  /** Llamadas a la IA realizadas en la ventana de rate limiting actual. */
   ai_uses: number;
+  /** Inicio de la ventana de 1 hora. NULL = sin ventana activa. */
+  ai_uses_window_start: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -68,6 +70,7 @@ export type ProfileInsert = {
   display_name?: string | null;
   onboarding_completed?: boolean;
   ai_uses?: number;
+  ai_uses_window_start?: string | null;
   created_at?: string;
   updated_at?: string;
 };
