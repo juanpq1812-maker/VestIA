@@ -1,5 +1,5 @@
 -- =============================================================================
--- VestIA — Migracion 0005: Tabla `outfit_uses` (registro de uso real)
+-- StrandIA — Migracion 0005: Tabla `outfit_uses` (registro de uso real)
 --
 -- Esta tabla registra cuando un usuario USO efectivamente un outfit. Es la
 -- base de las metricas reales (ropa mas usada, "olvidadas", impacto), porque

@@ -1,4 +1,4 @@
-# Storage Setup — VestIA (Capa 3)
+# Storage Setup — StrandIA (Capa 3)
 
 Guía para configurar **Supabase Storage** para que `/wardrobe/upload`
 pueda subir las fotos de las prendas y `/wardrobe` pueda mostrarlas con
@@ -44,7 +44,7 @@ los archivos que viven dentro de su propia "carpeta" (`{user_id}/...`).
 
 ```sql
 -- =============================================================================
--- VestIA — Storage policies para el bucket `clothing-images`
+-- StrandIA — Storage policies para el bucket `clothing-images`
 --
 -- Convencion de rutas: cada archivo se guarda como `{user_id}/{uuid}.{ext}`.
 -- Por eso la primera carpeta del path (storage.foldername(name)[1]) tiene que

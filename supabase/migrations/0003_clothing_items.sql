@@ -1,5 +1,5 @@
 -- =============================================================================
--- VestIA — Migracion 0003: Tabla `clothing_items`
+-- StrandIA — Migracion 0003: Tabla `clothing_items`
 --
 -- Cada prenda del armario. Las imagenes (`image_url`, `image_path`) quedan
 -- preparadas para Capa 3 (Storage); por ahora se aceptan NULL.

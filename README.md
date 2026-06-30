@@ -1,4 +1,4 @@
-# VestIA
+# StrandIA
 
 **Tu armario digital con IA.** Aplicación web que te permite subir fotos de tu ropa, generar outfits combinados con inteligencia artificial y medir el impacto sostenible de tu vestuario.
 
@@ -77,7 +77,7 @@ La app necesita conectarse a tu proyecto de Supabase para autenticación. Las cr
 La generación de outfits usa **OpenRouter**: un proxy que expone muchos modelos de IA (Llama, Mistral, Gemini, GPT, Claude…) con el mismo formato que la API de OpenAI. Por eso en el código usamos el SDK `openai` apuntado a `https://openrouter.ai/api/v1`.
 
 1. Entra a [openrouter.ai](https://openrouter.ai) y crea cuenta (puedes usar Google o GitHub, es gratis).
-2. Ve a **[openrouter.ai/keys](https://openrouter.ai/keys)** → **Create Key** → ponle un nombre (ej. `vestia-dev`) → cópiala (empieza por `sk-or-...`).
+2. Ve a **[openrouter.ai/keys](https://openrouter.ai/keys)** → **Create Key** → ponle un nombre (ej. `strandia-dev`) → cópiala (empieza por `sk-or-...`).
 3. Pégala en `.env.local`:
 
    ```
@@ -117,7 +117,7 @@ Codespaces detecta el puerto 3000 automáticamente y muestra una ventana emergen
 
 ### 5. Ver la app
 
-Deberías ver la página de inicio de VestIA con enlaces a las rutas del MVP. Las rutas de auth (`/login`, `/register`) ya son funcionales y conectan a Supabase. El resto sigue mostrando una página "En construcción" — eso es lo esperado.
+Deberías ver la página de inicio de StrandIA con enlaces a las rutas del MVP. Las rutas de auth (`/login`, `/register`) ya son funcionales y conectan a Supabase. El resto sigue mostrando una página "En construcción" — eso es lo esperado.
 
 ### 6. Detener el servidor
 
@@ -128,7 +128,7 @@ En la terminal donde está corriendo `npm run dev`, presiona `Ctrl + C`.
 ## Estructura del proyecto
 
 ```
-VestIA/
+StrandIA/
 ├── public/                 # Imágenes y archivos estáticos públicos
 ├── src/
 │   ├── app/                # Rutas de la app (App Router de Next.js)

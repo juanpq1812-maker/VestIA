@@ -1,6 +1,6 @@
-# Supabase Setup — VestIA
+# Supabase Setup — StrandIA
 
-Guía para preparar la base de datos de **VestIA** en Supabase. Esta capa
+Guía para preparar la base de datos de **StrandIA** en Supabase. Esta capa
 (Capa 2) crea las tablas `profiles`, `user_preferences`, `clothing_items` y
 `outfits`, con RLS activo y un trigger que crea automáticamente el `profile`
 cuando un usuario nuevo se registra en `auth.users`.
