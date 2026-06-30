@@ -8,6 +8,9 @@ const allowedOrigins = [
   "localhost:3000",
   "*.app.github.dev",
   ...(codespaceName ? [`${codespaceName}-3000.${codespaceDomain}`] : []),
+  "strandia.fashion",
+  "www.strandia.fashion",
+  ...(process.env.VERCEL_URL ? [process.env.VERCEL_URL] : []),
 ];
 
 const securityHeaders = [
