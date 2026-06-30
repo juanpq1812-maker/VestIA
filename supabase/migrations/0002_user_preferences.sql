@@ -1,5 +1,5 @@
 -- =============================================================================
--- VestIA — Migracion 0002: Tabla `user_preferences`
+-- StrandIA — Migracion 0002: Tabla `user_preferences`
 --
 -- Guarda lo que el usuario llena en el onboarding: estilo, ocasiones favoritas,
 -- tallas y medidas opcionales. Es 1:1 con `profiles` (un usuario tiene una sola

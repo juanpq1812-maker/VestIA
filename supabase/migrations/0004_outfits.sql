@@ -1,5 +1,5 @@
 -- =============================================================================
--- VestIA — Migracion 0004: Tabla `outfits` (preparada para Capa 4)
+-- StrandIA — Migracion 0004: Tabla `outfits` (preparada para Capa 4)
 --
 -- Aun no se usa en la app, pero la creamos para que cuando lleguemos a la
 -- generacion con IA solo tengamos que insertar filas.

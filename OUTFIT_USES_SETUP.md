@@ -1,4 +1,4 @@
-# Outfit Uses Setup — VestIA
+# Outfit Uses Setup — StrandIA
 
 Guía corta para activar el **registro de uso real de outfits** (tabla
 `outfit_uses`) en tu proyecto de Supabase.
@@ -41,7 +41,7 @@ Crea la tabla `public.outfit_uses` con:
 
 ```sql
 -- =============================================================================
--- VestIA — Migracion 0005: Tabla `outfit_uses` (registro de uso real)
+-- StrandIA — Migracion 0005: Tabla `outfit_uses` (registro de uso real)
 -- =============================================================================
 
 create table if not exists public.outfit_uses (

@@ -1,5 +1,5 @@
 -- =============================================================================
--- VestIA — Migracion 0001: Tabla `profiles`
+-- StrandIA — Migracion 0001: Tabla `profiles`
 --
 -- Crea la tabla `profiles` (1:1 con auth.users), un trigger que la mantiene en
 -- sync cuando se crea un nuevo usuario en auth, y otro trigger que actualiza
