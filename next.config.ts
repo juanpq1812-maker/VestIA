@@ -10,7 +10,26 @@ const allowedOrigins = [
   ...(codespaceName ? [`${codespaceName}-3000.${codespaceDomain}`] : []),
 ];
 
+const securityHeaders = [
+  // Evita que la app se embeba en iframes (previene clickjacking).
+  { key: "X-Frame-Options", value: "DENY" },
+  // El navegador no intenta adivinar el Content-Type de respuestas.
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  // Cross-origin: solo envía el origen, sin path ni query params.
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // Deshabilita APIs de hardware que la app no usa.
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // HSTS solo en producción: fuerza HTTPS por 2 años.
+  // En localhost/Codespaces (HTTP) este header rompe la navegación.
+  ...(process.env.NODE_ENV === "production"
+    ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
+    : []),
+];
+
 const nextConfig: NextConfig = {
+  async headers() {
+    return [{ source: "/(.*)", headers: securityHeaders }];
+  },
   experimental: {
     serverActions: {
       allowedOrigins,
