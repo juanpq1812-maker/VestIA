@@ -1,71 +1,82 @@
-// Módulo del AI Usage Gate para StrandIA.
+// Rate limiter de IA para StrandIA.
 //
-// Cada usuario tiene 1 uso gratuito de funciones IA:
-//   - Generación de outfits (todos los modos: ocasión, descripción, sorpresa)
-//   - Análisis de foto de inspiración
+// Límite: 30 llamadas por usuario por hora.
+// Aplica a: generateOutfitsAction y analyzeInspirationPhotoAction.
+// No aplica a: análisis automático al subir prendas.
 //
-// El análisis automático al subir prendas NO está gateado.
-//
-// Uso:
-//   const gate = await checkAndConsumeAiUse(userId, supabase);
-//   if (!gate.allowed) return { ok: false, code: "USAGE_GATE_REQUIRED", ... };
-//   // ... llamar a la IA ...
+// Algoritmo (ventana deslizante desde el primer uso):
+//   1. Leer (ai_uses, ai_uses_window_start) del perfil.
+//   2. Si window_start es NULL o han pasado más de 1h → resetear ventana,
+//      establecer ai_uses = 1 y window_start = now() → PERMITIR.
+//   3. Si ai_uses < 30 → incrementar ai_uses → PERMITIR.
+//   4. Si ai_uses >= 30 → calcular minutos hasta reset → BLOQUEAR.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** Cuántos usos gratuitos tiene cada usuario antes de ver el gate. */
-const FREE_AI_USES = 1;
+const RATE_LIMIT = 30;
+const WINDOW_MS  = 60 * 60 * 1000; // 1 hora en milisegundos
 
-export type UsageGateResult =
-  | { allowed: true }
-  | { allowed: false };
+export type RateLimitResult =
+  | { allowed: true;  remaining: number }
+  | { allowed: false; resetInMinutes: number };
 
 /**
- * Verifica si el usuario puede usar una función IA.
+ * Verifica si el usuario puede hacer una llamada a la IA y consume un crédito.
  *
- * - Si `ai_uses < FREE_AI_USES`: permite el uso e incrementa el contador
- *   (consume el crédito antes de llamar a la IA para evitar abuso).
- * - Si `ai_uses >= FREE_AI_USES`: deniega el acceso sin modificar el contador.
- *
- * @param userId  UUID del usuario autenticado.
- * @param supabase Instancia del cliente Supabase (server-side).
+ * Lee y escribe la ventana en la tabla `profiles`. Fail-closed: si hay un
+ * error de base de datos, bloquea la solicitud para evitar acceso no contado.
  */
 export async function checkAndConsumeAiUse(
   userId: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>
-): Promise<UsageGateResult> {
-  // Leer el contador actual.
+): Promise<RateLimitResult> {
   const { data: profile, error: readErr } = await supabase
     .from("profiles")
-    .select("ai_uses")
+    .select("ai_uses, ai_uses_window_start")
     .eq("id", userId)
     .single();
 
   if (readErr || !profile) {
-    // Si no podemos leer el perfil, bloqueamos por seguridad.
-    console.error("[usageGate] Error leyendo perfil", readErr);
-    return { allowed: false };
+    console.error("[rateLimiter] Error leyendo perfil:", readErr);
+    return { allowed: false, resetInMinutes: 60 };
   }
 
-  const currentUses: number = profile.ai_uses ?? 0;
+  const now         = Date.now();
+  const windowStart = profile.ai_uses_window_start
+    ? new Date(profile.ai_uses_window_start).getTime()
+    : null;
+  const windowExpired = windowStart === null || now - windowStart >= WINDOW_MS;
 
-  if (currentUses >= FREE_AI_USES) {
-    // Ya agotó el uso gratuito.
-    return { allowed: false };
+  if (windowExpired) {
+    const { error: updateErr } = await supabase
+      .from("profiles")
+      .update({ ai_uses: 1, ai_uses_window_start: new Date().toISOString() })
+      .eq("id", userId);
+
+    if (updateErr) {
+      console.error("[rateLimiter] Error reseteando ventana:", updateErr);
+      return { allowed: false, resetInMinutes: 60 };
+    }
+
+    return { allowed: true, remaining: RATE_LIMIT - 1 };
   }
 
-  // Primer uso: consumir el crédito incrementando el contador.
+  if (profile.ai_uses >= RATE_LIMIT) {
+    const msUntilReset   = WINDOW_MS - (now - windowStart!);
+    const resetInMinutes = Math.max(1, Math.ceil(msUntilReset / 60_000));
+    return { allowed: false, resetInMinutes };
+  }
+
   const { error: updateErr } = await supabase
     .from("profiles")
-    .update({ ai_uses: currentUses + 1 })
+    .update({ ai_uses: profile.ai_uses + 1 })
     .eq("id", userId);
 
   if (updateErr) {
-    // Si falla el incremento, bloqueamos para evitar acceso no contabilizado.
-    console.error("[usageGate] Error incrementando ai_uses", updateErr);
-    return { allowed: false };
+    console.error("[rateLimiter] Error incrementando ai_uses:", updateErr);
+    return { allowed: false, resetInMinutes: 60 };
   }
 
-  return { allowed: true };
+  return { allowed: true, remaining: RATE_LIMIT - profile.ai_uses - 1 };
 }

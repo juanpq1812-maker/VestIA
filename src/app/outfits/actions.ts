@@ -18,6 +18,7 @@ import {
   type GenerateMode,
 } from "@/lib/ai/generateOutfits";
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
+import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
 export type GenerateActionInput = {
   mode: GenerateMode;
   occasion?: string;
@@ -43,6 +44,15 @@ export async function generateOutfitsAction(
       ok: false,
       code: "UNAUTHENTICATED",
       error: "Inicia sesion para generar outfits.",
+    };
+  }
+
+  const limit = await checkAndConsumeAiUse(user.id, supabase);
+  if (!limit.allowed) {
+    return {
+      ok: false,
+      code: "RATE_LIMITED",
+      error: `Alcanzaste el límite de 30 consultas por hora. Puedes intentar de nuevo en ${limit.resetInMinutes} minuto${limit.resetInMinutes === 1 ? "" : "s"}.`,
     };
   }
 
@@ -389,6 +399,15 @@ export async function analyzeInspirationPhotoAction(input: {
     return {
       ok: false,
       error: "Formato de imagen no soportado. Usa JPEG, PNG o WebP.",
+    };
+  }
+
+  const limit = await checkAndConsumeAiUse(user.id, supabase);
+  if (!limit.allowed) {
+    return {
+      ok: false,
+      code: "RATE_LIMITED",
+      error: `Alcanzaste el límite de 30 consultas por hora. Puedes intentar de nuevo en ${limit.resetInMinutes} minuto${limit.resetInMinutes === 1 ? "" : "s"}.`,
     };
   }
 
