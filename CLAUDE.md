@@ -127,37 +127,38 @@ supports-[backdrop-filter]:bg-surface/70
 
 Inner container: `mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8`
 
+**Desktop (md+):** el header lleva la navegación completa (nav horizontal + logout). **Mobile:** el header se reduce a logo + botón de logout — la navegación entre secciones vive en `BottomNav`, no en el header.
+
 **Nav links desktop:**
 | Estado | Clases |
 |---|---|
 | Activo | `rounded-full px-4 py-2 text-sm font-medium transition-colors bg-primary-light text-primary` |
 | Inactivo | `rounded-full px-4 py-2 text-sm font-medium transition-colors text-text-muted hover:bg-surface-2 hover:text-text` |
 
-**Botón hamburguesa mobile** (`40×40 px`):
-```
-flex h-10 w-10 items-center justify-center rounded-full transition-colors
-focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary
-```
-- Abierto: `bg-primary-light text-primary`
-- Cerrado: `text-text-muted hover:bg-surface-2 hover:text-text`
+`hideNav` (usado en onboarding) oculta tanto el nav desktop del Header como el `BottomNav` mobile — ninguna navegación secundaria debe verse mientras el usuario está en un flujo obligatorio.
 
-**Menú desplegable mobile:**
+---
+
+### Bottom Navigation (mobile) — `src/components/layout/BottomNav.tsx`
+
+Patrón de navegación primario en mobile — es una app mobile-first, así que el `BottomNav` fijo reemplaza cualquier menú desplegable. Oculto en desktop (`md:hidden`); en desktop la navegación vive en el nav horizontal del Header.
+
 ```
-absolute left-0 right-0 top-full z-40 border-b border-divider bg-surface shadow-lg
-transition-all duration-200 ease-out origin-top
+fixed inset-x-0 bottom-0 z-30 flex items-center justify-around
+border-t border-divider bg-surface/95 backdrop-blur
+supports-[backdrop-filter]:bg-surface/85
+px-2 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]
 ```
-- Visible: `opacity-100 translate-y-0 pointer-events-auto`
-- Oculto: `opacity-0 -translate-y-2 pointer-events-none`
 
-**Links mobile:**
-| Estado | Clases |
-|---|---|
-| Activo | `flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium transition-colors bg-primary-light text-primary` |
-| Inactivo | `flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium transition-colors text-text hover:bg-surface-2` |
+**Ítem de nav** (ícono + label):
+| Estado | Clases del ícono (contenedor `h-9 w-9 rounded-full`) | Clases del label |
+|---|---|---|
+| Activo | `bg-primary-light text-primary` | `text-[11px] font-medium text-primary` |
+| Inactivo | `text-text-muted` | `text-[11px] font-medium text-text-muted` |
 
-**Overlay** detrás del menú: `fixed inset-0 top-[57px] z-30 bg-black/20 transition-opacity duration-200 md:hidden`
+**Regla de rutas reales**: el `BottomNav` solo enlaza a rutas que existen y funcionan (hoy: Inicio, Armario, Outfits). Una funcionalidad todavía no implementada (ej. Comunidad) nunca ocupa un tab del bottom nav — se queda como card de placeholder dentro de una pantalla, marcada explícitamente como "Próximamente".
 
-No existe bottom navigation en la app. La nav es siempre el header superior.
+**Padding de contenido**: toda página que renderiza `Header` (y por lo tanto `BottomNav`) necesita padding inferior extra en mobile en su `<main>` para que el contenido no quede tapado por la barra fija — patrón usado: `pb-24 ... sm:pb-14` (o equivalente) en vez del padding vertical simétrico.
 
 ---
 

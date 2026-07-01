@@ -34,7 +34,6 @@ export default async function RootPage() {
 
   const [
     profileRes,
-    totalUsesRes,
     weekUsesRes,
     allUsesRes,
     allOutfitsRes,
@@ -45,9 +44,6 @@ export default async function RootPage() {
       .select("display_name")
       .eq("id", user.id)
       .maybeSingle(),
-    supabase
-      .from("outfit_uses")
-      .select("id", { count: "exact", head: true }),
     supabase
       .from("outfit_uses")
       .select("id", { count: "exact", head: true })
@@ -66,7 +62,6 @@ export default async function RootPage() {
     profileRes.data?.display_name?.trim() ||
     user.email?.split("@")[0] ||
     "vos";
-  const totalUses = totalUsesRes.count ?? 0;
   const weekUses = weekUsesRes.count ?? 0;
   const allUses = allUsesRes.data ?? [];
   const allOutfits = allOutfitsRes.data ?? [];
@@ -85,7 +80,7 @@ export default async function RootPage() {
       itemUseCounts.set(itemId, (itemUseCounts.get(itemId) ?? 0) + 1);
     }
   }
-  let prendaEstrella: { id: string; nombre: string; image_path: string | null; usos: number } | null = null;
+  let prendaEstrella: { id: string; nombre: string; image_path: string | null; primary_color: string | null; usos: number } | null = null;
   if (itemUseCounts.size > 0) {
     const [topId, topCount] = [...itemUseCounts.entries()].sort(
       (a, b) => b[1] - a[1]
@@ -96,6 +91,7 @@ export default async function RootPage() {
         id: topItem.id,
         nombre: topItem.name?.trim() || topItem.subcategory?.trim() || topItem.category,
         image_path: topItem.image_path,
+        primary_color: topItem.primary_color,
         usos: topCount,
       };
     }
@@ -121,7 +117,7 @@ export default async function RootPage() {
   }
 
   // Candidatas: prendas no usadas en 15 días Y creadas hace 15+ días
-  type Candidata = { id: string; nombre: string; image_path: string | null; diasOlvidada: number };
+  type Candidata = { id: string; nombre: string; image_path: string | null; primary_color: string | null; diasOlvidada: number };
   const candidatas: Candidata[] = [];
   for (const item of allItems) {
     if (recentlyUsedItemIds.has(item.id)) continue;
@@ -142,6 +138,7 @@ export default async function RootPage() {
       id: item.id,
       nombre: item.name?.trim() || item.subcategory?.trim() || item.category,
       image_path: item.image_path,
+      primary_color: item.primary_color,
       diasOlvidada,
     });
   }
@@ -176,7 +173,6 @@ export default async function RootPage() {
   return (
     <DashboardView
       displayName={displayName}
-      totalUses={totalUses}
       weekUses={weekUses}
       totalItems={allItems.length}
       recentItems={recentItemsConUrl as Parameters<typeof DashboardView>[0]["recentItems"]}
