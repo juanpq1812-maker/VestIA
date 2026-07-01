@@ -1,15 +1,11 @@
-// Formulario para subir prenda(s) al armario.
+// Formulario para subir una prenda al armario.
 //
-// Tres modos de subida:
-//   1. single-camera  → input con capture="environment" (abre cámara en mobile)
-//   2. single-gallery → input sin capture (abre galería del carrete)
-//   3. bulk           → input con multiple (varias fotos a la vez, máx 10)
+// Dos modos de entrada:
+//   - Cámara  → input con capture="environment" (abre cámara en mobile)
+//   - Galería → input sin capture (abre galería del carrete)
 //
-// El flujo de subida individual (modos 1 y 2) analiza la foto automáticamente
-// con Claude Vision y pre-llena los campos del formulario.
-//
-// El flujo bulk crea prendas con subcategory=null y category="top" como
-// defaults; el usuario las categoriza después desde el banner en /wardrobe.
+// Tras seleccionar la foto, analiza automáticamente con Claude Vision y
+// pre-llena categoría, subcategoría, color y ocasiones.
 
 "use client";
 
@@ -35,6 +31,7 @@ import {
 import {
   ALLOWED_EXTENSIONS,
   ALLOWED_MIME_TYPES,
+  BASIC_COLORS,
   COLOR_PALETTE,
   COMPRESS_MAX_WIDTH_OR_HEIGHT,
   COMPRESS_QUALITY,
@@ -54,8 +51,6 @@ import {
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-type UploadMode = "single-camera" | "single-gallery" | "bulk";
-
 type FieldErrors = {
   image?: string;
   category?: string;
@@ -65,11 +60,8 @@ type FieldErrors = {
   name?: string;
 };
 
-type BulkFileResult = { name: string; ok: boolean; error?: string };
-
 // ── Helpers de color ──────────────────────────────────────────────────────────
 
-// Valores RGB representativos de cada color de la paleta (sin multicolor).
 const COLOR_RGB: Record<string, [number, number, number]> = {
   negro: [17, 17, 17],
   blanco: [255, 255, 255],
@@ -114,7 +106,7 @@ function normStr(s: string) {
   return s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[̀-ͯ]/g, "");
 }
 
 function matchColorToPalette(colorName: string, colorHex: string): string {
@@ -237,88 +229,79 @@ function bytesToReadable(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const BULK_MAX_FILES = 10;
-const BULK_CONCURRENCY = 3;
+// ── Grupos de color para la sección expandible ────────────────────────────────
+
+const COLOR_GROUPS_EXPANDED = [
+  { label: "Neutros", colors: ["negro", "blanco", "gris", "beige", "café"] },
+  { label: "Colores", colors: ["azul", "rojo", "verde", "amarillo", "naranja", "rosa", "morado"] },
+  { label: "Especial", colors: ["multicolor"] },
+];
+
+// ── Círculo de color (sub-componente) ─────────────────────────────────────────
+
+function ColorCircle({
+  name,
+  swatch,
+  contrastText,
+  selected,
+  onSelect,
+}: {
+  name: string;
+  swatch: string;
+  contrastText: "light" | "dark";
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      aria-label={name}
+      title={name}
+      onClick={onSelect}
+      className={[
+        "group flex flex-col items-center gap-1.5 rounded-md p-1 transition-transform",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+        selected ? "scale-105" : "hover:scale-105",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "flex h-10 w-10 items-center justify-center rounded-full transition-shadow",
+          selected
+            ? "ring-2 ring-primary ring-offset-2 ring-offset-surface shadow-md"
+            : name === "blanco"
+              ? "ring-1 ring-border"
+              : "shadow-sm",
+        ].join(" ")}
+        style={{ background: swatch }}
+        aria-hidden="true"
+      >
+        {selected ? (
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={contrastText === "light" ? "#fff" : "#111"}
+            strokeWidth="3"
+          >
+            <path d="M5 12l5 5L20 7" />
+          </svg>
+        ) : null}
+      </span>
+      <span className="text-[11px] capitalize text-text-muted">{name}</span>
+    </button>
+  );
+}
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function UploadForm() {
   const router = useRouter();
-  const [mode, setMode] = useState<UploadMode>("single-camera");
-
-  return (
-    <div className="flex flex-col gap-6">
-      {/* Selector de modo */}
-      <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">
-          ¿Cómo quieres agregar la prenda?
-        </h2>
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-          <ModeButton
-            icon="📸"
-            label="Tomar foto"
-            active={mode === "single-camera"}
-            onClick={() => setMode("single-camera")}
-          />
-          <ModeButton
-            icon="🖼️"
-            label="Elegir de galería"
-            active={mode === "single-gallery"}
-            onClick={() => setMode("single-gallery")}
-          />
-          <ModeButton
-            icon="🖼️🖼️"
-            label="Subir varias a la vez"
-            active={mode === "bulk"}
-            onClick={() => setMode("bulk")}
-          />
-        </div>
-      </Card>
-
-      {mode === "bulk" ? (
-        <BulkUploadSection />
-      ) : (
-        <SingleUploadForm mode={mode} />
-      )}
-    </div>
-  );
-}
-
-function ModeButton({
-  icon,
-  label,
-  active,
-  onClick,
-}: {
-  icon: string;
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "flex flex-1 items-center gap-3 rounded-xl border-2 px-4 py-3 text-left text-sm font-semibold transition-colors",
-        active
-          ? "border-primary bg-primary-light text-primary"
-          : "border-border bg-surface text-text hover:border-primary-mid",
-      ].join(" ")}
-    >
-      <span className="text-xl" aria-hidden="true">
-        {icon}
-      </span>
-      {label}
-    </button>
-  );
-}
-
-// ── Subida individual ─────────────────────────────────────────────────────────
-
-function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }) {
-  const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
   const eyedropperImgRef = useRef<HTMLImageElement>(null);
 
@@ -335,11 +318,14 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
   const [aiAnalyzing, setAiAnalyzing] = useState(false);
   const [aiAnalyzed, setAiAnalyzed] = useState(false);
   const [aiConfidence, setAiConfidence] = useState<AIClothingAnalysis["confianza"] | null>(null);
+  const [aiDetectedLabel, setAiDetectedLabel] = useState<string | null>(null);
 
   // Eyedropper
   const [eyedropperActive, setEyedropperActive] = useState(false);
   const [colorBeforeEyedropper, setColorBeforeEyedropper] = useState<string>("");
 
+  // UI state
+  const [coloresExpanded, setColoresExpanded] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -362,8 +348,8 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     setAiAnalyzing(true);
     setAiAnalyzed(false);
     setAiConfidence(null);
+    setAiDetectedLabel(null);
     try {
-      // Comprimir a resolución pequeña solo para el análisis de IA
       let forAI: File;
       try {
         forAI = await imageCompression(selectedFile, {
@@ -404,6 +390,9 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
         if (mappedOcasiones.length > 0) setOccasions(mappedOcasiones);
 
         setAiConfidence(confianza ?? "baja");
+
+        const parts = [subcategoria, color_principal].filter(Boolean);
+        if (parts.length > 0) setAiDetectedLabel(parts.join(" · "));
       }
     } catch {
       // Falla silenciosa — el formulario queda en blanco para que el usuario llene
@@ -481,8 +470,10 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     setAiAnalyzing(false);
     setAiAnalyzed(false);
     setAiConfidence(null);
+    setAiDetectedLabel(null);
     setEyedropperActive(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
     clearFieldError("image");
   }
 
@@ -494,7 +485,6 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     clearFieldError("subcategory");
   }
 
-  // Eyedropper handlers
   function handleActivateEyedropper() {
     setColorBeforeEyedropper(color);
     setEyedropperActive(true);
@@ -637,73 +627,36 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
     }
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
     <div className="flex flex-col gap-6">
-      {/* Foto */}
-      <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">
-          Foto de la prenda
-        </h2>
-        <p className="mt-1 text-xs text-text-muted">
-          Acepta JPG, PNG o WebP. Máximo 5 MB. La optimizamos antes de subir.
-        </p>
 
-        {!preview ? (
-          <label
-            htmlFor="clothing-photo"
-            className="mt-4 flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-surface-2 p-8 text-center transition-colors hover:border-primary-mid"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-primary">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <path d="M3 7h4l2-3h6l2 3h4v12H3z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-text">
-                {mode === "single-camera"
-                  ? "Toca para tomar una foto"
-                  : "Toca para elegir una foto de tu galería"}
-              </p>
-              <p className="mt-1 text-xs text-text-muted">
-                {mode === "single-camera"
-                  ? "Abre la cámara directamente."
-                  : "Selecciona una foto de tu carrete."}
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              id="clothing-photo"
-              type="file"
-              accept={ALLOWED_MIME_TYPES.join(",")}
-              {...(mode === "single-camera" ? { capture: "environment" } : {})}
-              className="sr-only"
-              onChange={handleFileChange}
-            />
-          </label>
-        ) : (
-          <div className="mt-4 flex flex-col items-center gap-3">
-            {/* Wrapper relativo para el overlay del eyedropper */}
-            <div className="relative inline-block">
+      {/* ── Foto ─────────────────────────────────────────────────────────── */}
+      <Card padding="sm">
+        {/* Contenedor con aspect ratio fijo — portrait como la prenda */}
+        <div
+          className={[
+            "relative overflow-hidden rounded-lg",
+            "aspect-[4/5]",
+            !preview
+              ? "border-2 border-dashed border-border bg-surface-2"
+              : "border border-border",
+          ].join(" ")}
+        >
+          {preview ? (
+            <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 ref={previewImgRef}
                 src={preview}
                 alt="Vista previa de la prenda"
-                className="max-h-80 w-auto rounded-lg border border-border object-contain"
+                className="h-full w-full object-cover"
                 draggable={false}
               />
               {eyedropperActive ? (
                 <div
-                  className="absolute inset-0 rounded-lg"
+                  className="absolute inset-0"
                   style={{ cursor: "crosshair", zIndex: 10 }}
                   onClick={handleEyedropperClick}
                   onTouchStart={handleEyedropperTouch}
@@ -715,25 +668,121 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
                   }}
                 />
               ) : null}
+            </>
+          ) : (
+            <div className="flex h-full flex-col items-center justify-center gap-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
+                <svg
+                  width="26"
+                  height="26"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M3 7h4l2-3h6l2 3h4v12H3z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-text">Sube una foto de tu prenda</p>
+                <p className="mt-1 text-xs text-text-faint">JPG, PNG o WebP · Máx. 5 MB</p>
+              </div>
             </div>
+          )}
+        </div>
 
-            {/* Imagen reducida (max 800×800) usada exclusivamente por el eyedropper */}
-            {eyedropperSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img ref={eyedropperImgRef} src={eyedropperSrc} alt="" aria-hidden="true" className="sr-only" />
-            ) : null}
+        {/* Imagen oculta (max 800×800) usada exclusivamente por el eyedropper */}
+        {eyedropperSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            ref={eyedropperImgRef}
+            src={eyedropperSrc}
+            alt=""
+            aria-hidden="true"
+            className="sr-only"
+          />
+        ) : null}
 
+        {/* Controles bajo la foto */}
+        {!preview ? (
+          <>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                aria-label="Tomar foto con la cámara"
+                className="flex items-center justify-center gap-2 rounded-full border border-border bg-surface py-3 text-sm font-semibold text-text transition-all duration-200 ease-out hover:border-primary-mid hover:bg-primary-light hover:text-primary active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <path d="M3 7h4l2-3h6l2 3h4v12H3z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+                Cámara
+              </button>
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                aria-label="Elegir foto de la galería"
+                className="flex items-center justify-center gap-2 rounded-full border border-border bg-surface py-3 text-sm font-semibold text-text transition-all duration-200 ease-out hover:border-primary-mid hover:bg-primary-light hover:text-primary active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <svg
+                  width="17"
+                  height="17"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden="true"
+                >
+                  <rect x="2" y="2" width="20" height="20" rx="3" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M21 15l-5-5L5 21" />
+                </svg>
+                Galería
+              </button>
+            </div>
+            {/* Hidden file inputs — uno por modo para no manipular el DOM en runtime */}
+            <input
+              ref={cameraInputRef}
+              id="photo-camera"
+              type="file"
+              accept={ALLOWED_MIME_TYPES.join(",")}
+              capture="environment"
+              className="sr-only"
+              onChange={handleFileChange}
+              aria-hidden="true"
+            />
+            <input
+              ref={galleryInputRef}
+              id="photo-gallery"
+              type="file"
+              accept={ALLOWED_MIME_TYPES.join(",")}
+              className="sr-only"
+              onChange={handleFileChange}
+              aria-hidden="true"
+            />
+          </>
+        ) : (
+          <div className="mt-3 flex items-center justify-between">
             {eyedropperActive ? (
-              <div className="flex flex-col items-center gap-2">
-                <p className="text-sm font-medium text-primary">
-                  Toca el color que quieres seleccionar en la foto
-                </p>
+              <div className="flex w-full flex-col items-center gap-2">
+                <p className="text-sm font-medium text-primary">Toca el color en la foto de arriba</p>
                 <Button variant="ghost" onClick={handleCancelEyedropper}>
                   Cancelar
                 </Button>
               </div>
             ) : (
-              <div className="flex flex-wrap items-center justify-center gap-3">
+              <>
                 <Button
                   variant="ghost"
                   onClick={handleCambiarFoto}
@@ -742,11 +791,9 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
                   Cambiar foto
                 </Button>
                 {file ? (
-                  <span className="text-xs text-text-muted">
-                    {file.name} · {bytesToReadable(file.size)}
-                  </span>
+                  <span className="text-xs text-text-faint">{bytesToReadable(file.size)}</span>
                 ) : null}
-              </div>
+              </>
             )}
           </div>
         )}
@@ -761,48 +808,48 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
         ) : null}
       </Card>
 
-      {/* Estado de análisis IA (se muestra mientras analiza, antes del formulario) */}
-      {aiAnalyzing ? (
-        <Card padding="md">
-          <div className="flex items-center gap-3 py-2">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <p className="text-sm font-medium text-text">
-              🔍 Analizando tu prenda…
-            </p>
-          </div>
-          <p className="mt-1 text-xs text-text-muted">
-            Detectando categoría, color y ocasiones automáticamente.
-          </p>
-        </Card>
-      ) : null}
-
-      {/* Formulario: se muestra solo cuando hay foto y ya terminó el análisis */}
-      {preview && !aiAnalyzing ? (
-        <>
-          {/* Badge de confianza */}
-          {aiAnalyzed && aiConfidence ? (
+      {/* ── Chip de análisis IA ───────────────────────────────────────────── */}
+      {(aiAnalyzing || (aiAnalyzed && aiDetectedLabel)) ? (
+        <div className="flex justify-center">
+          {aiAnalyzing ? (
+            <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary-light px-4 py-2.5 text-sm font-medium text-primary animate-pulse">
+              <div
+                className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
+                aria-hidden="true"
+              />
+              Detectando prenda…
+            </div>
+          ) : (
             <div
               className={[
-                "rounded-xl border px-4 py-3 text-sm font-medium",
+                "flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium",
                 aiConfidence === "alta"
-                  ? "border-success bg-success-light text-success"
-                  : "border-warning bg-warning-light text-warning",
+                  ? "border-success/30 bg-success-light text-success"
+                  : "border-warning/30 bg-warning-light text-warning",
               ].join(" ")}
             >
-              {aiConfidence === "alta"
-                ? "✓ Detectado automáticamente — puedes editar cualquier campo"
-                : "⚠️ Verifica los datos — la IA no está muy segura"}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M12 2l2.09 6.26L20.18 10l-5.09 3.74 1.91 6.26L12 16.27l-5 3.73 1.91-6.26L3.82 10l6.09-1.74z" />
+              </svg>
+              Detectado: {aiDetectedLabel}
             </div>
-          ) : null}
+          )}
+        </div>
+      ) : null}
 
-          {/* Categoria */}
+      {/* ── Formulario (visible solo cuando hay foto y terminó el análisis) ── */}
+      {preview && !aiAnalyzing ? (
+        <>
+          {/* Categoría */}
           <Card padding="md">
-            <h2 className="font-display text-lg font-semibold text-text">
-              Categoría
-            </h2>
-            <p className="mt-1 text-xs text-text-muted">
-              Elige el tipo amplio de prenda.
-            </p>
+            <h2 className="font-display text-lg font-semibold text-text">Categoría</h2>
+            <p className="mt-1 text-xs text-text-muted">Elige el tipo amplio de prenda.</p>
             <div
               role="radiogroup"
               aria-label="Categoría"
@@ -830,11 +877,9 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
             ) : null}
           </Card>
 
-          {/* Subcategoria */}
+          {/* Subcategoría */}
           <Card padding="md">
-            <h2 className="font-display text-lg font-semibold text-text">
-              Subcategoría
-            </h2>
+            <h2 className="font-display text-lg font-semibold text-text">Subcategoría</h2>
             <p className="mt-1 text-xs text-text-muted">
               {category
                 ? "Especificá qué tipo de prenda es dentro de la categoría."
@@ -880,82 +925,85 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
           <Card padding="md">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="font-display text-lg font-semibold text-text">
-                  Color principal
-                </h2>
+                <h2 className="font-display text-lg font-semibold text-text">Color principal</h2>
                 <p className="mt-1 text-xs text-text-muted">
                   Elige el color que más predomina en la prenda.
                 </p>
               </div>
-              {preview && !eyedropperActive ? (
+              {!eyedropperActive ? (
                 <button
                   type="button"
                   onClick={handleActivateEyedropper}
-                  className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text"
-                  title="Selecciona el color directamente tocando la foto"
+                  className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  title="Seleccionar color directamente de la foto"
                 >
-                  🎨 Tomar color de la foto
+                  De la foto
                 </button>
               ) : null}
             </div>
+
+            {/* Fila horizontal de colores básicos con scroll invisible */}
             <div
               role="radiogroup"
               aria-label="Color principal"
-              className="mt-4 flex flex-wrap gap-3"
+              className="mt-4 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             >
-              {COLOR_PALETTE.map((c) => {
-                const seleccionado = color === c.name;
-                const esBlanco = c.name === "blanco";
-                return (
-                  <button
-                    key={c.name}
-                    type="button"
-                    role="radio"
-                    aria-checked={seleccionado}
-                    aria-label={c.name}
-                    title={c.name}
-                    onClick={() => {
-                      setColor(c.name);
-                      clearFieldError("color");
-                    }}
-                    className={[
-                      "group flex flex-col items-center gap-1.5 rounded-md p-1 transition-transform",
-                      "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                      seleccionado ? "scale-105" : "hover:scale-105",
-                    ].join(" ")}
-                  >
-                    <span
-                      className={[
-                        "flex h-10 w-10 items-center justify-center rounded-full transition-shadow",
-                        seleccionado
-                          ? "ring-2 ring-primary ring-offset-2 ring-offset-surface shadow-md"
-                          : esBlanco
-                            ? "ring-1 ring-border"
-                            : "shadow-sm",
-                      ].join(" ")}
-                      style={{ background: c.swatch }}
-                      aria-hidden="true"
-                    >
-                      {seleccionado ? (
-                        <svg
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke={c.contrastText === "light" ? "#fff" : "#111"}
-                          strokeWidth="3"
-                        >
-                          <path d="M5 12l5 5L20 7" />
-                        </svg>
-                      ) : null}
-                    </span>
-                    <span className="text-[11px] capitalize text-text-muted">
-                      {c.name}
-                    </span>
-                  </button>
-                );
-              })}
+              {COLOR_PALETTE.filter((c) => BASIC_COLORS.includes(c.name)).map((c) => (
+                <ColorCircle
+                  key={c.name}
+                  name={c.name}
+                  swatch={c.swatch}
+                  contrastText={c.contrastText}
+                  selected={color === c.name}
+                  onSelect={() => {
+                    setColor(c.name);
+                    clearFieldError("color");
+                  }}
+                />
+              ))}
             </div>
+
+            {/* Botón para expandir todos los colores */}
+            <button
+              type="button"
+              onClick={() => setColoresExpanded((v) => !v)}
+              className="mt-3 w-full rounded-xl border border-border py-2.5 text-sm font-medium text-primary transition-colors duration-200 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              {coloresExpanded ? "Ver menos colores −" : "Ver más colores +"}
+            </button>
+
+            {/* Todos los colores agrupados */}
+            {coloresExpanded ? (
+              <div className="mt-5 space-y-5 motion-safe:animate-[fadeInUp_180ms_ease-out]">
+                {COLOR_GROUPS_EXPANDED.map((group) => (
+                  <div key={group.label}>
+                    <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-text-muted">
+                      {group.label}
+                    </p>
+                    <div
+                      role="radiogroup"
+                      aria-label={group.label}
+                      className="flex flex-wrap gap-2"
+                    >
+                      {COLOR_PALETTE.filter((c) => group.colors.includes(c.name)).map((c) => (
+                        <ColorCircle
+                          key={c.name}
+                          name={c.name}
+                          swatch={c.swatch}
+                          contrastText={c.contrastText}
+                          selected={color === c.name}
+                          onSelect={() => {
+                            setColor(c.name);
+                            clearFieldError("color");
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             {fieldErrors.color ? (
               <p
                 role="alert"
@@ -972,8 +1020,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
               ¿Para qué ocasiones sirve?
             </h2>
             <p className="mt-1 text-xs text-text-muted">
-              Marcá todas las que apliquen (mínimo 1). Esto ayuda a la IA a
-              combinarla mejor.
+              Marcá todas las que apliquen (mínimo 1). Esto ayuda a la IA a combinarla mejor.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {ITEM_OCCASIONS.map((o) => (
@@ -1044,7 +1091,7 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
         </>
       ) : null}
 
-      {/* Si no hay foto aún, mostrar el cancel button */}
+      {/* Cancelar cuando todavía no hay foto */}
       {!preview ? (
         <div className="flex justify-start">
           <Button variant="ghost" onClick={() => router.push("/wardrobe")}>
@@ -1053,297 +1100,5 @@ function SingleUploadForm({ mode }: { mode: "single-camera" | "single-gallery" }
         </div>
       ) : null}
     </div>
-  );
-}
-
-// ── Subida múltiple ───────────────────────────────────────────────────────────
-
-function BulkUploadSection() {
-  const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [results, setResults] = useState<BulkFileResult[] | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
-
-  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
-    setFileError(null);
-    setResults(null);
-    const files = Array.from(e.target.files ?? []);
-    if (files.length === 0) return;
-    if (files.length > BULK_MAX_FILES) {
-      setFileError(
-        `Puedes subir hasta ${BULK_MAX_FILES} fotos a la vez. Seleccionaste ${files.length}.`
-      );
-      return;
-    }
-    setSelectedFiles(files);
-  }
-
-  async function handleUpload() {
-    if (selectedFiles.length === 0 || uploading) return;
-
-    setUploading(true);
-    setResults(null);
-    setProgress({ done: 0, total: selectedFiles.length });
-
-    const supabase = createSupabaseBrowserClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      setFileError("Tu sesión expiró. Vuelve a iniciar sesión.");
-      setUploading(false);
-      setProgress(null);
-      return;
-    }
-
-    const allResults: BulkFileResult[] = new Array(selectedFiles.length);
-    let doneSoFar = 0;
-
-    for (let i = 0; i < selectedFiles.length; i += BULK_CONCURRENCY) {
-      const batch = selectedFiles.slice(i, i + BULK_CONCURRENCY);
-
-      await Promise.all(
-        batch.map(async (file, batchIdx) => {
-          const globalIdx = i + batchIdx;
-          try {
-            let comprimido: File;
-            try {
-              comprimido = await imageCompression(file, {
-                maxSizeMB: 1,
-                maxWidthOrHeight: COMPRESS_MAX_WIDTH_OR_HEIGHT,
-                useWebWorker: true,
-                fileType: "image/webp",
-                initialQuality: COMPRESS_QUALITY,
-              });
-            } catch {
-              comprimido = file;
-            }
-
-            const uuid = crypto.randomUUID();
-            const path = buildClothingImagePath({
-              userId: user.id,
-              fileName: file.name,
-              uuid,
-            });
-
-            const { error: uploadError } = await supabase.storage
-              .from(CLOTHING_IMAGES_BUCKET)
-              .upload(path, comprimido, {
-                contentType: comprimido.type,
-                upsert: false,
-              });
-
-            if (uploadError) throw new Error(uploadError.message);
-
-            const { error: insertError } = await supabase
-              .from("clothing_items")
-              .insert({
-                user_id: user.id,
-                category: "top" as const,
-                subcategory: null,
-                name: null,
-                primary_color: null,
-                occasions: [],
-                image_path: path,
-                image_url: null,
-              });
-
-            if (insertError) {
-              await supabase.storage
-                .from(CLOTHING_IMAGES_BUCKET)
-                .remove([path])
-                .catch(() => {});
-              throw new Error(insertError.message);
-            }
-
-            allResults[globalIdx] = { name: file.name, ok: true };
-          } catch (err) {
-            allResults[globalIdx] = {
-              name: file.name,
-              ok: false,
-              error: err instanceof Error ? err.message : "Error desconocido",
-            };
-          }
-
-          doneSoFar++;
-          setProgress({ done: doneSoFar, total: selectedFiles.length });
-        })
-      );
-    }
-
-    setResults(allResults.filter(Boolean));
-    setUploading(false);
-    setProgress(null);
-
-    const exitos = allResults.filter((r) => r?.ok).length;
-    if (exitos > 0) {
-      setTimeout(() => {
-        router.push("/wardrobe");
-        router.refresh();
-      }, 2500);
-    }
-  }
-
-  const exitosCount = results?.filter((r) => r.ok).length ?? 0;
-  const erroresCount = results?.filter((r) => !r.ok).length ?? 0;
-  const doneOk = results !== null && exitosCount > 0;
-
-  return (
-    <Card padding="md">
-      <h2 className="font-display text-lg font-semibold text-text">
-        Subir varias fotos a la vez
-      </h2>
-      <p className="mt-1 text-sm text-text-muted">
-        Selecciona hasta {BULK_MAX_FILES} fotos de tu galería. Las prendas se
-        crean como &quot;sin categorizar&quot; y las completás después.
-      </p>
-
-      {!uploading && results === null ? (
-        <div className="mt-5">
-          <label
-            htmlFor="bulk-photos"
-            className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-border bg-surface-2 p-8 text-center transition-colors hover:border-primary-mid"
-          >
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-primary">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                aria-hidden="true"
-              >
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-text">
-                {selectedFiles.length > 0
-                  ? `${selectedFiles.length} foto${selectedFiles.length > 1 ? "s" : ""} seleccionada${selectedFiles.length > 1 ? "s" : ""}`
-                  : "Toca para seleccionar fotos"}
-              </p>
-              <p className="mt-1 text-xs text-text-muted">
-                Máximo {BULK_MAX_FILES} fotos · JPG, PNG o WebP
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              id="bulk-photos"
-              type="file"
-              accept="image/*"
-              multiple
-              className="sr-only"
-              onChange={handleFileChange}
-            />
-          </label>
-
-          {fileError ? (
-            <p
-              role="alert"
-              className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-            >
-              {fileError}
-            </p>
-          ) : null}
-
-          {selectedFiles.length > 0 ? (
-            <div className="mt-4">
-              <p className="text-xs text-text-muted mb-2">
-                Vista previa de nombres:
-              </p>
-              <ul className="mb-4 max-h-28 overflow-y-auto rounded-lg border border-border bg-surface p-3 text-xs text-text-muted space-y-1">
-                {selectedFiles.map((f, i) => (
-                  <li key={i} className="truncate">
-                    {i + 1}. {f.name}
-                  </li>
-                ))}
-              </ul>
-              <Button fullWidth onClick={handleUpload}>
-                Subir {selectedFiles.length} foto
-                {selectedFiles.length > 1 ? "s" : ""}
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      {uploading && progress ? (
-        <div className="mt-5">
-          <p className="text-center text-sm font-semibold text-text">
-            Subiendo {progress.done} de {progress.total} foto
-            {progress.total > 1 ? "s" : ""}…
-          </p>
-          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-surface-offset">
-            <div
-              className="h-full rounded-full bg-primary transition-all duration-300"
-              style={{
-                width: `${Math.round((progress.done / progress.total) * 100)}%`,
-              }}
-              aria-hidden="true"
-            />
-          </div>
-          <p className="mt-2 text-center text-xs text-text-muted">
-            Esto puede tomar unos segundos…
-          </p>
-        </div>
-      ) : null}
-
-      {results !== null && !uploading ? (
-        <div className="mt-5 flex flex-col gap-3">
-          {doneOk ? (
-            <div className="rounded-xl border border-success bg-success-light px-4 py-3 text-sm text-success">
-              <p className="font-semibold">
-                ✅ {exitosCount} prenda{exitosCount > 1 ? "s" : ""} agregada
-                {exitosCount > 1 ? "s" : ""} con éxito
-              </p>
-              <p className="mt-0.5 text-xs">
-                Ahora podés categorizarlas desde tu armario. Redirigiendo…
-              </p>
-            </div>
-          ) : null}
-
-          {erroresCount > 0 ? (
-            <div className="rounded-xl border border-danger bg-danger-light px-4 py-3 text-sm text-danger">
-              <p className="font-semibold mb-1">
-                ⚠️ {erroresCount} foto{erroresCount > 1 ? "s" : ""} no se{" "}
-                {erroresCount > 1 ? "pudieron subir" : "pudo subir"}:
-              </p>
-              <ul className="space-y-0.5 text-xs">
-                {results
-                  .filter((r) => !r.ok)
-                  .map((r, i) => (
-                    <li key={i} className="truncate">
-                      • {r.name}: {r.error}
-                    </li>
-                  ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {!doneOk ? (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setResults(null);
-                setSelectedFiles([]);
-                if (fileInputRef.current) fileInputRef.current.value = "";
-              }}
-            >
-              Intentar de nuevo
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
-    </Card>
   );
 }
