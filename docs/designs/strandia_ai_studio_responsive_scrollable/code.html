@@ -1,0 +1,464 @@
+<!DOCTYPE html><html class="light" lang="es"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>StrandIA - AI Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&amp;family=Libre+Caslon+Text:wght@400;700&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-icon {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Hanken Grotesk', sans-serif;
+            background-color: #FAF0E6;
+        }
+        h1, h2, h3, .font-serif {
+            font-family: 'Libre Caslon Text', serif;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .option-selected {
+            border-color: #8B9E8A !important;
+            background-color: #E8EFE7 !important;
+        }
+        .content-transition {
+            transition: all 0.3s ease-in-out;
+        }
+        #bottom-sheet, #shop-sheet {
+            transform: translateY(100%);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #bottom-sheet.open, #shop-sheet.open {
+            transform: translateY(0);
+        }
+        #bottom-sheet-overlay, #shop-sheet-overlay {
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s ease;
+        }
+        #bottom-sheet-overlay.open, #shop-sheet-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-high": "#eae8e5",
+                        "secondary-fixed": "#ebe1d7",
+                        "inverse-on-surface": "#f3f0ed",
+                        "on-primary-fixed": "#0f1f11",
+                        "primary-container": "#8B9E8A",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#1f1b15",
+                        "on-surface": "#1c1c1a",
+                        "tertiary-fixed-dim": "#c4c7c3",
+                        "inverse-surface": "#31302f",
+                        "primary": "#516351",
+                        "error-container": "#ffdad6",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#cec5bc",
+                        "primary-fixed": "#d4e8d2",
+                        "on-tertiary-fixed-variant": "#444844",
+                        "inverse-primary": "#b8ccb6",
+                        "tertiary-container": "#969a96",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#e0e3df",
+                        "tertiary": "#5b5f5c",
+                        "on-surface-variant": "#434842",
+                        "on-secondary-fixed-variant": "#4b463f",
+                        "surface-bright": "#fcf9f6",
+                        "background": "#fcf9f6",
+                        "on-secondary-container": "#6a635c",
+                        "surface-variant": "#e5e2df",
+                        "primary-fixed-dim": "#b8ccb6",
+                        "on-primary-fixed-variant": "#3a4b3b",
+                        "secondary": "#645d56",
+                        "outline-variant": "#c3c8c0",
+                        "surface-container-low": "#f6f3f0",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#2e322f",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#e5e2df",
+                        "surface-container": "#f0edea",
+                        "on-background": "#1c1c1a",
+                        "surface-tint": "#516351",
+                        "outline": "#747872",
+                        "on-primary-container": "#243526",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#fcf9f6",
+                        "surface-dim": "#dcd9d7",
+                        "secondary-container": "#ebe1d7",
+                        "on-tertiary-fixed": "#191c1a",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "lg": "24px",
+                        "base": "4px",
+                        "2xl": "48px",
+                        "gutter-mobile": "12px",
+                        "md": "16px",
+                        "xl": "32px",
+                        "sm": "8px",
+                        "xs": "4px",
+                        "margin-mobile": "20px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Libre Caslon Text"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "label-md": ["Hanken Grotesk"],
+                        "headline-lg-mobile": ["Libre Caslon Text"],
+                        "headline-md": ["Libre Caslon Text"],
+                        "display-lg": ["Libre Caslon Text"],
+                        "label-sm": ["Hanken Grotesk"],
+                        "body-md": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "400"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="text-on-surface bg-[#FAF0E6] min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full h-16 bg-[#FAF0E6] flex items-center justify-between px-margin-mobile z-50">
+<div class="flex items-center gap-4">
+<img alt="StrandIA Logo" class="h-10 w-auto object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAr9oD2mV-30kauU1LvMq1_ELuH6YWGW5P4iEqkzdyOQhm1lZ5OR8puIUKLbmwkCV4z_LuQkQ8dc4d2iqJ7nHOYPVA2coYTkR2FWWsArpc9MihsgujX-7mf8l403NHW-YXKI3F7gecTPMVTMGSrHHROOvRC3-avi4lCJ1SdTGs_QaUxNG9r-Y6I_JAbEeT7_0v2OnMVjDdBSpEUMrJpnPTTMa790Ltk_XtAvkdv2u7HxFEs2J9RRf3xPsFf-Oxt_d-g1x4O3TrtWA">
+</div>
+<div class="absolute left-1/2 -translate-x-1/2">
+<h1 class="font-headline-md text-headline-md text-on-surface">AI Studio</h1>
+</div>
+<div class="flex items-center">
+<span class="material-symbols-outlined text-primary cursor-pointer active:scale-95 transition-transform" data-icon="person">person</span>
+</div>
+</header>
+<!-- Main Scrollable Content -->
+<main class="flex-1 pt-20 pb-24 overflow-y-auto overflow-x-hidden">
+<div class="max-w-xl md:max-w-4xl mx-auto px-margin-mobile space-y-xl">
+<!-- Generador de Outfits Section -->
+<div class="space-y-md">
+<div class="bg-white p-6 rounded-xl shadow-sm space-y-6">
+<h2 class="font-headline-md text-headline-md text-on-surface">Crea tu outfit</h2>
+<!-- Selection Mode Selector -->
+<div class="grid grid-cols-4 gap-2">
+<button class="mode-btn flex flex-col items-center justify-center p-2 rounded-lg border-2 border-transparent transition-all option-selected" id="btn-ocasion" onclick="selectMode('ocasion')">
+<span class="text-lg mb-1">🗓</span>
+<span class="text-[10px] text-center font-label-md leading-tight">Por ocasión</span>
+</button>
+<button class="mode-btn flex flex-col items-center justify-center p-2 rounded-lg border-2 border-transparent transition-all" id="btn-libre" onclick="selectMode('libre')">
+<span class="text-lg mb-1">✏️</span>
+<span class="text-[10px] text-center font-label-md leading-tight">Descripción libre</span>
+</button>
+<button class="mode-btn flex flex-col items-center justify-center p-2 rounded-lg border-2 border-transparent transition-all" id="btn-sorpresa" onclick="selectMode('sorpresa')">
+<span class="text-lg mb-1">✨</span>
+<span class="text-[10px] text-center font-label-md leading-tight">Sorpréndeme</span>
+</button>
+<button class="mode-btn flex flex-col items-center justify-center p-2 rounded-lg border-2 border-transparent transition-all" id="btn-armario" onclick="selectMode('armario')">
+<span class="text-lg mb-1">👗</span>
+<span class="text-[10px] text-center font-label-md leading-tight">Desde mi armario</span>
+</button>
+</div>
+<!-- Dynamic Content Area -->
+<div class="content-transition min-h-[140px]" id="dynamic-content" style="opacity: 1;">
+<!-- Por Ocasión -->
+<div class="space-y-4" id="content-ocasion">
+<p class="font-label-md text-on-surface-variant">Elige una ocasión:</p>
+<div class="flex flex-wrap gap-sm">
+<button class="chip-item px-md py-xs rounded-full bg-secondary-container text-on-secondary-container font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Casual</button>
+<button class="chip-item px-md py-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Formal</button>
+<button class="chip-item px-md py-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Deportivo</button>
+<button class="chip-item px-md py-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Fiesta</button>
+<button class="chip-item px-md py-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Trabajo</button>
+<button class="chip-item px-md py-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Universidad</button>
+<button class="chip-item px-md py-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Citas</button>
+<button class="chip-item px-md py-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Casa</button>
+<button class="chip-item px-md py-xs rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm transition-colors border border-transparent active:scale-95" onclick="toggleSingleChip(this)">Eventos formales</button>
+</div>
+</div>
+<!-- Descripción Libre -->
+<div class="space-y-4 hidden" id="content-libre">
+<p class="font-label-md text-on-surface-variant">Dinos qué buscas:</p>
+<textarea class="w-full bg-surface-container-low border-none rounded-xl py-md px-md font-body-md text-body-md focus:ring-1 focus:ring-primary outline-none transition-all resize-none min-h-[100px]" placeholder="Ej: Quiero algo elegante para una cena"></textarea>
+</div>
+<!-- Sorpréndeme -->
+<div class="hidden flex items-center justify-center py-8" id="content-sorpresa">
+<p class="font-body-md text-on-surface-variant text-center italic">"La IA elegirá libremente con tu armario"</p>
+</div>
+<!-- Desde mi armario -->
+<div class="space-y-4 hidden" id="content-armario">
+<p class="font-label-md text-on-surface-variant">Selecciona prendas base:</p>
+<div class="grid grid-cols-4 gap-2" id="selected-garments-container">
+<div class="clothing-thumb aspect-square bg-surface-container-high rounded-lg overflow-hidden border-2 border-transparent cursor-pointer">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5-JscSlthAFuKpLmveFpnziVjT3vvUL2lZmkdxUFVwaY0LP8vQ-6dlX6v5E7BVaib3GCpVyLMZGfzPLUo4OJhdD3iLVfpz5kL07CsbMcnPMgsPJKePwQXXIxn_mFp7NQC6_XjGiKh0S5mrfo_s6K8pAJaREVk7w--NFpg8Y_mGpFp4d_QbnzVSiFwLFBwluKqKveYJd75h2pDZWkjqrWI5RnrgblONdmQhiVJooLmdsMGISa_uKUlRT_M2bxRpKL77Ol3NkGRYw">
+</div>
+<div class="clothing-thumb aspect-square bg-surface-container-high rounded-lg overflow-hidden border-2 border-transparent cursor-pointer">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxGE1IJUIA5sC1341bSQ_BseoNcvQoAQYCWjp1nLiapbVQVRe1Lv6nOrjp16it66kCdawW2ORHQW8NmWQuj3WDY7osB2k08Gx5U009W7QwcGKrBdZCTb3yBcqWmzxgGcj-8OgMQQeHMEZXIHnFqxMJUhKBsZQmh9SUgNwk1DfNIioTfJEmoaWrikTT3v1DtmNfIbiiQ6jz-iz-e-B2i3wOb6974qhQ1HcuiCOMLdu4iIVZc15dJfM3kyU7jKnwb_o8acr3u-y9og">
+</div>
+<div class="aspect-square bg-surface-container-high rounded-lg overflow-hidden flex items-center justify-center cursor-pointer border border-dashed border-outline hover:bg-surface-container" onclick="openBottomSheet()">
+<span class="material-symbols-outlined text-primary">add</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Primary Action -->
+<button class="w-full py-md bg-[#8B9E8A] text-white rounded-full font-label-md text-label-md shadow-lg active:scale-95 transition-all flex items-center justify-center gap-sm">
+<span class="">✨ Generar outfit</span>
+</button>
+</div>
+<!-- Section 2: Completa tu armario -->
+<section class="bg-white p-lg rounded-xl space-y-md overflow-hidden">
+<div class="space-y-1">
+<h3 class="font-headline-md text-headline-md text-on-surface leading-tight">Completa tu armario</h3>
+<p class="font-body-md text-body-md text-on-surface-variant opacity-80">La IA detectó lo que te falta para más outfits.</p>
+</div>
+<div class="flex gap-md overflow-x-auto pb-4 hide-scrollbar snap-x">
+<div class="min-w-[140px] flex-shrink-0 snap-center">
+<div class="h-40 w-full bg-surface-container-high rounded-xl mb-sm flex items-center justify-center relative group overflow-hidden">
+<img alt="Blazer" class="w-full h-full object-cover rounded-xl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5-JscSlthAFuKpLmveFpnziVjT3vvUL2lZmkdxUFVwaY0LP8vQ-6dlX6v5E7BVaib3GCpVyLMZGfzPLUo4OJhdD3iLVfpz5kL07CsbMcnPMgsPJKePwQXXIxn_mFp7NQC6_XjGiKh0S5mrfo_s6K8pAJaREVk7w--NFpg8Y_mGpFp4d_QbnzVSiFwLFBwluKqKveYJd75h2pDZWkjqrWI5RnrgblONdmQhiVJooLmdsMGISa_uKUlRT_M2bxRpKL77Ol3NkGRYw">
+</div>
+<span class="font-label-md text-label-md block">Blazer Beige</span>
+<span class="font-label-sm text-label-sm text-primary">Inversión clave</span>
+<button class="block mt-2 font-label-md text-label-sm text-[#8B9E8A] hover:opacity-80 transition-opacity" onclick="openShopModal('Blazer Beige')">Descubre opciones →</button>
+</div>
+<div class="min-w-[140px] flex-shrink-0 snap-center">
+<div class="h-40 w-full bg-surface-container-high rounded-xl mb-sm flex items-center justify-center relative group overflow-hidden">
+<img alt="Jeans" class="w-full h-full object-cover rounded-xl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBxGE1IJUIA5sC1341bSQ_BseoNcvQoAQYCWjp1nLiapbVQVRe1Lv6nOrjp16it66kCdawW2ORHQW8NmWQuj3WDY7osB2k08Gx5U009W7QwcGKrBdZCTb3yBcqWmzxgGcj-8OgMQQeHMEZXIHnFqxMJUhKBsZQmh9SUgNwk1DfNIioTfJEmoaWrikTT3v1DtmNfIbiiQ6jz-iz-e-B2i3wOb6974qhQ1HcuiCOMLdu4iIVZc15dJfM3kyU7jKnwb_o8acr3u-y9og">
+</div>
+<span class="font-label-md text-label-md block">Jeans rectos</span>
+<span class="font-label-sm text-label-sm text-primary">Esencial</span>
+<button class="block mt-2 font-label-md text-label-sm text-[#8B9E8A] hover:opacity-80 transition-opacity" onclick="openShopModal('Jeans rectos')">Descubre opciones →</button>
+</div>
+</div>
+</section>
+<!-- Section 3: Inspiración -->
+<section class="bg-white p-lg rounded-xl space-y-md">
+<div class="space-y-1">
+<h3 class="font-headline-md text-headline-md text-on-surface">Inspírate</h3>
+<p class="font-body-md text-body-md text-on-surface-variant opacity-80">Sube una foto de un outfit que te inspire y la IA te ayudará a recrearlo con tu armario.</p>
+</div>
+<div class="mt-4">
+<div class="w-full aspect-[4/3] border-2 border-dashed border-outline-variant rounded-2xl flex flex-col items-center justify-center gap-3 bg-surface-container-lowest cursor-pointer hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-4xl text-primary">add_a_photo</span>
+<span class="font-label-md text-on-surface-variant">Subir foto de inspiración</span>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center bg-white px-4 py-3 pb-safe z-50 shadow-[0px_-2px_10px_rgba(45,49,46,0.06)] rounded-t-xl">
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:bg-surface-container-high transition-colors px-4 py-1.5 rounded-full">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm">Inicio</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:bg-surface-container-high transition-colors px-4 py-1.5 rounded-full">
+<span class="material-symbols-outlined" data-icon="wardrobe">dresser</span>
+<span class="font-label-sm text-label-sm">Armario</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-[#8B9E8A] text-white rounded-full px-5 py-1.5 active:scale-90 duration-150 ease-in-out">
+<span class="material-symbols-outlined active-icon" data-icon="auto_awesome" style="font-variation-settings: &quot;FILL&quot; 1;">auto_awesome</span>
+<span class="font-label-sm text-label-sm">AI Studio</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:bg-surface-container-high transition-colors px-4 py-1.5 rounded-full">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-label-sm text-label-sm">Comunidad</span>
+</button>
+</nav>
+<!-- Modals & Bottom Sheets -->
+<!-- Bottom Sheet Overlay -->
+<div class="fixed inset-0 bg-black/40 z-[60]" id="bottom-sheet-overlay" onclick="closeBottomSheet()"></div>
+<!-- Bottom Sheet -->
+<div class="fixed bottom-0 left-0 w-full bg-background rounded-t-2xl z-[70] flex flex-col max-h-[90vh]" id="bottom-sheet">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto my-3"></div>
+<div class="px-margin-mobile pb-4 flex justify-between items-center border-b border-surface-container">
+<h2 class="font-headline-md text-headline-md">Selecciona prendas</h2>
+<button class="material-symbols-outlined text-on-surface" onclick="closeBottomSheet()">close</button>
+</div>
+<div class="overflow-y-auto px-margin-mobile py-4 space-y-md hide-scrollbar flex-1">
+<!-- Search Bar -->
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full bg-surface-container-low border-none rounded-xl py-2 pl-10 pr-4 font-body-md text-sm focus:ring-1 focus:ring-primary outline-none" placeholder="Buscar en mi armario..." type="text">
+</div>
+<!-- Filters -->
+<div class="flex gap-2 overflow-x-auto hide-scrollbar -mx-margin-mobile px-margin-mobile">
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-primary text-white font-label-sm text-xs">Todas</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-xs">Superior</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-xs">Inferior</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-xs">Vestido</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-xs">Abrigo</button>
+<button class="flex-shrink-0 px-4 py-1.5 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-xs">Calzado</button>
+</div>
+<!-- Grid -->
+<div class="grid grid-cols-3 gap-3" id="closet-grid">
+<div class="space-y-1.5 closet-item cursor-pointer" data-id="1" data-img="https://lh3.googleusercontent.com/aida-public/AB6AXuC5-JscSlthAFuKpLmveFpnziVjT3vvUL2lZmkdxUFVwaY0LP8vQ-6dlX6v5E7BVaib3GCpVyLMZGfzPLUo4OJhdD3iLVfpz5kL07CsbMcnPMgsPJKePwQXXIxn_mFp7NQC6_XjGiKh0S5mrfo_s6K8pAJaREVk7w--NFpg8Y_mGpFp4d_QbnzVSiFwLFBwluKqKveYJd75h2pDZWkjqrWI5RnrgblONdmQhiVJooLmdsMGISa_uKUlRT_M2bxRpKL77Ol3NkGRYw" onclick="toggleSelection(this)">
+<div class="aspect-square rounded-xl bg-surface-container-high relative overflow-hidden">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5-JscSlthAFuKpLmveFpnziVjT3vvUL2lZmkdxUFVwaY0LP8vQ-6dlX6v5E7BVaib3GCpVyLMZGfzPLUo4OJhdD3iLVfpz5kL07CsbMcnPMgsPJKePwQXXIxn_mFp7NQC6_XjGiKh0S5mrfo_s6K8pAJaREVk7w--NFpg8Y_mGpFp4d_QbnzVSiFwLFBwluKqKveYJd75h2pDZWkjqrWI5RnrgblONdmQhiVJooLmdsMGISa_uKUlRT_M2bxRpKL77Ol3NkGRYw">
+<div class="checkmark absolute top-1 right-1 w-5 h-5 bg-[#8B9E8A] rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[14px]">check</span>
+</div>
+</div>
+<p class="text-[11px] font-label-md text-on-surface truncate px-0.5">Blazer Beige</p>
+</div>
+<!-- Additional items omitted for brevity but they should be present in a real app -->
+</div>
+</div>
+<div class="p-margin-mobile border-t border-surface-container bg-white pb-safe">
+<button class="w-full py-md bg-[#8B9E8A] text-white rounded-full font-label-md text-label-md shadow-lg active:scale-95 transition-all flex items-center justify-center gap-sm disabled:opacity-50" id="add-selected-btn" onclick="addSelectedItems()">Agregar prendas seleccionadas</button>
+</div>
+</div>
+<!-- Shop Bottom Sheet -->
+<div class="fixed inset-0 bg-black/40 z-[80]" id="shop-sheet-overlay" onclick="closeShopModal()"></div>
+<div class="fixed bottom-0 left-0 w-full bg-surface rounded-t-2xl z-[90] flex flex-col max-h-[80vh]" id="shop-sheet">
+<div class="w-12 h-1.5 bg-surface-variant rounded-full mx-auto my-3"></div>
+<div class="px-margin-mobile pb-4 flex justify-between items-center border-b border-surface-container"><h2 class="font-headline-md text-headline-md" id="shop-modal-title">Encuentra la prenda en:</h2><button class="material-symbols-outlined text-on-surface opacity-60 hover:opacity-100 transition-opacity p-2 -mr-2" onclick="closeShopModal()">close</button></div>
+<div class="overflow-y-auto px-margin-mobile py-4 space-y-2 hide-scrollbar">
+<div class="flex flex-col gap-2">
+<!-- Example Store List -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl cursor-pointer active:bg-surface-container transition-colors">
+<span class="font-body-md text-on-surface">Zara</span>
+<span class="material-symbols-outlined text-outline">chevron_right</span>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl cursor-pointer active:bg-surface-container transition-colors">
+<span class="font-body-md text-on-surface">H&amp;M</span>
+<span class="material-symbols-outlined text-outline">chevron_right</span>
+</div>
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl cursor-pointer active:bg-surface-container transition-colors">
+<span class="font-body-md text-on-surface">Falabella</span>
+<span class="material-symbols-outlined text-outline">chevron_right</span>
+</div>
+</div>
+</div>
+<div class="p-margin-mobile pb-safe">
+<button class="w-full py-3 bg-surface-container-highest text-on-surface rounded-full font-label-md" onclick="closeShopModal()">Cerrar</button>
+</div>
+</div>
+<script>
+    let selectedItems = [];
+
+    function selectMode(mode) {
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('option-selected'));
+        document.getElementById('btn-' + mode).classList.add('option-selected');
+        
+        const container = document.getElementById('dynamic-content');
+        container.style.opacity = '0';
+        
+        setTimeout(() => {
+            document.getElementById('content-ocasion').classList.add('hidden');
+            document.getElementById('content-libre').classList.add('hidden');
+            document.getElementById('content-sorpresa').classList.add('hidden');
+            document.getElementById('content-armario').classList.add('hidden');
+            
+            document.getElementById('content-' + mode).classList.remove('hidden');
+            container.style.opacity = '1';
+        }, 150);
+    }
+
+    function toggleSingleChip(button) {
+        const chips = button.parentElement.querySelectorAll('.chip-item');
+        chips.forEach(btn => {
+            btn.classList.remove('bg-secondary-container', 'text-on-secondary-container');
+            btn.classList.add('bg-surface-container-high', 'text-on-surface-variant');
+        });
+        button.classList.remove('bg-surface-container-high', 'text-on-surface-variant');
+        button.classList.add('bg-secondary-container', 'text-on-secondary-container');
+    }
+
+    function openBottomSheet() {
+        document.getElementById('bottom-sheet-overlay').classList.add('open');
+        document.getElementById('bottom-sheet').classList.add('open');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeBottomSheet() {
+        document.getElementById('bottom-sheet-overlay').classList.remove('open');
+        document.getElementById('bottom-sheet').classList.remove('open');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    function toggleSelection(element) {
+        const id = element.getAttribute('data-id');
+        const img = element.getAttribute('data-img');
+        const checkmark = element.querySelector('.checkmark');
+        
+        const index = selectedItems.findIndex(item => item.id === id);
+        
+        if (index > -1) {
+            selectedItems.splice(index, 1);
+            checkmark.classList.add('hidden');
+        } else {
+            selectedItems.push({ id, img });
+            checkmark.classList.remove('hidden');
+        }
+        
+        updateSheetButton();
+    }
+
+    function updateSheetButton() {
+        const btn = document.getElementById('add-selected-btn');
+        btn.textContent = `Agregar ${selectedItems.length} prendas seleccionadas`;
+        btn.disabled = selectedItems.length === 0;
+    }
+
+    function addSelectedItems() {
+        const container = document.getElementById('selected-garments-container');
+        const addButton = container.lastElementChild;
+        container.innerHTML = '';
+        
+        selectedItems.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'clothing-thumb aspect-square bg-surface-container-high rounded-lg overflow-hidden border-2 border-transparent cursor-pointer';
+            div.innerHTML = `<img class="w-full h-full object-cover" src="${item.img}">`;
+            container.appendChild(div);
+        });
+        
+        container.appendChild(addButton);
+        closeBottomSheet();
+    }
+
+    function openShopModal(itemName) {
+        document.getElementById('shop-modal-title').textContent = `Encuentra ${itemName} en:`;
+        document.getElementById('shop-sheet-overlay').classList.add('open');
+        document.getElementById('shop-sheet').classList.add('open');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeShopModal() {
+        document.getElementById('shop-sheet-overlay').classList.remove('open');
+        document.getElementById('shop-sheet').classList.remove('open');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    // Initialize
+    selectMode('ocasion');
+</script>
+
+
+</body></html>

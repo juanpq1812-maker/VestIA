@@ -1,0 +1,318 @@
+<!DOCTYPE html><html class="light" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-container": "#969a96",
+                    "surface-dim": "#dcd9d7",
+                    "tertiary-fixed": "#e0e3df",
+                    "on-secondary-fixed-variant": "#4b463f",
+                    "surface-container-highest": "#e5e2df",
+                    "on-primary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-container": "#6a635c",
+                    "primary": "#516351",
+                    "surface-container": "#f0edea",
+                    "secondary-fixed-dim": "#cec5bc",
+                    "on-secondary-fixed": "#1f1b15",
+                    "tertiary": "#5b5f5c",
+                    "inverse-on-surface": "#f3f0ed",
+                    "surface-container-high": "#eae8e5",
+                    "error-container": "#ffdad6",
+                    "surface-variant": "#e5e2df",
+                    "surface-bright": "#fcf9f6",
+                    "primary-fixed-dim": "#b8ccb6",
+                    "on-error": "#ffffff",
+                    "surface-container-low": "#f6f3f0",
+                    "on-background": "#1c1c1a",
+                    "on-primary-container": "#243526",
+                    "secondary": "#645d56",
+                    "error": "#ba1a1a",
+                    "background": "#fcf9f6",
+                    "primary-fixed": "#d4e8d2",
+                    "tertiary-fixed-dim": "#c4c7c3",
+                    "outline-variant": "#c3c8c0",
+                    "on-tertiary-fixed-variant": "#444844",
+                    "inverse-primary": "#b8ccb6",
+                    "secondary-fixed": "#ebe1d7",
+                    "on-tertiary-fixed": "#191c1a",
+                    "secondary-container": "#ebe1d7",
+                    "surface": "#fcf9f6",
+                    "on-primary-fixed-variant": "#3a4b3b",
+                    "outline": "#747872",
+                    "on-primary-fixed": "#0f1f11",
+                    "on-surface-variant": "#434842",
+                    "on-tertiary-container": "#2e322f",
+                    "on-secondary": "#ffffff",
+                    "inverse-surface": "#31302f",
+                    "surface-tint": "#516351",
+                    "primary-container": "#8b9e8a",
+                    "on-tertiary": "#ffffff",
+                    "on-surface": "#1c1c1a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter-mobile": "12px",
+                    "xl": "32px",
+                    "base": "4px",
+                    "xs": "4px",
+                    "lg": "24px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "margin-mobile": "20px",
+                    "2xl": "48px"
+            },
+            "fontFamily": {
+                    "headline-lg": ["Libre Caslon Text"],
+                    "headline-lg-mobile": ["Libre Caslon Text"],
+                    "display-lg": ["Libre Caslon Text"],
+                    "headline-md": ["Libre Caslon Text"],
+                    "body-md": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "label-sm": ["Hanken Grotesk"],
+                    "label-md": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #FAF0E6; /* Specific brand hueso */
+            font-family: 'Hanken Grotesk', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .serif-headline { font-family: 'Libre Caslon Text', serif; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="text-on-surface antialiased pb-32">
+<!-- Top App Bar -->
+<header class="sticky top-0 z-50 bg-surface-container-low/95 backdrop-blur-md flex items-center justify-between px-margin-mobile w-full h-16">
+<div class="flex items-center gap-4">
+
+<h1 class="serif-headline font-headline-lg-mobile text-headline-lg-mobile text-on-surface">&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; Comunidad</h1>
+</div>
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center overflow-hidden border border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="person">person</span>
+</div>
+</header>
+<main class="mt-md space-y-xl">
+<!-- Section 1: Challenges de uso -->
+<section class="px-margin-mobile">
+<h2 class="serif-headline font-headline-md text-headline-md mb-md">Challenges de uso</h2>
+<div class="bg-surface p-md rounded-xl shadow-[0px_10px_30px_rgba(45,49,46,0.06)] border border-outline-variant/30">
+<div class="flex justify-between items-start mb-sm">
+<div>
+<h3 class="font-label-md text-label-md text-primary mb-xs">Minimalismo de Otoño</h3>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-[240px]">Crea 5 outfits usando solo prendas neutras</p>
+</div>
+<span class="material-symbols-outlined text-primary" data-icon="auto_awesome">auto_awesome</span>
+</div>
+<!-- Progress Bar -->
+<div class="mt-md mb-lg">
+<div class="flex justify-between font-label-sm text-label-sm mb-xs">
+<span class="">Tu progreso</span>
+<span class="">3/5 outfits</span>
+</div>
+<div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 60%"></div>
+</div>
+</div>
+<!-- Ranking Top 3 -->
+<div class="space-y-sm">
+<p class="font-label-md text-label-md text-on-surface-variant border-b border-outline-variant/20 pb-xs">Top 3 Ranking</p>
+<div class="flex items-center justify-between py-xs">
+<div class="flex items-center gap-3">
+<span class="font-label-md text-primary">1.</span>
+<span class="font-body-md text-body-md">User1</span>
+</div>
+<span class="font-label-md text-label-md text-primary">150 pts</span>
+</div>
+<div class="flex items-center justify-between py-xs">
+<div class="flex items-center gap-3">
+<span class="font-label-md text-primary">2.</span>
+<span class="font-body-md text-body-md">User2</span>
+</div>
+<span class="font-label-md text-label-md text-primary">120 pts</span>
+</div>
+<div class="flex items-center justify-between py-xs">
+<div class="flex items-center gap-3">
+<span class="font-label-md text-primary">3.</span>
+<span class="font-body-md text-body-md">User3</span>
+</div>
+<span class="font-label-md text-label-md text-primary">100 pts</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Outfits de la comunidad -->
+<section>
+<div class="px-margin-mobile flex justify-between items-end mb-md">
+<h2 class="serif-headline font-headline-md text-headline-md">Outfits de la comunidad</h2>
+<button class="text-primary font-label-md text-label-md">Ver todo</button>
+</div>
+<div class="grid grid-cols-2 gap-gutter-mobile px-margin-mobile">
+<!-- Card 1 -->
+<div class="group">
+<div class="aspect-[3/4] rounded-xl overflow-hidden mb-sm relative">
+<img alt="Editorial fashion photography" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A stylish woman posing in a soft sage green knit sweater and wide-leg cream trousers against a minimalist architectual background. The lighting is soft and natural, reflecting an editorial fashion lookbook style. The overall mood is sophisticated, organic, and calm, perfectly aligning with a premium minimalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgzAoIsm1uj7Np3cH9Kx4xLA1fzxhIp5FhHSOdDYYGnGZ_qC7ZoZoujQ8uxd03JEeO6pD5FBJ5viuJ5kXzpbDEIoaM-qXoi9mt_EaGQ-GlfA9tyhweKyRei1ZHuTTI4FDyBoD3EBpyfvDDzaHH9og8obywzzf_JX1FIUlvfNJDF2JCbffmcTficP1hjhF0Kh5s8jyqo5ed1Jcuz4dGFVPXlW_4KSUOCpVlUNIGm8HsyUzv20KnvynuuosioRz8y7ciCb--xTQz0Q">
+<div class="absolute top-2 right-2 bg-surface/80 backdrop-blur-sm p-1 rounded-full">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="favorite">favorite</span>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md">Elena M.</span>
+<button class="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-3 py-1 rounded-full hover:opacity-90 transition-opacity">Inspirarme</button>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group">
+<div class="aspect-[3/4] rounded-xl overflow-hidden mb-sm relative">
+<img alt="High-end streetwear" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="An artistic fashion shot of a person wearing a structured linen trench coat in a muted earth tone. The setting is a clean, bright urban space with soft shadows. The visual style is editorial, emphasizing high-quality textiles and clean silhouettes. A warm, natural light illuminates the fabric textures, creating a mood of quiet luxury and modern elegance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7yoQwTtS5WluMsb5Ckk20KeWYDfUidTdDZKAUnzYCAxtEE2f6npYVo6i3h6tSzBjEYVRCe7_PR7XV9GcxBwu6Mr81KnW05f20rO-RGSEbIs0DELnix1zU9wNczzjZOBYrWLx9D8wlUpd6WPfTr91nHjfgbFUjbmNUV-YO4Hanqn6pugvTkgAot5hGpT0Ok5N2RrgCHUHJqF_ip7uhsfd4nGuethQeqym-Bf7fcizYKP-R1BxYPF5yB8MSl0PIAfuQ2TeYH0jIJw">
+<div class="absolute top-2 right-2 bg-surface/80 backdrop-blur-sm p-1 rounded-full">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="favorite">favorite</span>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md">Mateo R.</span>
+<button class="bg-primary-container text-on-primary-container font-label-sm text-label-sm px-3 py-1 rounded-full hover:opacity-90 transition-opacity">Inspirarme</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Marcas aliadas y beneficios -->
+<section class="px-margin-mobile"><h2 class="serif-headline font-headline-md text-headline-md mb-md">Marcas aliadas y beneficios</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+<!-- Left Column: Editorial -->
+<div class="space-y-md">
+<h3 class="font-label-md text-label-md text-primary uppercase tracking-wider mb-sm">Editorial</h3>
+<div class="space-y-lg">
+<!-- Article 1 -->
+<div class="group cursor-pointer">
+<div class="aspect-[4/3] rounded-xl overflow-hidden mb-sm">
+<img alt="Tendencias de Lino" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgzAoIsm1uj7Np3cH9Kx4xLA1fzxhIp5FhHSOdDYYGnGZ_qC7ZoZoujQ8uxd03JEeO6pD5FBJ5viuJ5kXzpbDEIoaM-qXoi9mt_EaGQ-GlfA9tyhweKyRei1ZHuTTI4FDyBoD3EBpyfvDDzaHH9og8obywzzf_JX1FIUlvfNJDF2JCbffmcTficP1hjhF0Kh5s8jyqo5ed1Jcuz4dGFVPXlW_4KSUOCpVlUNIGm8HsyUzv20KnvynuuosioRz8y7ciCb--xTQz0Q">
+</div>
+<p class="font-label-sm text-label-sm text-primary mb-1">ZARA</p>
+<h4 class="serif-headline text-body-lg font-medium leading-tight">Tendencias de Lino: El fresco del verano</h4>
+</div>
+<!-- Article 2 -->
+<div class="group cursor-pointer">
+<div class="aspect-[4/3] rounded-xl overflow-hidden mb-sm">
+<img alt="Sostenibilidad en H&amp;M" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7yoQwTtS5WluMsb5Ckk20KeWYDfUidTdDZKAUnzYCAxtEE2f6npYVo6i3h6tSzBjEYVRCe7_PR7XV9GcxBwu6Mr81KnW05f20rO-RGSEbIs0DELnix1zU9wNczzjZOBYrWLx9D8wlUpd6WPfTr91nHjfgbFUjbmNUV-YO4Hanqn6pugvTkgAot5hGpT0Ok5N2RrgCHUHJqF_ip7uhsfd4nGuethQeqym-Bf7fcizYKP-R1BxYPF5yB8MSl0PIAfuQ2TeYH0jIJw">
+</div>
+<p class="font-label-sm text-label-sm text-primary mb-1">H&amp;M</p>
+<h4 class="serif-headline text-body-lg font-medium leading-tight">Sostenibilidad en la moda consciente</h4>
+</div>
+</div>
+</div>
+<!-- Right Column: Benefits -->
+<div class="space-y-md">
+<h3 class="font-label-md text-label-md text-primary uppercase tracking-wider mb-sm">Beneficios Exclusivos</h3>
+<div class="bg-surface-container-low rounded-xl p-md border border-outline-variant/30 space-y-md">
+<!-- Benefit 1 -->
+<div class="flex items-center gap-4 py-2 border-b border-outline-variant/20 last:border-0">
+<div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center font-bold text-[8px] border border-outline-variant/10">ZARA</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md">Zara</p>
+<p class="font-body-md text-label-sm text-on-surface-variant">15% OFF en básicos</p>
+</div>
+</div>
+<!-- Benefit 2 -->
+<div class="flex items-center gap-4 py-2 border-b border-outline-variant/20 last:border-0">
+<div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center font-bold text-[8px] border border-outline-variant/10">H&amp;M</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md">H&amp;M</p>
+<p class="font-body-md text-label-sm text-on-surface-variant">Envío gratis en primer pedido</p>
+</div>
+</div>
+<!-- Benefit 3 -->
+<div class="flex items-center gap-4 py-2 border-b border-outline-variant/20 last:border-0">
+<div class="w-10 h-10 bg-white rounded-lg flex items-center justify-center font-bold text-[8px] border border-outline-variant/10">FALABELLA</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md">Falabella</p>
+<p class="font-body-md text-label-sm text-on-surface-variant">Cupón 10% Accesorios</p>
+</div>
+</div>
+<!-- Benefit 4 -->
+<div class="flex items-center gap-4 py-2 border-b border-outline-variant/20 last:border-0">
+<div class="w-10 h-10 bg-black rounded-lg flex items-center justify-center font-bold text-[6px] text-white">UNDERGOLD</div>
+<div class="flex-1">
+<p class="font-label-md text-label-md">Undergold</p>
+<p class="font-body-md text-label-sm text-on-surface-variant">Acceso anticipado a Drop</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Button -->
+<div class="mt-xl flex justify-center">
+<button class="bg-primary text-on-primary font-label-md text-label-md px-lg py-3 rounded-full hover:shadow-lg transition-all active:scale-95">
+    Ver todos nuestros aliados
+  </button>
+</div></section>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center bg-surface px-4 py-3 pb-safe z-50 rounded-t-xl shadow-[0px_-2px_10px_rgba(45,49,46,0.06)]">
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm">Inicio</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" data-icon="wardrobe">dresser</span>
+<span class="font-label-sm text-label-sm">Armario</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-label-sm text-label-sm">AI Studio</span>
+</button>
+<!-- Active Tab: Comunidad -->
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1.5 active:scale-90 transition-transform duration-150">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-label-sm text-label-sm">Comunidad</span>
+</button>
+</nav>
+<script>
+        // Micro-interactions
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('touchstart', () => {
+                btn.style.transform = 'scale(0.95)';
+            });
+            btn.addEventListener('touchend', () => {
+                btn.style.transform = 'scale(1)';
+            });
+        });
+    </script>
+
+
+</body></html>
