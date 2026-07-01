@@ -2,9 +2,9 @@
 name: StrandIA
 description: Armario digital con IA — outfits, sostenibilidad y estilo personal.
 colors:
-  sage-primary: "#8B9E8A"
-  sage-hover: "#6B7F6A"
-  sage-active: "#5a6e59"
+  sage-primary: "#5a6e59"
+  sage-hover: "#4F5F4F"
+  sage-active: "#3F4B3E"
   sage-light: "#E8EFE7"
   sage-mid: "#b8c9b7"
   cream-bg: "#FAF0E6"
@@ -13,8 +13,8 @@ colors:
   divider-gray: "#d1d5db"
   border-sage: "rgba(139, 158, 138, 0.25)"
   ink-text: "#2C2C2C"
-  text-muted: "#9E9E8E"
-  text-faint: "#b8b8a8"
+  text-muted: "#68685A"
+  text-faint: "#6B6B57"
   text-inverse: "#FDFAF7"
   success: "#059669"
   success-light: "#d1fae5"
@@ -119,7 +119,7 @@ This system explicitly rejects cold corporate SaaS (no blue-gradient dashboards,
 The palette is a restrained warm-neutral field (cream, paper) anchored by a single committed sage green, with muted olive-gray text tones instead of pure black or cold gray.
 
 ### Primary
-- **Sage** (`#8B9E8A`): the one brand color. Primary buttons, active nav states, active chips, focus rings, links. Darkens through **Sage Hover** (`#6B7F6A`) and **Sage Active** (`#5a6e59`) for interaction states.
+- **Sage** (`#5a6e59`): the one brand color. Primary buttons, active nav states, active chips, focus rings, links. Darkens through **Sage Hover** (`#4F5F4F`) and **Sage Active** (`#3F4B3E`) for interaction states.
 - **Sage Light** (`#E8EFE7`): tint of the primary, used as secondary-button fill and as the app's second surface tone (`surface-2`).
 - **Sage Mid** (`#b8c9b7`): mid-strength sage for hover borders on inactive chips and subtle accents that need more presence than a divider but less than the full brand color.
 
@@ -129,8 +129,8 @@ The palette is a restrained warm-neutral field (cream, paper) anchored by a sing
 - **Divider Gray** (`#d1d5db`): plain structural dividers where a sage-tinted border would be too loud.
 - **Sage Border** (`rgba(139, 158, 138, 0.25)`): the default border for cards, inputs, chips — tinted toward the brand hue rather than neutral gray.
 - **Ink** (`#2C2C2C`): primary text. Never pure black.
-- **Muted Olive-Gray** (`#9E9E8E`): secondary/muted text — warm-toned gray, not cold gray.
-- **Faint Olive-Gray** (`#b8b8a8`): the faintest text tier (hints, disabled labels).
+- **Muted Olive-Gray** (`#68685A`): secondary/muted text — warm-toned gray, not cold gray.
+- **Faint Olive-Gray** (`#6B6B57`): the faintest text tier (hints, disabled labels).
 
 ### Semantic
 - **Success** (`#059669`) / **Success Light** (`#d1fae5`): positive states, sustainable-impact confirmations.
@@ -141,6 +141,8 @@ The palette is a restrained warm-neutral field (cream, paper) anchored by a sing
 **The One Sage Rule.** Sage is the only saturated color in the system. It never competes with a second accent hue — variety comes from tint (light/mid/hover/active), never from introducing blue, purple, or a second brand color.
 
 **The Warm-Never-Cold Rule.** Every neutral in this system — background, surface, border, muted text — carries a warm/olive undertone. A pure gray or pure white anywhere in this system is a bug, not a stylistic choice.
+
+**The Text-Passes-AA Rule.** Every color token that is ever used as text (`text-primary`, `text-muted`, `text-faint`) or as a fill with text on top (`bg-primary` + white button text, active chip fills) must hit ≥4.5:1 against the surface it sits on. `sage-primary`, `text-muted`, and `text-faint` were audited and darkened from their original lighter surface-tint values specifically to satisfy this — do not lighten them back for "elegance." If a new token needs a genuinely light decorative tint with no text ever painted on or over it, add a separate token for that (like `sage-light`/`sage-mid` already are) rather than lightening a text-bearing one.
 
 ## 3. Typography
 
@@ -177,8 +179,8 @@ Soft and rounded throughout: pill-shaped interactive controls, generously rounde
 
 ### Buttons
 - **Shape:** fully rounded pill (`rounded-full`).
-- **Primary:** sage fill (`#8B9E8A`), white text, `shadow-sm` at rest.
-- **Hover / Focus:** `-translate-y-px` lift + `shadow-md` + darken to Sage Hover (`#6B7F6A`); `active:` returns to baseline y-position with Sage Active (`#5a6e59`). Focus ring: 2px sage outline, 2px offset.
+- **Primary:** sage fill (`#5a6e59`), white text, `shadow-sm` at rest.
+- **Hover / Focus:** `-translate-y-px` lift + `shadow-md` + darken to Sage Hover (`#4F5F4F`); `active:` returns to baseline y-position with Sage Active (`#3F4B3E`). Focus ring: 2px sage outline, 2px offset.
 - **Secondary:** Sage Light fill (`#E8EFE7`), sage text — no shadow, hover shifts background to `surface-2`.
 - **Ghost:** transparent, muted text, thin border; hover fills `surface-2` and darkens text to full ink.
 
@@ -218,6 +220,7 @@ The wardrobe item card is the system's signature surface: a fixed 3:4 aspect pho
 - **Do** reserve Playfair Display for headings only; DM Sans everywhere else.
 - **Do** give every interactive element a visible `active:` state, not just `hover:`.
 - **Do** keep the timing window at 160–240ms for UI transitions; the AI-loading message rotation is the sanctioned exception.
+- **Do** verify contrast (≥4.5:1) whenever introducing a new text/surface color pairing — don't eyeball it.
 
 ### Don't:
 - **Don't** introduce cold corporate SaaS patterns: blue-gradient panels, generic flat dashboard iconography, glassmorphism used decoratively, gradient-filled text.
@@ -226,3 +229,4 @@ The wardrobe item card is the system's signature surface: a fixed 3:4 aspect pho
 - **Don't** put a placeholder or unshipped feature in the bottom nav — every tab must go to a real, working route.
 - **Don't** stack shadows past `shadow-lg` (`0 12px 40px rgba(44,44,44,0.14)`) — nothing in this system needs to look "dramatic."
 - **Don't** let elevation, motion, or ornament outcompete the garment photography — this system serves the wardrobe, it doesn't perform fashion-magazine density for its own sake.
+- **Don't** reintroduce the original lighter sage/muted-gray values (`#8B9E8A`, `#9E9E8E`, `#b8b8a8`) as text or button-fill colors — they measured 2.3–2.9:1 against paper/surface-2 and failed WCAG AA even on the primary CTA button.

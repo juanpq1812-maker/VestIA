@@ -59,7 +59,7 @@ export default function LandingContent() {
           className="absolute inset-0 -z-10"
           style={{
             background:
-              "linear-gradient(160deg,#5a6e59 0%,#6B7F6A 45%,#8B9E8A 80%,#E8EFE7 100%)",
+              "linear-gradient(160deg,#3F4B3E 0%,#4F5F4F 45%,#5a6e59 80%,#E8EFE7 100%)",
           }}
           aria-hidden="true"
         />

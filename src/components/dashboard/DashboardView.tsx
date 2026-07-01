@@ -182,8 +182,11 @@ function DashboardConDatos({
         primerItem={recentItems[0] ?? null}
       />
 
-      {/* ── Grid secundario: prenda olvidada + comunidad (placeholder) ───── */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* ── Grid secundario: prenda olvidada + comunidad (placeholder) ─────
+          Grid de 2 items fijos (no una lista que crece) — en desktop se
+          limita el ancho en vez de estirar las cards a lo ancho del
+          Container, que las deja sparse (ver /impeccable audit → layout). */}
+      <div className="grid grid-cols-2 gap-4 lg:mx-auto lg:max-w-2xl lg:gap-6">
         <PrendaOlvidadaCard prendaOlvidada={prendaOlvidada} />
         <ComunidadCard />
       </div>
@@ -379,7 +382,10 @@ function PrendaOlvidadaCard({ prendaOlvidada }: { prendaOlvidada: PrendaOlvidada
   if (!prendaOlvidada) {
     return (
       <Card padding="md" className="flex flex-col">
-        <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-primary-light text-3xl">
+        <div
+          aria-hidden="true"
+          className="flex aspect-square w-full items-center justify-center rounded-lg bg-primary-light text-3xl"
+        >
           🎉
         </div>
         <div className="mt-3">
@@ -433,7 +439,10 @@ function PrendaOlvidadaCard({ prendaOlvidada }: { prendaOlvidada: PrendaOlvidada
 function ComunidadCard() {
   return (
     <Card padding="md" className="flex flex-col opacity-90">
-      <div className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-2 text-3xl">
+      <div
+        aria-hidden="true"
+        className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-2 text-3xl"
+      >
         👥
       </div>
       <div className="mt-3">
@@ -443,10 +452,7 @@ function ComunidadCard() {
         <p className="mt-1 text-xs text-text-muted">
           Descubrí qué usan tus amigos y ganá puntos cumpliendo retos.
         </p>
-        <span
-          aria-disabled="true"
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-surface-2 px-3 py-2 text-center text-xs font-semibold text-text-muted"
-        >
+        <span className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-surface-2 px-3 py-2 text-center text-xs font-semibold text-text-muted">
           Próximamente
         </span>
       </div>
