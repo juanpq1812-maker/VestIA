@@ -23,6 +23,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Chip from "@/components/onboarding/Chip";
+import CameraTipsModal from "@/components/wardrobe/CameraTipsModal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import {
   CLOTHING_IMAGES_BUCKET,
@@ -326,6 +327,7 @@ export default function UploadForm() {
 
   // UI state
   const [coloresExpanded, setColoresExpanded] = useState(false);
+  const [showCameraTips, setShowCameraTips] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -627,10 +629,27 @@ export default function UploadForm() {
     }
   }
 
+  function handleCameraClick() {
+    if (localStorage.getItem("strandia_camera_tips_seen")) {
+      cameraInputRef.current?.click();
+    } else {
+      setShowCameraTips(true);
+    }
+  }
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col gap-6">
+      {showCameraTips ? (
+        <CameraTipsModal
+          onConfirm={() => {
+            setShowCameraTips(false);
+            cameraInputRef.current?.click();
+          }}
+          onClose={() => setShowCameraTips(false)}
+        />
+      ) : null}
 
       {/* ── Foto ─────────────────────────────────────────────────────────── */}
       <Card padding="sm">
@@ -711,7 +730,7 @@ export default function UploadForm() {
             <div className="mt-3 grid grid-cols-2 gap-3">
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
+                onClick={handleCameraClick}
                 aria-label="Tomar foto con la cámara"
                 className="flex items-center justify-center gap-2 rounded-full border border-border bg-surface py-3 text-sm font-semibold text-text transition-all duration-200 ease-out hover:border-primary-mid hover:bg-primary-light hover:text-primary active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
