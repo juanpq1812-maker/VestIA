@@ -47,6 +47,7 @@ import {
 } from "@/types/database";
 import {
   analyzeClothingImageAction,
+  removeBackgroundAction,
   type AIClothingAnalysis,
 } from "@/app/wardrobe/upload/actions";
 
@@ -228,6 +229,13 @@ function bytesToReadable(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function base64ToBlob(base64: string, type: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type });
 }
 
 // ── Grupos de color para la sección expandible ────────────────────────────────
@@ -573,18 +581,34 @@ export default function UploadForm() {
         return;
       }
 
+      // Paso: eliminar fondo con Remove.bg. Si falla por cualquier motivo,
+      // se sube la foto comprimida original como fallback.
+      setProgress("Eliminando fondo…");
+      let toUpload: File = comprimido;
+      try {
+        const fd = new FormData();
+        fd.append("image", comprimido, comprimido.name);
+        const bgResult = await removeBackgroundAction(fd);
+        if (bgResult.ok) {
+          const pngBlob = base64ToBlob(bgResult.base64, bgResult.contentType);
+          toUpload = new File([pngBlob], "photo.png", { type: "image/png" });
+        }
+      } catch {
+        // fallback silencioso — se usa comprimido
+      }
+
       setProgress("Subiendo foto…");
       const uuid = crypto.randomUUID();
       const path = buildClothingImagePath({
         userId: user.id,
-        fileName: file.name,
+        fileName: toUpload.name,
         uuid,
       });
 
       const { error: uploadError } = await supabase.storage
         .from(CLOTHING_IMAGES_BUCKET)
-        .upload(path, comprimido, {
-          contentType: comprimido.type,
+        .upload(path, toUpload, {
+          contentType: toUpload.type,
           upsert: false,
         });
 
