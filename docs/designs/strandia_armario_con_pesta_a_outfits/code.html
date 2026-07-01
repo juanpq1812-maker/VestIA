@@ -1,0 +1,383 @@
+<!DOCTYPE html><html class="light" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>StrandIA - Armario</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&amp;family=Libre+Caslon+Text:wght@400;700&amp;display=swap" rel="stylesheet">
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline": "#747872",
+                    "outline-variant": "#c3c8c0",
+                    "on-primary": "#ffffff",
+                    "tertiary-container": "#969a96",
+                    "on-surface": "#1c1c1a",
+                    "on-secondary-fixed": "#1f1b15",
+                    "inverse-on-surface": "#f3f0ed",
+                    "on-primary-fixed": "#0f1f11",
+                    "error": "#ba1a1a",
+                    "surface-container-low": "#f6f3f0",
+                    "tertiary": "#5b5f5c",
+                    "secondary-container": "#ebe1d7",
+                    "tertiary-fixed-dim": "#c4c7c3",
+                    "on-background": "#1c1c1a",
+                    "on-tertiary": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "surface-container-highest": "#e5e2df",
+                    "on-error": "#ffffff",
+                    "surface-bright": "#fcf9f6",
+                    "primary": "#516351",
+                    "error-container": "#ffdad6",
+                    "surface-dim": "#dcd9d7",
+                    "primary-fixed-dim": "#b8ccb6",
+                    "secondary-fixed-dim": "#cec5bc",
+                    "primary-container": "#8b9e8a",
+                    "on-primary-fixed-variant": "#3a4b3b",
+                    "inverse-primary": "#b8ccb6",
+                    "on-tertiary-container": "#2e322f",
+                    "tertiary-fixed": "#e0e3df",
+                    "surface-tint": "#516351",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#191c1a",
+                    "secondary": "#645d56",
+                    "on-secondary-container": "#6a635c",
+                    "on-tertiary-fixed-variant": "#444844",
+                    "primary-fixed": "#d4e8d2",
+                    "inverse-surface": "#31302f",
+                    "surface-container-high": "#eae8e5",
+                    "surface": "#fcf9f6",
+                    "surface-container": "#f0edea",
+                    "secondary-fixed": "#ebe1d7",
+                    "on-primary-container": "#243526",
+                    "on-secondary": "#ffffff",
+                    "on-surface-variant": "#434842",
+                    "background": "#fcf9f6",
+                    "surface-variant": "#e5e2df",
+                    "on-secondary-fixed-variant": "#4b463f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "4px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "2xl": "48px",
+                    "xs": "4px",
+                    "lg": "24px",
+                    "gutter-mobile": "12px",
+                    "xl": "32px",
+                    "margin-mobile": "20px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Libre Caslon Text"],
+                    "headline-lg-mobile": ["Libre Caslon Text"],
+                    "label-sm": ["Hanken Grotesk"],
+                    "headline-lg": ["Libre Caslon Text"],
+                    "label-md": ["Hanken Grotesk"],
+                    "body-md": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "display-lg": ["Libre Caslon Text"]
+            },
+            "fontSize": {
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #fcf9f6; /* Surface/Background */
+            font-family: 'Hanken Grotesk', sans-serif;
+        }
+        h1, h2, .font-display {
+            font-family: 'Libre Caslon Text', serif;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .custom-shadow {
+            box-shadow: 0px 10px 30px rgba(45, 49, 46, 0.06);
+        }
+    
+        .tab-active {
+            color: #516351;
+            border-bottom: 2px solid #8b9e8a;
+        }
+        .tab-inactive {
+            color: #747872;
+        }
+        .hidden-tab {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="antialiased text-on-surface">
+<!-- TopAppBar -->
+<header class="bg-surface-container-low dark:bg-surface-container-lowest fixed top-0 left-0 w-full z-50 h-16 flex items-center justify-between px-margin-mobile border-none">
+<button class="hover:opacity-80 transition-opacity duration-200 active:scale-95 transition-transform">
+</button>
+<div class="flex items-center justify-center">
+<h1 class="font-display text-on-surface uppercase tracking-widest text-lg font-semibold"></h1><h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface cursor-text" data-stitch-added-classes="cursor-text" spellcheck="false" style="--tw-border-spacing-y: 0; --tw-translate-x: 0; --tw-translate-y: 0; --tw-rotate: 0; --tw-skew-x: 0; --tw-skew-y: 0; --tw-scale-x: 1; --tw-scale-y: 1; --tw-pan-x: ; --tw-pan-y: ; --tw-pinch-zoom: ; --tw-scroll-snap-strictness: proximity; --tw-gradient-from-position: ; --tw-gradient-via-position: ; --tw-gradient-to-position: ; --tw-ordinal: ; --tw-slashed-zero: ; --tw-numeric-figure: ; --tw-numeric-spacing: ; --tw-numeric-fraction: ; --tw-ring-inset: ; --tw-ring-offset-width: 0px; --tw-ring-offset-color: #fff; --tw-ring-color: rgb(59 130 246 / 0.5); --tw-ring-offset-shadow: 0 0 #0000; --tw-ring-shadow: 0 0 #0000; --tw-shadow: 0 0 #0000; --tw-shadow-colored: 0 0 #0000; --tw-blur: ; --tw-brightness: ; --tw-contrast: ; --tw-grayscale: ; --tw-hue-rotate: ; --tw-invert: ; --tw-saturate: ; --tw-sepia: ; --tw-drop-shadow: ; --tw-backdrop-blur: ; --tw-backdrop-brightness: ; --tw-backdrop-contrast: ; --tw-backdrop-grayscale: ; --tw-backdrop-hue-rotate: ; --tw-backdrop-invert: ; --tw-backdrop-opacity: ; --tw-backdrop-saturate: ; --tw-backdrop-sepia: ; --tw-contain-size: ; --tw-contain-layout: ; --tw-contain-paint: ; --tw-contain-style: ; font-size: 28px; font-weight: 400; font-family: &quot;Libre Caslon Text&quot;; line-height: 36px; --tw-text-opacity: 1; color: rgb(28, 28, 26); letter-spacing: normal; text-transform: none; outline: none !important; box-shadow: none !important;">Armario</h1>
+</div>
+<button class="hover:opacity-80 transition-opacity duration-200 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-primary" data-icon="person">person</span>
+</button>
+</header>
+<main class="pt-20 pb-32">
+<!-- Search Section -->
+<section class="px-margin-mobile mb-lg">
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-4 text-on-surface-variant pointer-events-none" data-icon="search">search</span>
+<input class="w-full h-12 pl-12 pr-4 bg-surface-container border-none rounded-xl font-body-md text-body-md focus:ring-2 focus:ring-primary-container outline-none transition-all placeholder:font-body-md" placeholder="Buscar en mi armario..." type="text">
+</div>
+</section>
+<!-- Tab Navigation -->
+<nav class="flex border-b border-outline-variant/30 px-margin-mobile mb-md" id="armario-tabs">
+<button class="flex-1 py-3 font-label-md text-label-md transition-all tab-active" data-target="prendas-content">Prendas</button>
+<button class="flex-1 py-3 font-label-md text-label-md transition-all tab-inactive" data-target="outfits-content">Outfits</button>
+</nav>
+<!-- Stats Cards Section -->
+<div class="tab-pane" id="prendas-content"></div>
+<!-- Outfits Tab Content -->
+<div class="tab-pane hidden-tab px-margin-mobile" id="outfits-content">
+<!-- Empty State (Shown initially if no outfits, or can be toggled) -->
+<div class="flex flex-col items-center justify-center py-12 text-center">
+<span class="material-symbols-outlined text-6xl text-primary-container mb-4">auto_awesome_motion</span>
+<p class="font-body-md text-on-surface-variant mb-6 px-8">An no tienes outfits guardados. Genera tu primero en AI Studio!</p>
+<button class="bg-primary-container text-on-primary-container px-lg py-3 rounded-full font-label-md shadow-sm hover:opacity-90 active:scale-95 transition-all">
+            Ir al AI Studio
+        </button>
+</div>
+<!-- Example Grid (Hidden initially by logic, but structured as requested) -->
+<div class="grid grid-cols-2 gap-sm mt-4 hidden">
+<div class="bg-surface-container-high rounded-xl p-3 flex flex-col gap-2">
+<div class="aspect-square bg-secondary-container rounded-lg overflow-hidden">
+<img alt="Outfit" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOMGdjmzNEhkikKBi7Y9yjrYvfBlbnkh36Xh2Bj70A_d6kviyJhDzjF-ChSfakzEn-E_a5S0091dzWkUbX24bx394Sh_o8UGarVBUYL_jtx5NvcVYde_p1OwrL-J29DdX1Qu9F5Z8-O2zjNUrjCD-kpjB1PIyHNwEgfmfITm49oTi8eo6UuCDyP2XZS_evQPdkL523YQGm9Wl8p7QosRjbuxM7j1_F2GTLN6VRV1QiV6uBVlnH_50Es2ljmknMcViYN1TXCLAaJg">
+</div>
+<p class="font-label-md text-on-surface leading-tight">Look Casual de Verano</p>
+<p class="font-label-sm text-[10px] text-on-surface-variant">12 Oct 2023</p>
+</div>
+</div>
+</div>
+<section class="px-margin-mobile mb-lg">
+<div class="grid grid-cols-2 gap-sm">
+<div class="bg-surface-container-high rounded-xl p-3 flex flex-col items-center text-center gap-2">
+<div class="w-full aspect-square bg-secondary-container rounded-lg overflow-hidden">
+<img alt="Prenda más usada" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOMGdjmzNEhkikKBi7Y9yjrYvfBlbnkh36Xh2Bj70A_d6kviyJhDzjF-ChSfakzEn-E_a5S0091dzWkUbX24bx394Sh_o8UGarVBUYL_jtx5NvcVYde_p1OwrL-J29DdX1Qu9F5Z8-O2zjNUrjCD-kpjB1PIyHNwEgfmfITm49oTi8eo6UuCDyP2XZS_evQPdkL523YQGm9Wl8p7QosRjbuxM7j1_F2GTLN6VRV1QiV6uBVlnH_50Es2ljmknMcViYN1TXCLAaJg">
+</div>
+<span class="font-label-sm text-[10px] text-primary uppercase tracking-tight">Prenda más usada</span>
+<p class="font-label-md text-on-surface truncate w-full">Blusa de Seda</p>
+<button class="mt-1 w-full bg-primary-container/20 text-primary font-label-sm py-2 px-3 rounded-lg hover:bg-primary-container/30 transition-colors active:scale-95">Usar en un nuevo outfit</button></div>
+<div class="bg-surface-container-high rounded-xl p-3 flex flex-col items-center text-center gap-2">
+<div class="w-full aspect-square bg-secondary-container rounded-lg overflow-hidden">
+<img alt="Prenda menos usada" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_qPQZHRAkUA8SeY62OdP63BBHEF9uA4Wgp4Acf7EaTTvxFZiJ_AEJsnTtfP2IO29zARo3Lcw75JT-4MUIIBiz2kiuQoMQFRNdcBSu4nc6cSn3Z8mvJN6yXsWxg2oUJghIS7l4NQv-9ILtcNmRxhp90t4rHGOLQ35DRZaAOgD0lEb7P8cX8_4y6XfLOW3Fi1QnsFyQ2ecaozb-ZXKusc01pRr--riJy2zQxk2hSzVgubpVNjFSpHBHdqnCDSVFqwwnCw8dhHsnhg">
+</div>
+<span class="font-label-sm text-[10px] text-tertiary uppercase tracking-tight">Prenda menos usada</span>
+<p class="font-label-md text-on-surface truncate w-full">Sneakers Minimal</p>
+<button class="mt-1 w-full bg-primary-container/20 text-primary font-label-sm py-2 px-3 rounded-lg hover:bg-primary-container/30 transition-colors active:scale-95">Usar en un nuevo outfit</button></div>
+</div>
+</section>
+<!-- Category Filters -->
+<section class="mb-lg">
+<div class="flex items-center justify-between px-margin-mobile mb-sm">
+<h2 class="text-label-md text-on-surface uppercase tracking-widest font-display">Categoría</h2>
+</div>
+<div class="flex overflow-x-auto hide-scrollbar gap-sm px-margin-mobile"><button class="whitespace-nowrap px-lg py-2 rounded-full font-label-md text-label-md transition-colors bg-primary-container text-on-primary-container shadow-sm">Todo</button>
+<button class="whitespace-nowrap px-lg py-2 rounded-full font-label-md text-label-md hover:bg-secondary-container transition-colors bg-secondary-fixed text-on-secondary-fixed-variant">Superior</button>
+<button class="whitespace-nowrap px-lg py-2 rounded-full font-label-md text-label-md hover:bg-secondary-container transition-colors bg-secondary-fixed text-on-secondary-fixed-variant">Inferior</button>
+<button class="whitespace-nowrap px-lg py-2 rounded-full font-label-md text-label-md hover:bg-secondary-container transition-colors bg-secondary-fixed text-on-secondary-fixed-variant">Vestido</button>
+<button class="whitespace-nowrap px-lg py-2 rounded-full font-label-md text-label-md hover:bg-secondary-container transition-colors bg-secondary-fixed text-on-secondary-fixed-variant">Abrigo</button>
+<button class="whitespace-nowrap px-lg py-2 rounded-full font-label-md text-label-md hover:bg-secondary-container transition-colors bg-secondary-fixed text-on-secondary-fixed-variant">Calzado</button>
+<button class="whitespace-nowrap px-lg py-2 rounded-full font-label-md text-label-md hover:bg-secondary-container transition-colors bg-secondary-fixed text-on-secondary-fixed-variant">Accesorio</button>
+<button class="whitespace-nowrap px-lg py-2 rounded-full font-label-md text-label-md hover:bg-secondary-container transition-colors bg-secondary-fixed text-on-secondary-fixed-variant">Body</button></div>
+</section>
+<!-- Wardrobe Preview Grid -->
+<section class="px-margin-mobile">
+<div class="flex items-center justify-between mb-sm">
+<h2 class="text-label-md text-on-surface uppercase tracking-widest font-display">Mis Prendas</h2>
+<a class="text-primary font-label-sm flex items-center gap-1 hover:underline" href="#" id="view-all-wardrobe">
+    Ver todo
+    <span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</a>
+</div>
+<div class="grid grid-cols-3 gap-gutter-mobile">
+<!-- Item 1 -->
+<div class="flex flex-col gap-xs group">
+<div class="aspect-[3/4] bg-secondary-container rounded-xl overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Blusa de Seda" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOMGdjmzNEhkikKBi7Y9yjrYvfBlbnkh36Xh2Bj70A_d6kviyJhDzjF-ChSfakzEn-E_a5S0091dzWkUbX24bx394Sh_o8UGarVBUYL_jtx5NvcVYde_p1OwrL-J29DdX1Qu9F5Z8-O2zjNUrjCD-kpjB1PIyHNwEgfmfITm49oTi8eo6UuCDyP2XZS_evQPdkL523YQGm9Wl8p7QosRjbuxM7j1_F2GTLN6VRV1QiV6uBVlnH_50Es2ljmknMcViYN1TXCLAaJg">
+</div>
+<p class="font-label-sm text-label-sm text-on-surface truncate px-1">Blusa de Seda</p>
+</div>
+<!-- Item 2 -->
+<div class="flex flex-col gap-xs group">
+<div class="aspect-[3/4] bg-secondary-container rounded-xl overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Pantalón Sastre" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1GHlkPBvJn0EPJfziWYOiF7Sh15bk8bC99_5L757aIH2EUs5dloOxNpfzjc8eoCe9sk3H4fBGTEST9aEXA5tBLjRWoIjDUEvTopS1BQCUKrN64gInWI_xcoOJk-xgEQPtKCEr8T64Bj4qstBUxqApGZCGRNmKS5OWydUJH5O4XZsSsHCneOpkHidLniKmqLDbTG78WUDOXzEWS-_XhjfvAY5hC5Bq9LYP8xeOV9UQxyP4YrqCQ6D6ztA4sG4378aXaKIOx5VJrg">
+</div>
+<p class="font-label-sm text-label-sm text-on-surface truncate px-1">Pantalón Sastre</p>
+</div>
+<!-- Item 3 -->
+<div class="flex flex-col gap-xs group">
+<div class="aspect-[3/4] bg-secondary-container rounded-xl overflow-hidden relative">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="Sneakers Minimal" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_qPQZHRAkUA8SeY62OdP63BBHEF9uA4Wgp4Acf7EaTTvxFZiJ_AEJsnTtfP2IO29zARo3Lcw75JT-4MUIIBiz2kiuQoMQFRNdcBSu4nc6cSn3Z8mvJN6yXsWxg2oUJghIS7l4NQv-9ILtcNmRxhp90t4rHGOLQ35DRZaAOgD0lEb7P8cX8_4y6XfLOW3Fi1QnsFyQ2ecaozb-ZXKusc01pRr--riJy2zQxk2hSzVgubpVNjFSpHBHdqnCDSVFqwwnCw8dhHsnhg">
+</div>
+<p class="font-label-sm text-label-sm text-on-surface truncate px-1">Sneakers Minimal</p>
+</div>
+</div>
+</section>
+</main>
+<!-- FAB: Agregar Prenda -->
+<button class="fixed bottom-24 right-6 bg-primary-container text-on-primary-container px-lg py-md rounded-full custom-shadow flex items-center gap-sm z-40 active:scale-90 transition-transform duration-150 ease-in-out" onclick="window.location.href='{{DATA:SCREEN:SCREEN_7}}'">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+<span class="font-label-md text-label-md">Agregar Prenda</span>
+</button>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center bg-surface px-4 py-3 pb-safe z-50 shadow-[0px_-2px_10px_rgba(45,49,46,0.06)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant opacity-70 hover:bg-surface-container-high transition-colors px-4 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary-fixed text-on-primary-container dark:text-on-primary-fixed rounded-full px-5 py-1.5 active:scale-90 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" data-icon="wardrobe" style="font-variation-settings: &quot;FILL&quot; 1;">dresser</span>
+<span class="font-label-sm text-label-sm">Armario</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant opacity-70 hover:bg-surface-container-high transition-colors px-4 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="auto_awesome">auto_awesome</span>
+<span class="font-label-sm text-label-sm">AI Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant opacity-70 hover:bg-surface-container-high transition-colors px-4 py-1" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-label-sm text-label-sm">Comunidad</span>
+</a>
+</nav>
+<div class="fixed inset-0 z-[60] bg-surface hidden overflow-y-auto" id="expanded-wardrobe">
+<header class="bg-surface-container-low sticky top-0 left-0 w-full z-10 h-16 flex items-center px-margin-mobile border-none gap-4">
+<button class="hover:opacity-80 transition-opacity duration-200 active:scale-95 transition-transform flex items-center" id="close-expanded">
+<span class="material-symbols-outlined text-primary">arrow_back</span>
+<span class="ml-1 font-label-md text-primary">Volver</span>
+</button>
+<h1 class="text-label-md text-on-surface uppercase tracking-widest font-display">Mis Prendas</h1>
+</header>
+<main class="p-margin-mobile pt-4">
+<div class="grid grid-cols-3 gap-gutter-mobile">
+<!-- Replicating items for expanded view -->
+<div class="flex flex-col gap-xs group">
+<div class="aspect-[3/4] bg-secondary-container rounded-xl overflow-hidden relative">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOMGdjmzNEhkikKBi7Y9yjrYvfBlbnkh36Xh2Bj70A_d6kviyJhDzjF-ChSfakzEn-E_a5S0091dzWkUbX24bx394Sh_o8UGarVBUYL_jtx5NvcVYde_p1OwrL-J29DdX1Qu9F5Z8-O2zjNUrjCD-kpjB1PIyHNwEgfmfITm49oTi8eo6UuCDyP2XZS_evQPdkL523YQGm9Wl8p7QosRjbuxM7j1_F2GTLN6VRV1QiV6uBVlnH_50Es2ljmknMcViYN1TXCLAaJg">
+</div>
+<p class="font-label-sm text-label-sm text-on-surface truncate px-1">Blusa de Seda</p>
+</div>
+<div class="flex flex-col gap-xs group">
+<div class="aspect-[3/4] bg-secondary-container rounded-xl overflow-hidden relative">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1GHlkPBvJn0EPJfziWYOiF7Sh15bk8bC99_5L757aIH2EUs5dloOxNpfzjc8eoCe9sk3H4fBGTEST9aEXA5tBLjRWoIjDUEvTopS1BQCUKrN64gInWI_xcoOJk-xgEQPtKCEr8T64Bj4qstBUxqApGZCGRNmKS5OWydUJH5O4XZsSsHCneOpkHidLniKmqLDbTG78WUDOXzEWS-_XhjfvAY5hC5Bq9LYP8xeOV9UQxyP4YrqCQ6D6ztA4sG4378aXaKIOx5VJrg">
+</div>
+<p class="font-label-sm text-label-sm text-on-surface truncate px-1">Pantalón Sastre</p>
+</div>
+<div class="flex flex-col gap-xs group">
+<div class="aspect-[3/4] bg-secondary-container rounded-xl overflow-hidden relative">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_qPQZHRAkUA8SeY62OdP63BBHEF9uA4Wgp4Acf7EaTTvxFZiJ_AEJsnTtfP2IO29zARo3Lcw75JT-4MUIIBiz2kiuQoMQFRNdcBSu4nc6cSn3Z8mvJN6yXsWxg2oUJghIS7l4NQv-9ILtcNmRxhp90t4rHGOLQ35DRZaAOgD0lEb7P8cX8_4y6XfLOW3Fi1QnsFyQ2ecaozb-ZXKusc01pRr--riJy2zQxk2hSzVgubpVNjFSpHBHdqnCDSVFqwwnCw8dhHsnhg">
+</div>
+<p class="font-label-sm text-label-sm text-on-surface truncate px-1">Sneakers Minimal</p>
+</div>
+<!-- Additional mock items for expanded effect -->
+<div class="flex flex-col gap-xs group">
+<div class="aspect-[3/4] bg-secondary-container rounded-xl overflow-hidden relative">
+<img class="w-full h-full object-cover opacity-50" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAOMGdjmzNEhkikKBi7Y9yjrYvfBlbnkh36Xh2Bj70A_d6kviyJhDzjF-ChSfakzEn-E_a5S0091dzWkUbX24bx394Sh_o8UGarVBUYL_jtx5NvcVYde_p1OwrL-J29DdX1Qu9F5Z8-O2zjNUrjCD-kpjB1PIyHNwEgfmfITm49oTi8eo6UuCDyP2XZS_evQPdkL523YQGm9Wl8p7QosRjbuxM7j1_F2GTLN6VRV1QiV6uBVlnH_50Es2ljmknMcViYN1TXCLAaJg">
+</div>
+<p class="font-label-sm text-label-sm text-on-surface truncate px-1">Vestido Largo</p>
+</div>
+</div>
+</main>
+</div>
+<script>
+    // Category chips interaction
+    const chips = document.querySelectorAll('.whitespace-nowrap');
+    chips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            chips.forEach(c => {
+                c.classList.remove('bg-primary-container', 'text-on-primary-container', 'shadow-sm');
+                c.classList.add('bg-secondary-fixed', 'text-on-secondary-fixed-variant');
+            });
+            chip.classList.add('bg-primary-container', 'text-on-primary-container', 'shadow-sm');
+            chip.classList.remove('bg-secondary-fixed', 'text-on-secondary-fixed-variant');
+        });
+    });
+
+    // Expanded wardrobe view logic
+    (function() {
+      const viewAllBtn = document.getElementById('view-all-wardrobe');
+      const closeBtn = document.getElementById('close-expanded');
+      const expandedView = document.getElementById('expanded-wardrobe');
+
+      if (viewAllBtn && expandedView) {
+        viewAllBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          expandedView.classList.remove('hidden');
+          document.body.style.overflow = 'hidden';
+        });
+      }
+
+      if (closeBtn && expandedView) {
+        closeBtn.addEventListener('click', () => {
+          expandedView.classList.add('hidden');
+          document.body.style.overflow = '';
+        });
+      }
+    })();
+</script>
+<script>
+    (function() {
+        const tabButtons = document.querySelectorAll('#armario-tabs button');
+        const tabPanes = document.querySelectorAll('.tab-pane');
+
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const target = btn.getAttribute('data-target');
+                
+                // Update buttons
+                tabButtons.forEach(b => {
+                    b.classList.remove('tab-active');
+                    b.classList.add('tab-inactive');
+                });
+                btn.classList.add('tab-active');
+                btn.classList.remove('tab-inactive');
+
+                // Update panes
+                tabPanes.forEach(pane => {
+                    if (pane.id === target) {
+                        pane.classList.remove('hidden-tab');
+                    } else {
+                        pane.classList.add('hidden-tab');
+                    }
+                });
+            });
+        });
+    })();
+</script>
+</body></html>

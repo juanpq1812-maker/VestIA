@@ -1,0 +1,274 @@
+<!DOCTYPE html><html class="light" lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<title>StrandIA - Tu Outfit del Día</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&amp;family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "tertiary-fixed": "#e0e3df",
+                    "error": "#ba1a1a",
+                    "outline": "#747872",
+                    "on-error": "#ffffff",
+                    "surface-container": "#f0edea",
+                    "surface-variant": "#e5e2df",
+                    "inverse-surface": "#31302f",
+                    "secondary-fixed-dim": "#cec5bc",
+                    "surface-container-lowest": "#ffffff",
+                    "primary": "#516351",
+                    "error-container": "#ffdad6",
+                    "surface-dim": "#dcd9d7",
+                    "surface-tint": "#516351",
+                    "inverse-primary": "#b8ccb6",
+                    "secondary-container": "#ebe1d7",
+                    "on-secondary-fixed": "#1f1b15",
+                    "secondary": "#645d56",
+                    "on-surface": "#1c1c1a",
+                    "tertiary-container": "#969a96",
+                    "surface-bright": "#fcf9f6",
+                    "on-primary-fixed-variant": "#3a4b3b",
+                    "primary-fixed-dim": "#b8ccb6",
+                    "primary-container": "#8b9e8a",
+                    "tertiary-fixed-dim": "#c4c7c3",
+                    "on-tertiary": "#ffffff",
+                    "on-background": "#1c1c1a",
+                    "on-error-container": "#93000a",
+                    "outline-variant": "#c3c8c0",
+                    "background": "#fcf9f6",
+                    "surface-container-high": "#eae8e5",
+                    "surface": "#fcf9f6",
+                    "on-primary": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed": "#0f1f11",
+                    "on-tertiary-container": "#2e322f",
+                    "on-secondary-container": "#6a635c",
+                    "inverse-on-surface": "#f3f0ed",
+                    "on-surface-variant": "#434842",
+                    "on-primary-container": "#243526",
+                    "surface-container-low": "#f6f3f0",
+                    "on-secondary-fixed-variant": "#4b463f",
+                    "on-tertiary-fixed": "#191c1a",
+                    "tertiary": "#5b5f5c",
+                    "surface-container-highest": "#e5e2df",
+                    "secondary-fixed": "#ebe1d7",
+                    "primary-fixed": "#d4e8d2",
+                    "on-tertiary-fixed-variant": "#444844"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter-mobile": "12px",
+                    "sm": "8px",
+                    "2xl": "48px",
+                    "md": "16px",
+                    "base": "4px",
+                    "xl": "32px",
+                    "xs": "4px",
+                    "lg": "24px",
+                    "margin-mobile": "20px"
+            },
+            "fontFamily": {
+                    "label-md": ["Hanken Grotesk"],
+                    "display-lg": ["Libre Caslon Text"],
+                    "body-md": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "label-sm": ["Hanken Grotesk"],
+                    "headline-md": ["Libre Caslon Text"],
+                    "headline-lg-mobile": ["Libre Caslon Text"],
+                    "headline-lg": ["Libre Caslon Text"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #FAF0E6; /* Secondary cream from guidance */
+            color: #2D312E;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fade-in {
+            animation: fadeIn 0.8s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .item-card-stagger:nth-child(1) { animation-delay: 0.1s; }
+        .item-card-stagger:nth-child(2) { animation-delay: 0.2s; }
+        .item-card-stagger:nth-child(3) { animation-delay: 0.3s; }
+    </style>
+</head>
+<body class="font-body-md text-body-md mb-24 overflow-x-hidden" data-mode="connect">
+<!-- TopAppBar -->
+<header class="bg-surface-container-low dark:bg-surface-container-lowest flex items-center justify-between px-margin-mobile w-full h-16 fixed top-0 z-50"><button class="hover:opacity-80 transition-opacity duration-200 active:scale-95 transition-transform flex items-center justify-center"><span class="material-symbols-outlined text-primary dark:text-primary-fixed">close</span></button>
+<button class="flex items-center justify-center" onclick="window.location.href='{{DATA:SCREEN:SCREEN_31}}'">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed"><br><br></span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface dark:text-on-surface-variant tracking-tight font-bold"><img src="https://lh3.googleusercontent.com/aida-public/AB6AXuAnwTsC3dj80Xv4yuuSFXgB5sVuJ14XdQ7b_8DeDsVKRF9SyDX7TZNG63dL5fa70FQMfmbkN5XdBfMKQK9jvV8ZSLDUqRJN-pomZyJljDEPzcVE0OgrrFY6A4CFk7z8OvUjm6lC2WoWdhmDsoTB0aW3Sh49G3opVxBZjJ3LK7CQOd180-iiFoHnKQmW0I3gA5aLk6N1VhmnJ00ytth0hB7zNUKZgKsI58rDwtJ1M-N-yk_JL7JT13ncQ0ah_dADiikGLWW3ntxyxQ" alt="StrandIA" class="h-8 w-auto inline-block align-middle"></h1>
+
+</header>
+<main class="pt-24 px-margin-mobile max-w-md mx-auto">
+<!-- Title Section -->
+<section class="mb-lg fade-in">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mb-xs">Tu outfit del día</h2>
+<div class="h-1 w-12 bg-primary-container rounded-full"></div>
+</section>
+<!-- AI Description Card -->
+<section class="mb-xl fade-in">
+<div class="bg-surface-container-low rounded-xl p-md border border-outline-variant/30">
+<div class="flex items-center gap-2 mb-sm">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: &quot;FILL&quot; 1;">auto_awesome</span>
+<span class="font-label-sm text-label-sm text-primary uppercase tracking-wider">AI Insights</span>
+</div>
+<p class="font-body-md text-body-md italic text-on-surface-variant leading-relaxed">
+                    "Un look equilibrado que combina la sofisticación de la blazer con la versatilidad de los jeans, ideal para una reunión casual o un evento de día."
+                </p>
+</div>
+</section>
+<!-- Outfit Items Grid -->
+<section class="grid grid-cols-1 gap-md mb-2xl">
+<!-- Item 1: Blazer -->
+<div class="item-card-stagger fade-in bg-surface rounded-xl overflow-hidden shadow-[0px_10px_30px_rgba(45,49,46,0.06)] flex items-center opacity-100">
+<div class="w-1/3 aspect-[3/4] overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional high-fashion studio shot of a tailored beige linen blazer draped over a minimalist mannequin. The lighting is soft and natural, coming from the side to emphasize the organic texture of the fabric. The background is a clean, warm cream color that matches a sophisticated editorial aesthetic. The overall mood is calm, luxurious, and modern." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9ZPGXlGFnpLmRg7P99LcLikAq6PhnzdNfH0R43exEvPCLA6irP5Oln-CpNkHRVXhgXkDk_e4oa8Car1K-8_X-ZikFHBbNGtQAWZuM6Rm9pLvxekWyKE4T25O5SvKEiN_KpFf8hS-YVPOlkGur-7M5yflk4_ZZTcJRkCYD-Gc1TNnPOPi658xAnWc3cFkh0hjApNhCF1DyPlkPCD8tSeC0wKGQLlyWWv3OVMryIZf_hNGRq_YqnoOYIhSEQna-Us6OkVS1PsH3-Q">
+</div>
+<div class="p-md flex-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-60 block mb-base uppercase">Chaqueta</span>
+<h3 class="font-label-md text-label-md text-on-surface">Blazer Beige</h3>
+<div class="mt-sm flex gap-xs">
+<span class="px-2 py-0.5 bg-surface-container text-[10px] font-semibold rounded-full text-on-surface-variant">LINO</span>
+<span class="px-2 py-0.5 bg-surface-container text-[10px] font-semibold rounded-full text-on-surface-variant">PREMIUM</span>
+</div>
+</div>
+<div class="pr-md">
+
+</div>
+</div>
+<!-- Item 2: Jeans -->
+<div class="item-card-stagger fade-in bg-surface rounded-xl overflow-hidden shadow-[0px_10px_30px_rgba(45,49,46,0.06)] flex items-center opacity-100">
+<div class="w-1/3 aspect-[3/4] overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="Close-up detail of high-quality light wash denim jeans featuring a straight-leg cut. The photograph captures the intricate weave of the cotton fabric and the clean, minimal stitching. The lighting is bright and even, reflecting a high-end e-commerce lookbook style. The aesthetic is organic and timeless, set against a neutral, warm white backdrop." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB7mtJGv4SZ1CF_l2vFyh04Fj6qq-rwxtePgNYmnXxYujVlZ48btBj5WvnSEwsjGRcsdEwm3dVQlq-r0Bhau9GeooP3eY-FM7nc-Sb014qNfRepAZFhkoCE61yvdS2qyE1ODPlqstQt2K-SRNju2hUk_dyqKMQNWbZKFeOB7OlkdAs6aUD-b3uGsJL0SoFbyPx3kW18jNFJ5cqtnAoZSb63E9ArgHN3bIILlhWgSDfovWazgpReY8GjEFCWjZ_-puYTI65vuTMjnQ">
+</div>
+<div class="p-md flex-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-60 block mb-base uppercase">Pantalón</span>
+<h3 class="font-label-md text-label-md text-on-surface">Jeans Rectos</h3>
+<div class="mt-sm flex gap-xs">
+<span class="px-2 py-0.5 bg-surface-container text-[10px] font-semibold rounded-full text-on-surface-variant">DENIM</span>
+</div>
+</div>
+<div class="pr-md">
+
+</div>
+</div>
+<!-- Item 3: Camisa -->
+<div class="item-card-stagger fade-in bg-surface rounded-xl overflow-hidden shadow-[0px_10px_30px_rgba(45,49,46,0.06)] flex items-center opacity-100">
+<div class="w-1/3 aspect-[3/4] overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A crisp, white organic cotton shirt perfectly pressed and folded on a warm neutral surface. The image uses soft, diffused morning light to highlight the purity of the color and the fine quality of the textile. The composition is balanced and minimalist, evoking a sense of calm sophistication and high-end retail presentation." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAW6czr8iK5Cga_srMQsVm6j3yVcaqhVad6gAtdrU-4lrQrecDencwNnf4Bhn-6TLlKfVqpF6lMgClkEhhRb-nqZaNTA37WcqYc-6IosJSQXD1LuOjKw2kxjjNzKWX7gswsGi8zVwkiC4Q4JZ0h3WmYXXnk7aXXTeN_Ws06ukzhXeEWhrjaLGIs8hQlhc-IljosiG1D3QYOqT_7ronpK_zTeWL9JlkfIsRaCCeZAWZoDfTCYozH-JiqgMPnVGiKgfWqTiraMs-rkw">
+</div>
+<div class="p-md flex-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-60 block mb-base uppercase">Básico</span>
+<h3 class="font-label-md text-label-md text-on-surface">Camisa Blanca</h3>
+<div class="mt-sm flex gap-xs">
+<span class="px-2 py-0.5 bg-surface-container text-[10px] font-semibold rounded-full text-on-surface-variant">ALGODÓN</span>
+</div>
+</div>
+<div class="pr-md">
+
+</div>
+</div>
+</section>
+<!-- Primary Action Buttons -->
+<section class="flex flex-col gap-md pb-xl fade-in" style="animation-delay: 0.4s;">
+<button class="w-full py-4 bg-primary-container text-on-primary-container font-label-md text-label-md rounded-xl shadow-lg active:scale-95 transition-transform flex items-center justify-center gap-2">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">bookmark</span>
+                Guardar outfit
+            </button>
+<button class="w-full py-4 border-2 border-primary text-primary font-label-md text-label-md rounded-xl active:scale-95 transition-transform flex items-center justify-center gap-2 bg-transparent">
+<span class="material-symbols-outlined">refresh</span>
+                Regenerar
+            </button>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center bg-surface px-4 py-3 pb-safe z-50 rounded-t-xl shadow-[0px_-2px_10px_rgba(45,49,46,0.06)]">
+<!-- Inicio -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant opacity-70 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm">Inicio</span>
+</a>
+<!-- Armario -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant opacity-70 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">dresser</span>
+<span class="font-label-sm text-label-sm">Armario</span>
+</a>
+<!-- AI Studio (ACTIVE) -->
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary-fixed text-on-primary-container dark:text-on-primary-fixed rounded-full px-5 py-1.5 active:scale-90 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">auto_awesome</span>
+<span class="font-label-sm text-label-sm">AI Studio</span>
+</a>
+<!-- Comunidad -->
+<a class="flex flex-col items-center justify-center text-on-secondary-container dark:text-on-secondary-fixed-variant opacity-70 hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-label-sm text-label-sm">Comunidad</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions
+        document.querySelectorAll('button, a').forEach(el => {
+            el.addEventListener('click', () => {
+                if(window.navigator.vibrate) {
+                    window.navigator.vibrate(10);
+                }
+            });
+        });
+
+        // Simple scroll reveal effect for cards
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100');
+                    entry.target.classList.remove('opacity-0');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.item-card-stagger').forEach(card => {
+            observer.observe(card);
+        });
+    </script>
+
+
+
+
+
+
+
+
+</body></html>

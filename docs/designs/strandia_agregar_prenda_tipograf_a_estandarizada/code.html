@@ -1,0 +1,544 @@
+<!DOCTYPE html><html lang="es" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&amp;family=Hanken+Grotesk:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-low": "#f6f3f0",
+                    "surface": "#fcf9f6",
+                    "tertiary-fixed": "#e0e3df",
+                    "on-primary": "#ffffff",
+                    "outline": "#747872",
+                    "on-secondary": "#ffffff",
+                    "inverse-surface": "#31302f",
+                    "on-error": "#ffffff",
+                    "on-primary-fixed-variant": "#3a4b3b",
+                    "on-background": "#1c1c1a",
+                    "on-tertiary-fixed-variant": "#444844",
+                    "inverse-primary": "#b8ccb6",
+                    "error-container": "#ffdad6",
+                    "surface-container": "#f0edea",
+                    "secondary-fixed-dim": "#cec5bc",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-fixed": "#0f1f11",
+                    "inverse-on-surface": "#f3f0ed",
+                    "surface-bright": "#fcf9f6",
+                    "surface-container-lowest": "#ffffff",
+                    "error": "#ba1a1a",
+                    "tertiary": "#5b5f5c",
+                    "primary-fixed-dim": "#b8ccb6",
+                    "background": "#fcf9f6",
+                    "surface-dim": "#dcd9d7",
+                    "outline-variant": "#c3c8c0",
+                    "on-surface": "#1c1c1a",
+                    "on-secondary-container": "#6a635c",
+                    "secondary-fixed": "#ebe1d7",
+                    "tertiary-fixed-dim": "#c4c7c3",
+                    "primary-container": "#8b9e8a",
+                    "secondary-container": "#ebe1d7",
+                    "on-surface-variant": "#434842",
+                    "surface-container-highest": "#e5e2df",
+                    "primary-fixed": "#d4e8d2",
+                    "surface-variant": "#e5e2df",
+                    "surface-container-high": "#eae8e5",
+                    "on-tertiary-container": "#2e322f",
+                    "on-tertiary-fixed": "#191c1a",
+                    "surface-tint": "#516351",
+                    "on-primary-container": "#243526",
+                    "tertiary-container": "#969a96",
+                    "secondary": "#645d56",
+                    "primary": "#516351",
+                    "on-secondary-fixed-variant": "#4b463f",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed": "#1f1b15"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "xs": "4px",
+                    "xl": "32px",
+                    "sm": "8px",
+                    "md": "16px",
+                    "lg": "24px",
+                    "gutter-mobile": "12px",
+                    "margin-mobile": "20px",
+                    "2xl": "48px",
+                    "base": "4px"
+            },
+            "fontFamily": {
+                    "label-md": ["Hanken Grotesk"],
+                    "display-lg": ["Libre Caslon Text"],
+                    "label-sm": ["Hanken Grotesk"],
+                    "headline-md": ["Libre Caslon Text"],
+                    "headline-lg": ["Libre Caslon Text"],
+                    "body-md": ["Hanken Grotesk"],
+                    "headline-lg-mobile": ["Libre Caslon Text"],
+                    "body-lg": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                    "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.03em", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "400"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body {
+            background-color: #fcf9f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .custom-scroll::-webkit-scrollbar {
+            display: none;
+        }
+        .custom-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .ai-glow {
+            box-shadow: 0 0 15px rgba(139, 158, 138, 0.2);
+            border: 1px solid rgba(139, 158, 138, 0.3);
+        }
+        .subcategory-enter {
+            animation: fadeInSlideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        @keyframes fadeInSlideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .color-selected-ring {
+            border: 2px solid #8B9E8A;
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapsible-content.expanded {
+            max-height: 1000px;
+        }
+    </style>
+</head>
+<body class="font-body-md text-on-surface antialiased">
+<!-- Top App Bar -->
+<nav class="flex items-center justify-between px-margin-mobile w-full h-16 sticky top-0 bg-surface-container-low z-40">
+<button class="hover:opacity-80 transition-opacity duration-200 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-primary">close</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Agregar prenda</h1>
+<div class="w-6"></div>
+</nav>
+<main class="px-margin-mobile pb-40">
+<!-- Photo Upload Section -->
+<section class="mt-md">
+<div class="aspect-[4/5] w-full rounded-xl overflow-hidden bg-surface-container-high relative flex items-center justify-center border border-outline-variant">
+<img alt="Preview" class="w-full h-full object-cover opacity-80" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAaGP8wjWazKycKdh_0QDZEgojTsmcL3HivMAZ_dv0OUTRLSuGGLagFiKTQB2YSuDS1p-curPVUZlPX2JBNejCiIZQgkHkndKJSl3tH9lhHwKCuRwtFBwSPCha8MIKF3JQkIKoNbIHLpTl4uu-hhMmk-kCssE5OQPFk4E6xSeluveNrBg8L4aw3V622e4yXZXQZT1kgj2ww06VRKmfKM-wb0MX4FMJHo_2YKLEJRsMG2ZAoGwBOyZU2eQSmZIiXyDYWFKgT3ZY-WQ">
+<div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+<span class="material-symbols-outlined text-primary text-5xl mb-sm">add_a_photo</span>
+<p class="font-label-md text-label-md text-on-surface-variant">Subir fotografía</p>
+</div>
+</div>
+<!-- Upload Buttons -->
+<div class="grid grid-cols-2 gap-md mt-md">
+<button class="flex items-center justify-center gap-sm bg-white border border-on-surface text-on-surface py-3 rounded-lg font-label-md text-label-md hover:opacity-80 transition-opacity active:scale-95 transition-transform">
+<span class="material-symbols-outlined">photo_camera</span>
+                Cámara
+            </button>
+<button class="flex items-center justify-center gap-sm bg-white border border-on-surface text-on-surface py-3 rounded-lg font-label-md text-label-md hover:opacity-80 transition-opacity active:scale-95 transition-transform">
+<span class="material-symbols-outlined">image</span>
+                Galería
+            </button>
+</div>
+</section>
+<!-- IA Analysis Chip -->
+<div class="mt-lg flex justify-center">
+<div class="ai-glow bg-white px-md py-2.5 rounded-full flex items-center gap-xs animate-pulse">
+<span class="material-symbols-outlined text-primary text-[18px]" style="font-variation-settings: &quot;FILL&quot; 1;">auto_awesome</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">Detectado: <span class="font-bold text-primary">Camisa azul · Casual</span></span>
+</div>
+</div>
+<!-- Category Selector -->
+<section class="mt-xl">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-md">Categoría</h2>
+<div class="flex flex-wrap gap-sm" id="main-categories">
+<button class="main-cat-btn flex items-center gap-xs bg-primary-container text-on-primary-container px-4 py-2 rounded-full font-label-sm text-label-sm transition-all shadow-sm" data-category="Superior">
+<span class="material-symbols-outlined text-[18px]">check</span>
+                Superior
+            </button>
+<button class="main-cat-btn flex items-center gap-xs bg-surface-container text-on-surface-variant px-4 py-2 rounded-full font-label-sm text-label-sm hover:bg-surface-container-highest transition-colors" data-category="Inferior">
+<span class="material-symbols-outlined text-[18px]">horizontal_rule</span>
+                Inferior
+            </button>
+<button class="main-cat-btn flex items-center gap-xs bg-surface-container text-on-surface-variant px-4 py-2 rounded-full font-label-sm text-label-sm hover:bg-surface-container-highest transition-colors" data-category="Vestido">
+<span class="material-symbols-outlined text-[18px]">checkroom</span>
+                Vestido
+            </button>
+<button class="main-cat-btn flex items-center gap-xs bg-surface-container text-on-surface-variant px-4 py-2 rounded-full font-label-sm text-label-sm hover:bg-surface-container-highest transition-colors" data-category="Abrigo">
+<span class="material-symbols-outlined text-[18px]">dry_cleaning</span>
+                Abrigo
+            </button>
+<button class="main-cat-btn flex items-center gap-xs bg-surface-container text-on-surface-variant px-4 py-2 rounded-full font-label-sm text-label-sm hover:bg-surface-container-highest transition-colors" data-category="Calzado">
+<span class="material-symbols-outlined text-[18px]">steps</span>
+                Calzado
+            </button>
+<button class="main-cat-btn flex items-center gap-xs bg-surface-container text-on-surface-variant px-4 py-2 rounded-full font-label-sm text-label-sm hover:bg-surface-container-highest transition-colors" data-category="Accesorio">
+<span class="material-symbols-outlined text-[18px]">watch</span>
+                Accesorio
+            </button>
+<button class="main-cat-btn flex items-center gap-xs bg-surface-container text-on-surface-variant px-4 py-2 rounded-full font-label-sm text-label-sm hover:bg-surface-container-highest transition-colors" data-category="Body">
+<span class="material-symbols-outlined text-[18px]">accessibility_new</span>
+                Body
+            </button>
+</div>
+<!-- Dynamic Subcategories Section -->
+<div class="mt-lg subcategory-enter" id="subcategory-container">
+<h3 class="font-label-md text-label-md text-on-surface mb-sm">Tipo de prenda</h3>
+<div class="flex flex-wrap gap-sm" id="subcategory-list"><button class="subcategory-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-[#FAF0E6] text-on-surface-variant hover:opacity-80 transition-all">Camiseta</button><button class="subcategory-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-[#FAF0E6] text-on-surface-variant hover:opacity-80 transition-all">Camisa</button><button class="subcategory-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-[#FAF0E6] text-on-surface-variant hover:opacity-80 transition-all">Blusa</button><button class="subcategory-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-[#FAF0E6] text-on-surface-variant hover:opacity-80 transition-all">Suéter</button><button class="subcategory-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-[#FAF0E6] text-on-surface-variant hover:opacity-80 transition-all">Crop top</button><button class="subcategory-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-[#FAF0E6] text-on-surface-variant hover:opacity-80 transition-all">Tank top</button></div>
+</div>
+</section><section class="mt-xl" id="occasions-section">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-1">¿Para qué ocasiones sirve?</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-md">Selecciona todas las que apliquen</p>
+<div class="flex flex-wrap gap-sm">
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-primary-container text-on-primary-container transition-all active:scale-95">Casual</button>
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-white text-on-surface-variant border border-outline-variant hover:opacity-80 transition-all active:scale-95">Formal</button>
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-white text-on-surface-variant border border-outline-variant hover:opacity-80 transition-all active:scale-95">Deportivo</button>
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-white text-on-surface-variant border border-outline-variant hover:opacity-80 transition-all active:scale-95">Fiesta</button>
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-white text-on-surface-variant border border-outline-variant hover:opacity-80 transition-all active:scale-95">Trabajo</button>
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-white text-on-surface-variant border border-outline-variant hover:opacity-80 transition-all active:scale-95">Universidad</button>
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-white text-on-surface-variant border border-outline-variant hover:opacity-80 transition-all active:scale-95">Citas</button>
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-white text-on-surface-variant border border-outline-variant hover:opacity-80 transition-all active:scale-95">Casa</button>
+<button class="occasion-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-white text-on-surface-variant border border-outline-variant hover:opacity-80 transition-all active:scale-95">Eventos formales</button>
+</div>
+</section>
+<!-- Color Selector Section -->
+<section class="mt-xl">
+<div class="flex items-center justify-between mb-4">
+<h2 class="font-headline-md text-headline-md text-on-surface">Color</h2>
+</div>
+<!-- AI Color Detection Chip -->
+<div class="bg-[#FAF0E6] rounded-full px-4 py-2 flex items-center justify-between mb-6 border border-[#8B9E8A]/20">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#8B9E8A] text-[18px]">verified</span>
+<p class="font-body-md text-sm text-on-surface">IA detectó: <span class="font-bold">Azul marino ✓</span></p>
+</div>
+</div>
+<h3 class="font-label-md text-label-md text-on-surface-variant mb-4">Colores básicos</h3>
+<div class="flex gap-4 overflow-x-auto custom-scroll pb-2 mb-4">
+<!-- Negro -->
+<div class="flex flex-col items-center gap-xs flex-shrink-0">
+<button class="w-10 h-10 rounded-full bg-[#1C1C1A] border border-outline-variant flex items-center justify-center relative"></button>
+<span class="font-body-md text-[10px] text-on-surface-variant">Negro</span>
+</div>
+<!-- Blanco -->
+<div class="flex flex-col items-center gap-xs flex-shrink-0">
+<button class="w-10 h-10 rounded-full bg-[#FFFFFF] border border-outline-variant flex items-center justify-center relative"></button>
+<span class="font-body-md text-[10px] text-on-surface-variant">Blanco</span>
+</div>
+<!-- Gris -->
+<div class="flex flex-col items-center gap-xs flex-shrink-0">
+<button class="w-10 h-10 rounded-full bg-[#8E8E93] border border-outline-variant flex items-center justify-center relative"></button>
+<span class="font-body-md text-[10px] text-on-surface-variant">Gris</span>
+</div>
+<!-- Beige -->
+<div class="flex flex-col items-center gap-xs flex-shrink-0">
+<button class="w-10 h-10 rounded-full bg-[#D2B48C] border border-outline-variant flex items-center justify-center relative"></button>
+<span class="font-body-md text-[10px] text-on-surface-variant">Beige</span>
+</div>
+<!-- Café -->
+<div class="flex flex-col items-center gap-xs flex-shrink-0">
+<button class="w-10 h-10 rounded-full bg-[#4B3621] border border-outline-variant flex items-center justify-center relative"></button>
+<span class="font-body-md text-[10px] text-on-surface-variant">Café</span>
+</div>
+<!-- Azul Marino (Pre-selected) -->
+<div class="flex flex-col items-center gap-xs flex-shrink-0">
+<button class="w-10 h-10 rounded-full bg-[#1D2B44] color-selected-ring flex items-center justify-center relative ring-2 ring-offset-2 ring-transparent">
+<span class="material-symbols-outlined text-white text-[14px]" style="font-variation-settings: &quot;wght&quot; 700;">check</span>
+</button>
+<span class="font-body-md text-[10px] text-primary font-bold">Azul marino</span>
+</div>
+<!-- Rojo -->
+<div class="flex flex-col items-center gap-xs flex-shrink-0">
+<button class="w-10 h-10 rounded-full bg-[#800000] border border-outline-variant flex items-center justify-center relative"></button>
+<span class="font-body-md text-[10px] text-on-surface-variant">Rojo</span>
+</div>
+<!-- Verde -->
+<div class="flex flex-col items-center gap-xs flex-shrink-0">
+<button class="w-10 h-10 rounded-full bg-[#2E4733] border border-outline-variant flex items-center justify-center relative"></button>
+<span class="font-body-md text-[10px] text-on-surface-variant">Verde</span>
+</div>
+</div>
+<!-- Ver más colores Button -->
+<button class="w-full flex items-center justify-center gap-2 py-3 border border-outline-variant rounded-lg text-primary font-label-md text-sm bg-white hover:bg-surface-container-low transition-colors mt-2" id="toggle-colors">Ver más colores +</button>
+<!-- Expanded Color Categories -->
+<div class="collapsible-content space-y-6 mt-6" id="extra-colors-container">
+<!-- Neutros -->
+<div>
+<h4 class="font-label-md text-label-sm text-on-surface-variant mb-3 px-1 uppercase tracking-wider">Neutros</h4>
+<div class="grid grid-cols-4 gap-4">
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full bg-black"></div>
+<span class="text-[10px] text-on-surface-variant">Negro</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full bg-white border"></div>
+<span class="text-[10px] text-on-surface-variant">Blanco</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full bg-gray-300"></div>
+<span class="text-[10px] text-on-surface-variant">Gris claro</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full bg-gray-700"></div>
+<span class="text-[10px] text-on-surface-variant">Gris oscuro</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full bg-[#E3D4C4]"></div>
+<span class="text-[10px] text-on-surface-variant">Beige</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full bg-[#FFFDD0] border"></div>
+<span class="text-[10px] text-on-surface-variant">Crema</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full bg-[#A57C5B]"></div>
+<span class="text-[10px] text-on-surface-variant">Café claro</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 rounded-full bg-[#3D2B1F]"></div>
+<span class="text-[10px] text-on-surface-variant">Café oscuro</span>
+</div>
+</div>
+</div>
+<!-- Placeholders for other categories -->
+<div>
+<h4 class="font-label-md text-label-sm text-on-surface-variant mb-3 px-1 uppercase tracking-wider">Rojos y rosados</h4>
+<div class="grid grid-cols-4 gap-4 opacity-50">
+<div class="w-10 h-10 rounded-full bg-red-600"></div>
+<div class="w-10 h-10 rounded-full bg-pink-300"></div>
+<div class="w-10 h-10 rounded-full bg-rose-900"></div>
+<div class="w-10 h-10 rounded-full bg-orange-400"></div>
+</div>
+</div>
+<div>
+<h4 class="font-label-md text-label-sm text-on-surface-variant mb-3 px-1 uppercase tracking-wider">Azules</h4>
+<div class="grid grid-cols-4 gap-4 opacity-50">
+<div class="w-10 h-10 rounded-full bg-blue-900"></div>
+<div class="w-10 h-10 rounded-full bg-blue-400"></div>
+<div class="w-10 h-10 rounded-full bg-cyan-200"></div>
+<div class="w-10 h-10 rounded-full bg-indigo-800"></div>
+</div>
+</div>
+<div>
+<h4 class="font-label-md text-label-sm text-on-surface-variant mb-3 px-1 uppercase tracking-wider">Verdes</h4>
+<div class="grid grid-cols-4 gap-4 opacity-50">
+<div class="w-10 h-10 rounded-full bg-green-900"></div>
+<div class="w-10 h-10 rounded-full bg-green-500"></div>
+<div class="w-10 h-10 rounded-full bg-emerald-200"></div>
+<div class="w-10 h-10 rounded-full bg-lime-400"></div>
+</div>
+</div>
+<div>
+<h4 class="font-label-md text-label-sm text-on-surface-variant mb-3 px-1 uppercase tracking-wider">Otros</h4>
+<div class="grid grid-cols-4 gap-4 opacity-50">
+<div class="w-10 h-10 rounded-full bg-yellow-400"></div>
+<div class="w-10 h-10 rounded-full bg-purple-600"></div>
+<div class="w-10 h-10 rounded-full bg-violet-300"></div>
+<div class="w-10 h-10 rounded-full bg-fuchsia-800"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Save Button -->
+<section class="mt-xl mb-xl">
+<label class="block font-label-md text-label-md text-on-surface-variant mb-sm" for="item-name">Nombre de la prenda (opcional)</label>
+<input class="w-full bg-[#FAF0E6] border-outline-variant rounded-lg p-3 font-body-md text-on-surface placeholder:text-on-surface-variant/50 focus:ring-primary focus:border-primary" id="item-name" maxlength="50" placeholder="Ej: Camisa azul oxford" type="text">
+</section><div class="mt-2xl mb-8">
+<button class="w-full bg-primary text-on-primary py-4 rounded-xl font-label-md text-label-md font-bold hover:opacity-90 active:scale-[0.98] transition-all shadow-md" id="save-button">
+    Guardar prenda
+  </button>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center bg-surface px-4 py-3 pb-safe shadow-[0px_-2px_10px_rgba(45,49,46,0.06)] z-50 rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:bg-surface-container-high transition-colors px-2 py-1 rounded-lg" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm">Inicio</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-5 py-1.5 active:scale-90 duration-150 ease-in-out" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">dresser</span>
+<span class="font-label-sm text-label-sm">Armario</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:bg-surface-container-high transition-colors px-2 py-1 rounded-lg" href="#">
+<span class="material-symbols-outlined">auto_awesome</span>
+<span class="font-label-sm text-label-sm">AI Studio</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-secondary-container opacity-70 hover:bg-surface-container-high transition-colors px-2 py-1 rounded-lg" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-label-sm text-label-sm">Comunidad</span>
+</a>
+</nav>
+<script>
+    const subcategories = {
+        "Superior": ["Camiseta", "Camisa", "Blusa", "Suéter", "Crop top", "Tank top"],
+        "Inferior": ["Jean", "Pantalón", "Short", "Falda", "Leggings"],
+        "Vestido": ["Vestido corto", "Vestido largo", "Vestido casual"],
+        "Abrigo": ["Chaqueta", "Saco", "Blazer", "Gabán", "Cardigan", "Chaleco", "Impermeable"],
+        "Calzado": ["Tenis", "Zapatos", "Botas", "Sandalias", "Tacones"],
+        "Accesorio": ["Bolso", "Cinturón", "Gorra", "Sombrero", "Bufanda", "Joyería"],
+        "Body": ["Body manga larga", "Body manga corta", "Body sin mangas"]
+    };
+
+    const mainCatBtns = document.querySelectorAll('.main-cat-btn');
+    const subContainer = document.getElementById('subcategory-container');
+    const subList = document.getElementById('subcategory-list');
+
+    function updateSubcategories(category) {
+        subList.innerHTML = '';
+        const items = subcategories[category] || [];
+        
+        items.forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = "subcategory-btn flex items-center px-4 py-2 rounded-full font-label-sm text-label-sm bg-[#FAF0E6] text-on-surface-variant hover:opacity-80 transition-all";
+            btn.textContent = item;
+            
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.subcategory-btn').forEach(b => {
+                    b.classList.remove('bg-[#8B9E8A]', 'text-white');
+                    b.classList.add('bg-[#FAF0E6]', 'text-on-surface-variant');
+                });
+                btn.classList.remove('bg-[#FAF0E6]', 'text-on-surface-variant');
+                btn.classList.add('bg-[#8B9E8A]', 'text-white');
+                
+                if (window.navigator.vibrate) window.navigator.vibrate(5);
+            });
+            
+            subList.appendChild(btn);
+        });
+
+        subContainer.classList.remove('hidden', 'subcategory-enter');
+        void subContainer.offsetWidth; // Trigger reflow
+        subContainer.classList.add('subcategory-enter');
+    }
+
+    mainCatBtns.forEach(button => {
+        button.addEventListener('click', () => {
+            mainCatBtns.forEach(b => {
+                b.className = "main-cat-btn flex items-center gap-xs bg-surface-container text-on-surface-variant px-4 py-2 rounded-full font-label-sm text-label-sm hover:bg-surface-container-highest transition-colors";
+                const icon = b.querySelector('.material-symbols-outlined');
+                if (icon) {
+                    const cat = b.dataset.category;
+                    if (cat === 'Superior') icon.textContent = 'check';
+                    else if (cat === 'Inferior') icon.textContent = 'horizontal_rule';
+                    else if (cat === 'Vestido') icon.textContent = 'checkroom';
+                    else if (cat === 'Abrigo') icon.textContent = 'dry_cleaning';
+                    else if (cat === 'Calzado') icon.textContent = 'steps';
+                    else if (cat === 'Accesorio') icon.textContent = 'watch';
+                    else if (cat === 'Body') icon.textContent = 'accessibility_new';
+                }
+            });
+
+            button.className = "main-cat-btn flex items-center gap-xs bg-primary-container text-on-primary-container px-4 py-2 rounded-full font-label-sm text-label-sm transition-all shadow-sm";
+            const activeIcon = button.querySelector('.material-symbols-outlined');
+            if (activeIcon) activeIcon.textContent = 'check';
+
+            updateSubcategories(button.dataset.category);
+            if (window.navigator.vibrate) window.navigator.vibrate(10);
+        });
+    });
+
+    // Color toggle logic
+    const toggleBtn = document.getElementById('toggle-colors');
+    const extraColors = document.getElementById('extra-colors-container');
+    
+    toggleBtn.addEventListener('click', () => {
+        const isExpanded = extraColors.classList.contains('expanded');
+        if (isExpanded) {
+            extraColors.classList.remove('expanded');
+            toggleBtn.innerHTML = 'Ver más colores +';
+        } else {
+            extraColors.classList.add('expanded');
+            toggleBtn.innerHTML = 'Ver menos colores -';
+        }
+        if (window.navigator.vibrate) window.navigator.vibrate(5);
+    });
+
+    // Initialize with default category
+    updateSubcategories("Superior");
+
+    // Generic button haptics
+    document.querySelectorAll('button:not(.main-cat-btn):not(.subcategory-btn)').forEach(btn => {
+        btn.addEventListener('click', function() {
+            if (window.navigator.vibrate) window.navigator.vibrate(5);
+        });
+    });
+</script>
+<script>
+    (function() {
+        const occasionBtns = document.querySelectorAll('.occasion-btn');
+        const saveBtn = document.getElementById('save-button');
+
+        function updateSaveButtonState() {
+            const selectedCount = document.querySelectorAll('.occasion-btn.bg-primary-container').length;
+            if (selectedCount === 0) {
+                saveBtn.classList.add('opacity-50', 'pointer-events-none');
+            } else {
+                saveBtn.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        occasionBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const isSelected = btn.classList.contains('bg-primary-container');
+                
+                if (isSelected) {
+                    // Unselect
+                    btn.classList.remove('bg-primary-container', 'text-on-primary-container');
+                    btn.classList.add('bg-white', 'text-on-surface-variant', 'border', 'border-outline-variant');
+                } else {
+                    // Select
+                    btn.classList.add('bg-primary-container', 'text-on-primary-container');
+                    btn.classList.remove('bg-white', 'text-on-surface-variant', 'border', 'border-outline-variant');
+                }
+                
+                updateSaveButtonState();
+                if (window.navigator.vibrate) window.navigator.vibrate(5);
+            });
+        });
+
+        // Initial check
+        updateSaveButtonState();
+    })();
+</script>
+</body></html>
