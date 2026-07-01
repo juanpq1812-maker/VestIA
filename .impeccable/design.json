@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-01T00:00:00.000Z",
+  "title": "Design System: StrandIA",
+  "extensions": {
+    "colorMeta": {
+      "sage-primary": { "role": "primary", "displayName": "Sage", "canonical": "#8B9E8A", "tonalRamp": ["#2E362D", "#425040", "#5a6e59", "#6B7F6A", "#8B9E8A", "#b8c9b7", "#d9e4d8", "#E8EFE7"] },
+      "sage-hover": { "role": "primary", "displayName": "Sage Hover", "canonical": "#6B7F6A" },
+      "sage-active": { "role": "primary", "displayName": "Sage Active", "canonical": "#5a6e59" },
+      "sage-light": { "role": "primary", "displayName": "Sage Light", "canonical": "#E8EFE7" },
+      "sage-mid": { "role": "primary", "displayName": "Sage Mid", "canonical": "#b8c9b7" },
+      "cream-bg": { "role": "neutral", "displayName": "Warm Cream", "canonical": "#FAF0E6", "tonalRamp": ["#2C2C2C", "#4a4438", "#6e6555", "#9a8f78", "#c9bda3", "#e8ddc9", "#f5ecdf", "#FAF0E6"] },
+      "paper-surface": { "role": "neutral", "displayName": "Paper", "canonical": "#FDFAF7" },
+      "sage-tint-surface": { "role": "neutral", "displayName": "Sage Tint Surface", "canonical": "#E8EFE7" },
+      "divider-gray": { "role": "neutral", "displayName": "Divider Gray", "canonical": "#d1d5db" },
+      "border-sage": { "role": "neutral", "displayName": "Sage Border", "canonical": "rgba(139, 158, 138, 0.25)" },
+      "ink-text": { "role": "neutral", "displayName": "Ink", "canonical": "#2C2C2C" },
+      "text-muted": { "role": "neutral", "displayName": "Muted Olive-Gray", "canonical": "#9E9E8E" },
+      "text-faint": { "role": "neutral", "displayName": "Faint Olive-Gray", "canonical": "#b8b8a8" },
+      "text-inverse": { "role": "neutral", "displayName": "Inverse Text", "canonical": "#FDFAF7" },
+      "success": { "role": "success", "displayName": "Success Green", "canonical": "#059669" },
+      "warning": { "role": "warning", "displayName": "Warning Amber", "canonical": "#d97706" },
+      "danger": { "role": "danger", "displayName": "Danger Red", "canonical": "#dc2626" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Screen-level H1 titles only, Playfair Display." },
+      "headline": { "displayName": "Headline", "purpose": "Section H2 titles within a screen." },
+      "body": { "displayName": "Body", "purpose": "All reading content, labels, descriptions." },
+      "label": { "displayName": "Label", "purpose": "Uppercase eyebrows and category badges, used sparingly." }
+    },
+    "shadows": [
+      { "name": "ambient-rest", "value": "0 1px 3px rgba(44, 44, 44, 0.08)", "purpose": "Default resting shadow for cards, buttons, badges." },
+      { "name": "hover-lift", "value": "0 4px 16px rgba(44, 44, 44, 0.10)", "purpose": "Hover state on cards and primary buttons, paired with a 1px translate-y lift." },
+      { "name": "overlay", "value": "0 12px 40px rgba(44, 44, 44, 0.14)", "purpose": "Modals and dropdown menus floating above the page." }
+    ],
+    "motion": [
+      { "name": "ease-standard", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default easing for state transitions, modal entrances, fades." },
+      { "name": "duration-standard", "value": "160-240ms", "purpose": "Standard UI transition window; nothing slower except the AI-loading message rotation." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main call-to-action button, sage fill, pill shape.",
+      "html": "<button class=\"ds-btn-primary\">Guardar prenda</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 9999px; font-weight: 600; font-size: 14px; padding: 12px 24px; background: #8B9E8A; color: #FDFAF7; border: none; box-shadow: 0 1px 3px rgba(44,44,44,0.08); transition: all 200ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-primary:hover { background: #6B7F6A; box-shadow: 0 4px 16px rgba(44,44,44,0.10); transform: translateY(-1px); } .ds-btn-primary:active { background: #5a6e59; transform: translateY(0); } .ds-btn-primary:focus-visible { outline: 2px solid #8B9E8A; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary action, sage-light fill.",
+      "html": "<button class=\"ds-btn-secondary\">Ver detalles</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 9999px; font-weight: 600; font-size: 14px; padding: 12px 24px; background: #E8EFE7; color: #8B9E8A; border: none; transition: all 200ms cubic-bezier(0.16,1,0.3,1); } .ds-btn-secondary:hover { background: #dfe8dd; }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Text input with sage-tinted border and focus ring.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-label\" for=\"ds-demo-input\">Nombre de la prenda</label><input id=\"ds-demo-input\" class=\"ds-input\" type=\"text\" placeholder=\"Camisa de lino azul\" /></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 6px; } .ds-label { font-size: 14px; font-weight: 600; color: #2C2C2C; } .ds-input { width: 100%; border-radius: 0.625rem; border: 1px solid rgba(139,158,138,0.25); background: #FDFAF7; padding: 12px 16px; font-size: 16px; color: #2C2C2C; transition: border-color 150ms, box-shadow 150ms; } .ds-input::placeholder { color: #b8b8a8; } .ds-input:focus { outline: none; border-color: #8B9E8A; box-shadow: 0 0 0 4px rgba(139,158,138,0.15); }"
+    },
+    {
+      "name": "Category Chip",
+      "kind": "chip",
+      "refersTo": "chip-active",
+      "description": "Multi-select filter chip, active and inactive states.",
+      "html": "<div style=\"display:flex; gap:8px;\"><button class=\"ds-chip ds-chip-active\" aria-pressed=\"true\">Camisas</button><button class=\"ds-chip ds-chip-inactive\" aria-pressed=\"false\">Pantalones</button></div>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 8px; border-radius: 9999px; padding: 8px 16px; font-size: 14px; font-weight: 500; border: 1px solid; transition: all 150ms; } .ds-chip-active { border-color: #8B9E8A; background: #8B9E8A; color: #FDFAF7; box-shadow: 0 1px 3px rgba(44,44,44,0.08); } .ds-chip-inactive { border-color: rgba(139,158,138,0.25); background: #FDFAF7; color: #9E9E8E; } .ds-chip-inactive:hover { border-color: #b8c9b7; background: #E8EFE7; color: #2C2C2C; }"
+    },
+    {
+      "name": "Wardrobe Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Signature ClothingCard: 3:4 photo, floating category badge, secondary CTA.",
+      "html": "<div class=\"ds-clothing-card\"><div class=\"ds-clothing-photo\"><span class=\"ds-clothing-badge\">Camisas</span></div><button class=\"ds-clothing-cta\">Ver detalles</button></div>",
+      "css": ".ds-clothing-card { overflow: hidden; border-radius: 1.5rem; border: 1px solid rgba(139,158,138,0.25); background: #FDFAF7; box-shadow: 0 1px 3px rgba(44,44,44,0.08); transition: box-shadow 200ms; width: 220px; } .ds-clothing-card:hover { box-shadow: 0 4px 16px rgba(44,44,44,0.10); } .ds-clothing-photo { position: relative; aspect-ratio: 3/4; background: #E8EFE7; } .ds-clothing-badge { position: absolute; left: 12px; top: 12px; border-radius: 9999px; background: rgba(253,250,247,0.9); backdrop-filter: blur(4px); padding: 4px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #2C2C2C; box-shadow: 0 1px 3px rgba(44,44,44,0.08); } .ds-clothing-cta { display: block; width: 100%; border-radius: 0.5rem; margin-top: 8px; background: #E8EFE7; color: #8B9E8A; border: none; padding: 8px 12px; font-size: 12px; font-weight: 600; text-align: center; transition: background 150ms, color 150ms; } .ds-clothing-cta:hover { background: #8B9E8A; color: #FDFAF7; }"
+    },
+    {
+      "name": "Top App Bar",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Sticky header nav, active/inactive pill links.",
+      "html": "<nav class=\"ds-navbar\"><span class=\"ds-nav-brand\">StrandIA</span><div style=\"display:flex; gap:4px;\"><a class=\"ds-nav-link ds-nav-link-active\">Armario</a><a class=\"ds-nav-link\">Outfits</a></div></nav>",
+      "css": ".ds-navbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 24px; background: rgba(253,250,247,0.85); backdrop-filter: blur(8px); border-bottom: 1px solid #d1d5db; } .ds-nav-brand { font-family: Georgia, serif; font-weight: 700; font-size: 20px; color: #2C2C2C; } .ds-nav-link { border-radius: 9999px; padding: 8px 16px; font-size: 14px; font-weight: 500; color: #9E9E8E; transition: background 150ms, color 150ms; text-decoration: none; } .ds-nav-link:hover { background: #E8EFE7; color: #2C2C2C; } .ds-nav-link-active { background: #E8EFE7; color: #8B9E8A; }"
+    },
+    {
+      "name": "Bottom Nav",
+      "kind": "nav",
+      "refersTo": "nav",
+      "description": "Fixed mobile-only tab bar, primary navigation on small screens (md:hidden). Three real routes only.",
+      "html": "<nav class=\"ds-bottomnav\"><a class=\"ds-bottomnav-item ds-bottomnav-item-active\"><span class=\"ds-bottomnav-icon\">&#8226;</span><span>Inicio</span></a><a class=\"ds-bottomnav-item\"><span class=\"ds-bottomnav-icon\">&#8226;</span><span>Armario</span></a><a class=\"ds-bottomnav-item\"><span class=\"ds-bottomnav-icon\">&#8226;</span><span>Outfits</span></a></nav>",
+      "css": ".ds-bottomnav { position: fixed; inset-inline: 0; bottom: 0; display: flex; align-items: center; justify-content: space-around; border-top: 1px solid #d1d5db; background: rgba(253,250,247,0.95); backdrop-filter: blur(8px); padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); } .ds-bottomnav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 0.75rem; font-size: 11px; font-weight: 500; color: #9E9E8E; text-decoration: none; } .ds-bottomnav-icon { display: flex; height: 36px; width: 36px; align-items: center; justify-content: center; border-radius: 9999px; transition: background-color 150ms, color 150ms; } .ds-bottomnav-item-active .ds-bottomnav-icon { background: #E8EFE7; color: #8B9E8A; } .ds-bottomnav-item-active { color: #8B9E8A; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Editorial Wardrobe",
+    "overview": "StrandIA feels like a personal closet photographed for a magazine spread — warm, natural light, sage green and cream paper tones — but disciplined like a well-built product, not a mood board. Playfair Display gives every heading the weight of an editorial pull-quote; DM Sans carries everything functional with quiet precision. The system exists to make the user's own wardrobe photos the visual protagonist: UI chrome recedes into soft cream and sage so real garment colors and textures read as the highlight of every screen. This system explicitly rejects cold corporate SaaS (no blue-gradient dashboards, no generic flat iconography, no glassmorphism) and rejects fast-fashion urgency (no discount banners, no clashing high-contrast sale colors). It also rejects maximalist fashion-magazine excess — density and ornament stay in check so the product still feels like a clean, fast, trustworthy tool.",
+    "keyCharacteristics": [
+      "Warm neutral base (cream #FAF0E6 bg, paper #FDFAF7 surfaces) instead of stark white or cold gray.",
+      "One committed brand hue — sage green — carrying identity across buttons, active states, and accents.",
+      "Serif display type reserved strictly for headings; sans for everything else.",
+      "Nearly flat elevation; shadow is a whisper, not a structural device.",
+      "Fully rounded (pill) interactive controls — buttons, chips — paired with generous xl radii on content cards."
+    ],
+    "rules": [
+      { "name": "The One Sage Rule", "body": "Sage is the only saturated color in the system. It never competes with a second accent hue — variety comes from tint (light/mid/hover/active), never from introducing blue, purple, or a second brand color.", "section": "colors" },
+      { "name": "The Warm-Never-Cold Rule", "body": "Every neutral in this system — background, surface, border, muted text — carries a warm/olive undertone. A pure gray or pure white anywhere in this system is a bug, not a stylistic choice.", "section": "colors" },
+      { "name": "The Serif-Never-Body Rule", "body": "Playfair Display renders headings only. It never appears in body copy, buttons, form fields, or navigation — those are always DM Sans.", "section": "typography" },
+      { "name": "The Shadow-as-Breath Rule", "body": "Shadow opacity never exceeds 0.14. If a shadow reads as dark or dramatic, it's wrong for this system — depth here is suggested, not staged.", "section": "elevation" },
+      { "name": "The Real-Routes-Only Rule", "body": "The bottom nav only links to routes that exist and work. A feature that's still a placeholder (like Comunidad) stays a visual card inside a screen, never a bottom nav tab — a global nav slot implies the destination is real.", "section": "components" }
+    ],
+    "dos": [
+      "Do let the user's garment photos be the most saturated, highest-contrast element on any wardrobe screen — UI chrome stays in the cream/sage/paper register around them.",
+      "Do use sage as the only saturated brand color; express variety through its tint scale (light/mid/hover/active), not a second hue.",
+      "Do keep shadow opacity at or below 0.14 and pair every hover shadow with a 1px translate lift.",
+      "Do reserve Playfair Display for headings only; DM Sans everywhere else.",
+      "Do give every interactive element a visible active: state, not just hover:.",
+      "Do keep the timing window at 160-240ms for UI transitions; the AI-loading message rotation is the sanctioned exception."
+    ],
+    "donts": [
+      "Don't introduce cold corporate SaaS patterns: blue-gradient panels, generic flat dashboard iconography, glassmorphism used decoratively, gradient-filled text.",
+      "Don't use fast-fashion / e-commerce urgency cues: discount banners, high-contrast sale badges, countdown-timer aesthetics.",
+      "Don't use pure white or cold gray anywhere — every neutral must carry the warm/olive undertone already defined in the palette.",
+      "Don't put a placeholder or unshipped feature in the bottom nav — every tab must go to a real, working route.",
+      "Don't stack shadows past shadow-lg (0 12px 40px rgba(44,44,44,0.14)) — nothing in this system needs to look dramatic.",
+      "Don't let elevation, motion, or ornament outcompete the garment photography — this system serves the wardrobe, it doesn't perform fashion-magazine density for its own sake."
+    ]
+  }
+}
