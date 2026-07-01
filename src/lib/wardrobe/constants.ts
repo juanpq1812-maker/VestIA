@@ -102,3 +102,9 @@ export const ALLOWED_MIME_TYPES = [
 export const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp"] as const;
 
 export const NAME_MAX_LENGTH = 50;
+
+// Colores que aparecen en la fila básica del selector (los más comunes).
+// El resto se muestra en la sección expandible.
+export const BASIC_COLORS: readonly string[] = [
+  "negro", "blanco", "gris", "beige", "café", "azul", "rojo", "verde",
+];
