@@ -1,6 +1,7 @@
 "use server";
 
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
+import { removeBackground } from "@/lib/ai/removeBg";
 
 export type AIClothingAnalysis = {
   categoria: string;
@@ -56,6 +57,30 @@ export async function analyzeClothingImageAction(
     if (!data.categoria || !data.subcategoria) return { ok: false };
 
     return { ok: true, data };
+  } catch {
+    return { ok: false };
+  }
+}
+
+// ── Remove.bg ─────────────────────────────────────────────────────────────────
+
+export type RemoveBgResult =
+  | { ok: true; base64: string; contentType: "image/png" }
+  | { ok: false };
+
+export async function removeBackgroundAction(
+  formData: FormData,
+): Promise<RemoveBgResult> {
+  try {
+    const file = formData.get("image");
+    if (!file || !(file instanceof Blob)) return { ok: false };
+
+    const resultBlob = await removeBackground(file);
+
+    const arrayBuffer = await resultBlob.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+
+    return { ok: true, base64, contentType: "image/png" };
   } catch {
     return { ok: false };
   }
