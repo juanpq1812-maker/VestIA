@@ -38,8 +38,9 @@ export async function proxy(request: NextRequest) {
   const esRutaDeAuth = RUTAS_DE_AUTH.includes(pathname);
   const esOnboarding =
     pathname === "/onboarding" || pathname.startsWith("/onboarding/");
+  const esWaitlist = pathname === "/waitlist";
 
-  if (!user && esRutaPrivada) {
+  if (!user && (esRutaPrivada || esWaitlist)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -53,18 +54,36 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Onboarding gate: si el usuario tiene sesion, esta en una ruta privada que
-  // NO sea /onboarding, y aun no completo el setup, lo redirigimos.
-  // Solo consultamos la tabla `profiles` cuando hace falta para no pegarle a
-  // la base de datos en cada navegacion publica.
-  if (user && esRutaPrivada && !esOnboarding) {
+  // Waitlist + onboarding gates. Solo consultamos `profiles` cuando hace
+  // falta para no pegarle a la base de datos en cada navegacion publica.
+  // La raiz "/" tambien pasa por aqui porque con sesion renderiza el dashboard.
+  if (user && (esRutaPrivada || esWaitlist || pathname === "/")) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("onboarding_completed")
+      .select("approved, onboarding_completed")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile?.onboarding_completed) {
+    // Waitlist gate: sin aprobar, la unica pantalla posible es /waitlist.
+    // Va antes que el onboarding — el usuario lo hara cuando entre.
+    if (!profile?.approved) {
+      if (!esWaitlist) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/waitlist";
+        return NextResponse.redirect(url);
+      }
+      return response();
+    }
+
+    // Ya aprobado: /waitlist deja de existir para el.
+    if (esWaitlist) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      return NextResponse.redirect(url);
+    }
+
+    // Onboarding gate: aprobado pero sin completar el setup.
+    if (esRutaPrivada && !esOnboarding && !profile.onboarding_completed) {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding";
       return NextResponse.redirect(url);
