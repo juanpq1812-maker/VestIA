@@ -18,11 +18,36 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://strandia.fashion"),
   title: "StrandIA — Tu armario digital con IA",
   description:
     "Genera outfits con la ropa que ya tienes. StrandIA combina inteligencia artificial con tu armario para ayudarte a vestir mejor y comprar de forma más inteligente.",
   keywords: ["armario digital", "outfits IA", "moda inteligente", "StrandIA"],
   manifest: "/manifest.json",
+  openGraph: {
+    title: "StrandIA — Tu armario digital con IA",
+    description:
+      "Genera outfits con la ropa que ya tienes. StrandIA combina inteligencia artificial con tu armario para ayudarte a vestir mejor y comprar de forma más inteligente.",
+    url: "https://strandia.fashion",
+    siteName: "StrandIA",
+    locale: "es",
+    type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "StrandIA — Tu armario digital con IA",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "StrandIA — Tu armario digital con IA",
+    description:
+      "Genera outfits con la ropa que ya tienes. StrandIA combina inteligencia artificial con tu armario para ayudarte a vestir mejor.",
+    images: ["/og-image.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -48,7 +73,7 @@ export default function RootLayout({
       className={`${dmSans.variable} ${playfair.variable} h-full`}
     >
       <head>
-        <link rel="apple-touch-icon" href="/icon-192.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
