@@ -23,11 +23,16 @@ export async function GET(request: NextRequest) {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("onboarding_completed")
+          .select("approved, onboarding_completed")
           .eq("id", user.id)
           .maybeSingle();
 
-        if (!profile?.onboarding_completed) {
+        // Lista de espera: sin aprobar no hay onboarding ni app.
+        if (!profile?.approved) {
+          return NextResponse.redirect(new URL("/waitlist", origin));
+        }
+
+        if (!profile.onboarding_completed) {
           return NextResponse.redirect(new URL("/onboarding", origin));
         }
       }

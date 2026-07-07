@@ -50,7 +50,9 @@ export default function RegisterPage() {
       return;
     }
 
-    router.push("/onboarding");
+    // Los usuarios nuevos entran a la lista de espera; el Proxy los mantendra
+    // ahi hasta que un admin los apruebe.
+    router.push("/waitlist");
     router.refresh();
   }
 
