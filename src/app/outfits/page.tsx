@@ -56,7 +56,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
   return (
     <div className="flex flex-1 flex-col">
       <Header email={user?.email} displayName={profileRes.data?.display_name} />
-      <main className="flex-1 py-10 sm:py-14">
+      <main className="flex-1 pb-24 pt-10 sm:pb-14 sm:pt-14">
         <Container size="lg">
           <header className="max-w-2xl">
             <p className="text-sm text-text-muted">Outfits con IA</p>

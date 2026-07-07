@@ -29,7 +29,7 @@ export default function LogoutButton() {
       onClick={handleLogout}
       isLoading={cargando}
       loadingText="Saliendo…"
-      className="!px-4 !py-2 text-xs sm:text-sm"
+      className="!px-4 !py-3.5 text-xs sm:!py-2 sm:text-sm"
     >
       Cerrar sesion
     </Button>

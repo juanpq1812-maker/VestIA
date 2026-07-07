@@ -19,9 +19,9 @@ const features = [
     descripcion: "Combinaciones inteligentes con lo que ya tienes.",
   },
   {
-    emoji: "🌱",
-    titulo: "Mide tu impacto",
-    descripcion: "Visualiza cuánto CO₂ evitas reusando tu ropa.",
+    emoji: "🛍️",
+    titulo: "Compra con inteligencia",
+    descripcion: "Recomendaciones de qué comprar según lo que ya tienes.",
   },
 ];
 
@@ -59,7 +59,7 @@ export default function LandingContent() {
           className="absolute inset-0 -z-10"
           style={{
             background:
-              "linear-gradient(160deg,#5a6e59 0%,#6B7F6A 45%,#8B9E8A 80%,#E8EFE7 100%)",
+              "linear-gradient(160deg,#3F4B3E 0%,#4F5F4F 45%,#5a6e59 80%,#E8EFE7 100%)",
           }}
           aria-hidden="true"
         />
@@ -90,9 +90,8 @@ export default function LandingContent() {
               </h1>
 
               <p className="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg lg:mx-0 mx-auto">
-                Genera outfits con la ropa que ya tienes. Reduce el impacto de
-                tu armario, descubre prendas olvidadas y vístete con
-                conciencia.
+                Genera outfits con la ropa que ya tienes, descubre prendas
+                olvidadas y compra de forma más inteligente.
               </p>
 
               <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
@@ -156,7 +155,7 @@ export default function LandingContent() {
                   </div>
 
                   <div className="mt-5 flex items-center justify-between rounded-xl bg-white/15 px-4 py-3 text-sm text-white">
-                    <span className="font-medium">+0,8 kg CO₂ evitado</span>
+                    <span className="font-medium">4 prendas combinadas</span>
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary">
                       Generado con IA
                     </span>
@@ -202,20 +201,6 @@ export default function LandingContent() {
               </div>
             ))}
           </div>
-        </Container>
-      </section>
-
-      {/* ── POR QUÉ STRANDIA ───────────────────────────────────────────────── */}
-      <section className="border-t border-divider bg-primary-light">
-        <Container size="md" className="py-14 sm:py-20 text-center">
-          <p className="font-display text-2xl font-bold leading-snug text-text sm:text-3xl">
-            &ldquo;Cada año, la industria textil genera 92 millones de toneladas
-            de residuos. StrandIA te ayuda a usar lo que ya tienes, una prenda a la
-            vez.&rdquo;
-          </p>
-          <p className="mt-4 text-xs text-text-faint">
-            Fuente: Ellen MacArthur Foundation, 2023
-          </p>
         </Container>
       </section>
 

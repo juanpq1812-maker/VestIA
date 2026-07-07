@@ -2,6 +2,16 @@
 //
 // Server Component: recibe todos los datos pre-calculados desde page.tsx.
 // Responsabilidad de este componente: solo UI.
+//
+// Estructura editorial ("El Armario Editorial", ver DESIGN.md):
+//   1. Saludo personal.
+//   2. Hero "Outfit del día" — construido con datos reales (prenda estrella
+//      o, si aún no hay usos, la prenda más reciente) + CTA fuerte a generar
+//      outfit. Sin datos → empty state invitando a subir la primera prenda.
+//   3. Grid secundario: prenda olvidada (real) + Comunidad (placeholder, sin
+//      funcionalidad todavía).
+//   4. Preview del armario.
+//   5. Inspiración → CTA a generar outfits con IA.
 
 import Link from "next/link";
 import Header from "@/components/layout/Header";
@@ -9,7 +19,6 @@ import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import LazyImage from "@/components/ui/LazyImage";
-import { computeImpact, formatEsNumber } from "@/lib/impact/calculations";
 import type { ClothingCategory } from "@/types/database";
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -28,6 +37,7 @@ type PrendaEstrella = {
   nombre: string;
   image_path: string | null;
   image_url?: string | null;
+  primary_color: string | null;
   usos: number;
 } | null;
 
@@ -36,12 +46,12 @@ type PrendaOlvidada = {
   nombre: string;
   image_path: string | null;
   image_url?: string | null;
+  primary_color: string | null;
   diasOlvidada: number;
 } | null;
 
 type Props = {
   displayName: string;
-  totalUses: number;
   weekUses: number;
   totalItems: number;
   recentItems: RecentItem[];
@@ -76,25 +86,20 @@ const CATEGORY_LABELS: Record<ClothingCategory, string> = {
 
 export default function DashboardView({
   displayName,
-  totalUses,
   weekUses,
   totalItems,
   recentItems,
   prendaEstrella,
   prendaOlvidada,
 }: Props) {
-  const { co2Kg } = computeImpact(totalUses);
-  const co2Str = formatEsNumber(co2Kg);
-  const weekStr = formatEsNumber(weekUses);
   const fecha = fechaHoyEspanol();
-
   const esUsuarioNuevo = totalItems === 0;
 
   return (
     <div className="flex flex-1 flex-col">
       <Header displayName={displayName} />
 
-      <main className="flex-1 py-8 sm:py-12">
+      <main className="flex-1 pb-24 pt-8 sm:pb-14 sm:pt-12">
         <Container size="lg">
           {/* ── Header personal ─────────────────────────────────────────── */}
           <div className="mb-8">
@@ -108,9 +113,6 @@ export default function DashboardView({
             <NuevoUsuario />
           ) : (
             <DashboardConDatos
-              co2Str={co2Str}
-              weekStr={weekStr}
-              totalUses={totalUses}
               weekUses={weekUses}
               totalItems={totalItems}
               recentItems={recentItems}
@@ -157,9 +159,6 @@ function NuevoUsuario() {
 // ── Dashboard con datos ───────────────────────────────────────────────────────
 
 type DashboardConDatosProps = {
-  co2Str: string;
-  weekStr: string;
-  totalUses: number;
   weekUses: number;
   totalItems: number;
   recentItems: RecentItem[];
@@ -168,9 +167,6 @@ type DashboardConDatosProps = {
 };
 
 function DashboardConDatos({
-  co2Str,
-  weekStr,
-  totalUses,
   weekUses,
   totalItems,
   recentItems,
@@ -179,58 +175,21 @@ function DashboardConDatos({
 }: DashboardConDatosProps) {
   return (
     <div className="flex flex-col gap-8">
-      {/* ── Métricas (2 cards en fila) ──────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card padding="md" className="flex flex-col items-center text-center">
-          <span className="text-3xl">🌱</span>
-          <p className="mt-2 font-display text-2xl font-bold text-text sm:text-3xl">
-            {co2Str} kg
-          </p>
-          <p className="mt-1 text-xs text-text-muted leading-snug">
-            de CO₂ evitados
-          </p>
-        </Card>
+      {/* ── Hero: Outfit del día ─────────────────────────────────────────── */}
+      <OutfitDelDiaHero
+        weekUses={weekUses}
+        prendaEstrella={prendaEstrella}
+        primerItem={recentItems[0] ?? null}
+      />
 
-        <Card padding="md" className="flex flex-col items-center text-center">
-          <span className="text-3xl">✨</span>
-          <p className="mt-2 font-display text-2xl font-bold text-text sm:text-3xl">
-            {weekStr}
-          </p>
-          <p className="mt-1 text-xs text-text-muted leading-snug">
-            {weekUses === 1 ? "outfit esta semana" : "outfits esta semana"}
-          </p>
-        </Card>
+      {/* ── Grid secundario: prenda olvidada + comunidad (placeholder) ─────
+          Grid de 2 items fijos (no una lista que crece) — en desktop se
+          limita el ancho en vez de estirar las cards a lo ancho del
+          Container, que las deja sparse (ver /impeccable audit → layout). */}
+      <div className="grid grid-cols-2 gap-4 lg:mx-auto lg:max-w-2xl lg:gap-6">
+        <PrendaOlvidadaCard prendaOlvidada={prendaOlvidada} />
+        <ComunidadCard />
       </div>
-
-      {/* ── Mensaje de cero usos ────────────────────────────────────────── */}
-      {totalUses === 0 && (
-        <p className="text-center text-sm text-text-muted">
-          ¡Genera tu primer outfit para empezar a medir tu impacto!
-        </p>
-      )}
-
-      {/* ── Prenda estrella ─────────────────────────────────────────────── */}
-      {prendaEstrella ? (
-        <Card padding="md">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">
-            🏆 Tu prenda estrella
-          </p>
-          <div className="mt-3 flex items-center gap-4">
-            <MiniImagen
-              imageUrl={prendaEstrella.image_url ?? null}
-              alt={prendaEstrella.nombre}
-              color={null}
-            />
-            <div>
-              <p className="font-semibold text-text">{prendaEstrella.nombre}</p>
-              <p className="mt-0.5 text-sm text-text-muted">
-                Usada {prendaEstrella.usos}{" "}
-                {prendaEstrella.usos === 1 ? "vez" : "veces"}
-              </p>
-            </div>
-          </div>
-        </Card>
-      ) : null}
 
       {/* ── Preview del armario ─────────────────────────────────────────── */}
       <div>
@@ -295,82 +254,234 @@ function DashboardConDatos({
         )}
       </div>
 
-      {/* ── CTA principal ───────────────────────────────────────────────── */}
-      <Link href="/outfits" className="block">
-        <Button size="lg" fullWidth>
-          ✨ Generar outfit de hoy
-        </Button>
-      </Link>
-
-      {/* ── Prenda olvidada ─────────────────────────────────────────────── */}
-      {prendaOlvidada ? (
-        <Card padding="md">
-          <p className="text-xs font-bold uppercase tracking-widest text-warning">
-            😴 Olvidada hace {prendaOlvidada.diasOlvidada} días
-          </p>
-          <div className="mt-3 flex items-start gap-4">
-            <MiniImagen
-              imageUrl={prendaOlvidada.image_url ?? null}
-              alt={prendaOlvidada.nombre}
-              color={null}
-            />
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-text truncate">
-                {prendaOlvidada.nombre}
-              </p>
-              <p className="mt-1 text-sm text-text-muted">
-                La IA puede armar outfits con esta prenda
-              </p>
-              <Link
-                href={`/outfits?prenda=${prendaOlvidada.id}&nombre=${encodeURIComponent(prendaOlvidada.nombre)}`}
-                className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                Ver outfits sugeridos →
-              </Link>
-            </div>
-          </div>
-        </Card>
-      ) : null}
+      {/* ── Inspiración ──────────────────────────────────────────────────── */}
+      <InspiracionCard />
     </div>
   );
 }
 
-// ── Subcomponente de imagen mini ──────────────────────────────────────────────
+// ── Hero: Outfit del día ───────────────────────────────────────────────────
 
-function MiniImagen({
-  imageUrl,
-  alt,
-  color,
+function OutfitDelDiaHero({
+  weekUses,
+  prendaEstrella,
+  primerItem,
 }: {
-  imageUrl: string | null;
-  alt: string;
-  color: string | null;
+  weekUses: number;
+  prendaEstrella: PrendaEstrella;
+  primerItem: RecentItem | null;
 }) {
-  return (
-    <div
-      className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg border border-border"
-      style={{ backgroundColor: color ?? "#E8EFE7" }}
-    >
-      {imageUrl ? (
-        <LazyImage
-          src={imageUrl}
-          alt={alt}
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center text-white/60">
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
+  // Caso 1: hay prenda estrella (ya se generaron y usaron outfits).
+  if (prendaEstrella) {
+    return (
+      <section className="overflow-hidden rounded-xl border border-border bg-surface-2 shadow-sm">
+        <div className="flex flex-col gap-4 p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1">
+              <p className="text-xs font-bold uppercase tracking-widest text-primary">
+                Recomendación de hoy
+              </p>
+              <h2 className="font-display text-xl font-semibold text-text sm:text-2xl">
+                Tu prenda estrella
+              </h2>
+            </div>
+            {weekUses > 0 && (
+              <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-text shadow-sm backdrop-blur">
+                ✨ {weekUses} {weekUses === 1 ? "outfit esta semana" : "outfits esta semana"}
+              </span>
+            )}
+          </div>
+
+          <div
+            className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-surface"
+            style={{ backgroundColor: prendaEstrella.primary_color ?? "#E8EFE7" }}
           >
-            <path d="M20 6 12 2 4 6v6c0 5 8 10 8 10s8-5 8-10V6z" />
-          </svg>
+            {prendaEstrella.image_url ? (
+              <LazyImage
+                src={prendaEstrella.image_url}
+                alt={prendaEstrella.nombre}
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <p className="text-sm leading-relaxed text-text-muted">
+              <strong className="text-text">{prendaEstrella.nombre}</strong> es
+              tu prenda de mayor rotación: la usaste{" "}
+              {prendaEstrella.usos} {prendaEstrella.usos === 1 ? "vez" : "veces"}.
+              Dejá que la IA arme un outfit nuevo con ella hoy.
+            </p>
+            <Link
+              href={`/outfits?prenda=${prendaEstrella.id}&nombre=${encodeURIComponent(prendaEstrella.nombre)}`}
+            >
+              <Button size="lg" fullWidth>
+                ✨ Generar outfit de hoy
+              </Button>
+            </Link>
+          </div>
         </div>
-      )}
+      </section>
+    );
+  }
+
+  // Caso 2: hay prendas pero todavía ningún outfit usado.
+  if (primerItem) {
+    const label =
+      primerItem.name?.trim() ||
+      primerItem.subcategory?.trim() ||
+      CATEGORY_LABELS[primerItem.category];
+    return (
+      <section className="overflow-hidden rounded-xl border border-border bg-surface-2 shadow-sm">
+        <div className="flex flex-col gap-4 p-5 sm:p-6">
+          <div className="space-y-1">
+            <p className="text-xs font-bold uppercase tracking-widest text-primary">
+              Recomendación de hoy
+            </p>
+            <h2 className="font-display text-xl font-semibold text-text sm:text-2xl">
+              Armá tu primer outfit
+            </h2>
+          </div>
+
+          <div
+            className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-surface"
+            style={{ backgroundColor: primerItem.primary_color ?? "#E8EFE7" }}
+          >
+            {primerItem.image_url ? (
+              <LazyImage
+                src={primerItem.image_url}
+                alt={label}
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <p className="text-sm leading-relaxed text-text-muted">
+              Ya tenés prendas en tu armario. Dejá que la IA combine{" "}
+              <strong className="text-text">{label}</strong> con el resto y
+              arme tu primer outfit.
+            </p>
+            <Link href="/outfits">
+              <Button size="lg" fullWidth>
+                ✨ Generar mi primer outfit
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return null;
+}
+
+// ── Prenda olvidada (real) ──────────────────────────────────────────────────
+
+function PrendaOlvidadaCard({ prendaOlvidada }: { prendaOlvidada: PrendaOlvidada }) {
+  if (!prendaOlvidada) {
+    return (
+      <Card padding="md" className="flex flex-col">
+        <div
+          aria-hidden="true"
+          className="flex aspect-square w-full items-center justify-center rounded-lg bg-primary-light text-3xl"
+        >
+          🎉
+        </div>
+        <div className="mt-3">
+          <h3 className="font-display text-sm font-semibold text-text">
+            Todo tu armario está activo
+          </h3>
+          <p className="mt-1 text-xs text-text-muted">
+            Ninguna prenda lleva mucho tiempo sin usarse. ¡Seguí así!
+          </p>
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <Card padding="md" className="flex flex-col">
+      <div
+        className="aspect-square w-full overflow-hidden rounded-lg bg-surface-2"
+        style={{ backgroundColor: prendaOlvidada.primary_color ?? "#E8EFE7" }}
+      >
+        {prendaOlvidada.image_url ? (
+          <LazyImage
+            src={prendaOlvidada.image_url}
+            alt={prendaOlvidada.nombre}
+            className="h-full w-full object-cover"
+          />
+        ) : null}
+      </div>
+      <div className="mt-3">
+        <h3 className="font-display text-sm font-semibold text-text">
+          Prenda olvidada
+        </h3>
+        <p className="mt-1 text-xs text-text-muted">
+          {prendaOlvidada.nombre} lleva {prendaOlvidada.diasOlvidada} días sin
+          salir del armario.
+        </p>
+        <Link
+          href={`/outfits?prenda=${prendaOlvidada.id}&nombre=${encodeURIComponent(prendaOlvidada.nombre)}`}
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-primary-light px-3 py-2 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Revisar armario
+          <span aria-hidden="true">→</span>
+        </Link>
+      </div>
+    </Card>
+  );
+}
+
+// ── Comunidad (placeholder visual, sin funcionalidad todavía) ──────────────
+
+function ComunidadCard() {
+  return (
+    <Card padding="md" className="flex flex-col opacity-90">
+      <div
+        aria-hidden="true"
+        className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-2 text-3xl"
+      >
+        👥
+      </div>
+      <div className="mt-3">
+        <h3 className="font-display text-sm font-semibold text-text">
+          Comunidad
+        </h3>
+        <p className="mt-1 text-xs text-text-muted">
+          Descubrí qué usan tus amigos y ganá puntos cumpliendo retos.
+        </p>
+        <span className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-surface-2 px-3 py-2 text-center text-xs font-semibold text-text-muted">
+          Próximamente
+        </span>
+      </div>
+    </Card>
+  );
+}
+
+// ── Inspiración ──────────────────────────────────────────────────────────────
+
+function InspiracionCard() {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl bg-primary-light p-5 sm:p-6">
+      <div className="flex items-center gap-2">
+        <span aria-hidden="true" className="text-lg">✨</span>
+        <h3 className="font-display text-lg font-semibold text-text">
+          ¿Buscás inspiración?
+        </h3>
+      </div>
+      <p className="text-sm leading-relaxed text-text-muted">
+        Dejá que nuestra IA te inspire: descubrí qué prendas comprar o
+        encontrá el look perfecto combinando lo que ya tenés.
+      </p>
+      <Link
+        href="/outfits"
+        className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        Explorar más
+        <span aria-hidden="true">→</span>
+      </Link>
     </div>
   );
 }

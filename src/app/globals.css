@@ -17,14 +17,19 @@
 
   /* Texto */
   --color-text: #2C2C2C;
-  --color-text-muted: #9E9E8E;
-  --color-text-faint: #b8b8a8;
+  /* Oscurecidos para pasar WCAG AA (4.5:1) sobre --color-surface y
+     --color-surface-2; mismo hue/tono cálido, solo baja la luminosidad. */
+  --color-text-muted: #68685A;
+  --color-text-faint: #6B6B57;
   --color-text-inverse: #FDFAF7;
 
-  /* Marca (sage StrandIA) */
-  --color-primary: #8B9E8A;
-  --color-primary-hover: #6B7F6A;
-  --color-primary-active: #5a6e59;
+  /* Marca (sage StrandIA). Oscurecida para que sirva como texto/CTA (WCAG AA
+     4.5:1) además de como fondo con texto blanco encima — antes solo pasaba
+     como superficie decorativa. Mismo hue que antes (sage), sin segundo
+     acento: ver "The One Sage Rule" en DESIGN.md. */
+  --color-primary: #5a6e59;
+  --color-primary-hover: #4F5F4F;
+  --color-primary-active: #3F4B3E;
   --color-primary-light: #E8EFE7;
   --color-primary-mid: #b8c9b7;
 

@@ -30,7 +30,12 @@ export default function PaginaStub({
   return (
     <div className="flex flex-1 flex-col">
       <Header email={userEmail} displayName={displayName} hideNav={hideNav} />
-      <main className="flex-1 py-10 sm:py-16">
+      <main
+        className={[
+          "flex-1 pt-10 sm:pt-16",
+          hideNav ? "pb-10 sm:pb-16" : "pb-24 sm:pb-16",
+        ].join(" ")}
+      >
         <Container size="md">
           <div className="rounded-xl border border-border bg-surface p-8 shadow-sm sm:p-12">
             <span className="inline-flex items-center gap-2 rounded-full bg-warning-light px-3 py-1 text-xs font-semibold uppercase tracking-wide text-warning">
