@@ -59,10 +59,15 @@ type Props = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fechaHoyEspanol(): string {
+  // Este componente se renderiza en el servidor (Vercel corre en UTC): sin
+  // timeZone explícita, un usuario en Colombia vería la fecha de "mañana"
+  // desde las 7 pm. El piloto es Colombia; si la app se expande a otras
+  // zonas, esta fecha debería calcularse en el cliente.
   const fecha = new Date().toLocaleDateString("es-CO", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "America/Bogota",
   });
   return fecha.charAt(0).toUpperCase() + fecha.slice(1);
 }
