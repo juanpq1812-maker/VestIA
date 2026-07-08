@@ -3,21 +3,17 @@
 // Server Component: recibe todos los datos pre-calculados desde page.tsx.
 // Responsabilidad de este componente: solo UI.
 //
-// Estructura editorial ("El Armario Editorial", ver DESIGN.md):
-//   1. Saludo personal.
-//   2. Hero "Outfit del día" — construido con datos reales (prenda estrella
-//      o, si aún no hay usos, la prenda más reciente) + CTA fuerte a generar
-//      outfit. Sin datos → empty state invitando a subir la primera prenda.
-//   3. Grid secundario: prenda olvidada (real) + Comunidad (placeholder, sin
-//      funcionalidad todavía).
-//   4. Preview del armario.
-//   5. Inspiración → CTA a generar outfits con IA.
+// Estructura editorial (Design STRANDIA — strandia_home):
+//   1. Saludo personal en serif + fecha.
+//   2. Hero "Outfit del día" sobre superficie linen — prenda estrella o la
+//      más reciente + CTA. Sin datos → empty state para subir la primera prenda.
+//   3. Grid secundario: Tus más usados (prenda olvidada real) + Comunidad.
+//   4. Banner de inspiración → AI Studio.
 
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
-import Card from "@/components/ui/Card";
 import LazyImage from "@/components/ui/LazyImage";
 import type { ClothingCategory } from "@/types/database";
 
@@ -66,9 +62,7 @@ function fechaHoyEspanol(): string {
     weekday: "long",
     day: "numeric",
     month: "long",
-    year: "numeric",
   });
-  // Capitalizar primera letra: "lunes, 10 de mayo" → "Lunes, 10 de mayo"
   return fecha.charAt(0).toUpperCase() + fecha.slice(1);
 }
 
@@ -101,12 +95,12 @@ export default function DashboardView({
 
       <main className="flex-1 pb-24 pt-8 sm:pb-14 sm:pt-12">
         <Container size="lg">
-          {/* ── Header personal ─────────────────────────────────────────── */}
+          {/* ── Saludo ──────────────────────────────────────────────────── */}
           <div className="mb-8">
-            <p className="text-sm text-text-muted">{fecha}</p>
-            <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
-              Hola de nuevo, {displayName} 👋
+            <h1 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
+              Hola, {displayName}
             </h1>
+            <p className="mt-2 text-sm text-text-muted">{fecha}</p>
           </div>
 
           {esUsuarioNuevo ? (
@@ -130,10 +124,10 @@ export default function DashboardView({
 
 function NuevoUsuario() {
   return (
-    <div className="flex flex-col items-center gap-6 rounded-2xl border-2 border-dashed border-border bg-surface-2 px-6 py-14 text-center">
-      <span className="text-5xl">🌱</span>
+    <div className="flex flex-col items-center gap-6 rounded-xl bg-surface-offset px-6 py-14 text-center">
+      <span aria-hidden="true" className="text-5xl">🌱</span>
       <div>
-        <h2 className="font-display text-2xl font-bold text-text sm:text-3xl">
+        <h2 className="font-display text-2xl text-text sm:text-3xl">
           Tu armario digital te espera
         </h2>
         <p className="mx-auto mt-3 max-w-sm text-sm text-text-muted">
@@ -144,11 +138,11 @@ function NuevoUsuario() {
       </div>
       <div className="flex flex-col items-center gap-3 sm:flex-row">
         <Link href="/wardrobe/upload">
-          <Button size="lg">📸 Sube tu primera prenda</Button>
+          <Button size="lg">Sube tu primera prenda</Button>
         </Link>
         <Link href="/outfits">
           <Button size="lg" variant="ghost">
-            ✨ Genera un outfit
+            Genera un outfit
           </Button>
         </Link>
       </div>
@@ -175,87 +169,21 @@ function DashboardConDatos({
 }: DashboardConDatosProps) {
   return (
     <div className="flex flex-col gap-8">
-      {/* ── Hero: Outfit del día ─────────────────────────────────────────── */}
       <OutfitDelDiaHero
         weekUses={weekUses}
         prendaEstrella={prendaEstrella}
         primerItem={recentItems[0] ?? null}
       />
 
-      {/* ── Grid secundario: prenda olvidada + comunidad (placeholder) ─────
-          Grid de 2 items fijos (no una lista que crece) — en desktop se
-          limita el ancho en vez de estirar las cards a lo ancho del
-          Container, que las deja sparse (ver /impeccable audit → layout). */}
+      {/* ── Grid secundario: más usados / comunidad ───────────────────────
+          Grid de 2 items fijos — en desktop se limita el ancho en vez de
+          estirar las cards a lo ancho del Container. */}
       <div className="grid grid-cols-2 gap-4 lg:mx-auto lg:max-w-2xl lg:gap-6">
-        <PrendaOlvidadaCard prendaOlvidada={prendaOlvidada} />
+        <MasUsadosCard prendaOlvidada={prendaOlvidada} totalItems={totalItems} />
         <ComunidadCard />
       </div>
 
-      {/* ── Preview del armario ─────────────────────────────────────────── */}
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-semibold text-text">
-            Tu armario
-            <span className="ml-2 text-sm font-normal text-text-muted">
-              · {totalItems} {totalItems === 1 ? "prenda" : "prendas"}
-            </span>
-          </h2>
-          <Link
-            href="/wardrobe"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            Ver todo →
-          </Link>
-        </div>
-
-        {recentItems.length > 0 ? (
-          <div className="grid grid-cols-4 gap-3">
-            {recentItems.map((item) => {
-              const label =
-                item.name?.trim() ||
-                item.subcategory?.trim() ||
-                CATEGORY_LABELS[item.category];
-              return (
-                <Link key={item.id} href="/wardrobe" className="group block">
-                  <div
-                    className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border bg-surface-2"
-                    style={{
-                      backgroundColor: item.primary_color ?? "#E8EFE7",
-                    }}
-                  >
-                    {item.image_url ? (
-                      <LazyImage
-                        src={item.image_url}
-                        alt={label}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                      />
-                    ) : null}
-                  </div>
-                  <p className="mt-1.5 truncate text-xs text-text-muted">
-                    {label}
-                  </p>
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="rounded-xl border-2 border-dashed border-border bg-surface-2 p-6 text-center">
-            <p className="text-sm text-text-muted">
-              Sube tus primeras 6 prendas para tu primer outfit
-            </p>
-            <div className="mt-3 flex justify-center">
-              <Link href="/wardrobe/upload">
-                <Button variant="primary" size="md">
-                  Sube tu primera prenda
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Inspiración ──────────────────────────────────────────────────── */}
-      <InspiracionCard />
+      <InspiracionBanner />
     </div>
   );
 }
@@ -271,142 +199,96 @@ function OutfitDelDiaHero({
   prendaEstrella: PrendaEstrella;
   primerItem: RecentItem | null;
 }) {
-  // Caso 1: hay prenda estrella (ya se generaron y usaron outfits).
-  if (prendaEstrella) {
-    return (
-      <section className="overflow-hidden rounded-xl border border-border bg-surface-2 shadow-sm">
-        <div className="flex flex-col gap-4 p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-primary">
-                Recomendación de hoy
-              </p>
-              <h2 className="font-display text-xl font-semibold text-text sm:text-2xl">
-                Tu prenda estrella
-              </h2>
-            </div>
-            {weekUses > 0 && (
-              <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-text shadow-sm backdrop-blur">
-                ✨ {weekUses} {weekUses === 1 ? "outfit esta semana" : "outfits esta semana"}
-              </span>
-            )}
-          </div>
+  const prenda = prendaEstrella
+    ? {
+        id: prendaEstrella.id,
+        nombre: prendaEstrella.nombre,
+        image_url: prendaEstrella.image_url ?? null,
+        primary_color: prendaEstrella.primary_color,
+      }
+    : primerItem
+      ? {
+          id: primerItem.id,
+          nombre:
+            primerItem.name?.trim() ||
+            primerItem.subcategory?.trim() ||
+            CATEGORY_LABELS[primerItem.category],
+          image_url: primerItem.image_url,
+          primary_color: primerItem.primary_color,
+        }
+      : null;
 
-          <div
-            className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-surface"
-            style={{ backgroundColor: prendaEstrella.primary_color ?? "#E8EFE7" }}
-          >
-            {prendaEstrella.image_url ? (
-              <LazyImage
-                src={prendaEstrella.image_url}
-                alt={prendaEstrella.nombre}
-                className="h-full w-full object-cover"
-              />
-            ) : null}
-          </div>
+  if (!prenda) return null;
 
-          <div className="flex flex-col gap-3">
-            <p className="text-sm leading-relaxed text-text-muted">
-              <strong className="text-text">{prendaEstrella.nombre}</strong> es
-              tu prenda de mayor rotación: la usaste{" "}
-              {prendaEstrella.usos} {prendaEstrella.usos === 1 ? "vez" : "veces"}.
-              Dejá que la IA arme un outfit nuevo con ella hoy.
-            </p>
-            <Link
-              href={`/outfits?prenda=${prendaEstrella.id}&nombre=${encodeURIComponent(prendaEstrella.nombre)}`}
-            >
-              <Button size="lg" fullWidth>
-                ✨ Generar outfit de hoy
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  // Caso 2: hay prendas pero todavía ningún outfit usado.
-  if (primerItem) {
-    const label =
-      primerItem.name?.trim() ||
-      primerItem.subcategory?.trim() ||
-      CATEGORY_LABELS[primerItem.category];
-    return (
-      <section className="overflow-hidden rounded-xl border border-border bg-surface-2 shadow-sm">
-        <div className="flex flex-col gap-4 p-5 sm:p-6">
-          <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">
-              Recomendación de hoy
-            </p>
-            <h2 className="font-display text-xl font-semibold text-text sm:text-2xl">
-              Armá tu primer outfit
-            </h2>
-          </div>
-
-          <div
-            className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-surface"
-            style={{ backgroundColor: primerItem.primary_color ?? "#E8EFE7" }}
-          >
-            {primerItem.image_url ? (
-              <LazyImage
-                src={primerItem.image_url}
-                alt={label}
-                className="h-full w-full object-cover"
-              />
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <p className="text-sm leading-relaxed text-text-muted">
-              Ya tenés prendas en tu armario. Dejá que la IA combine{" "}
-              <strong className="text-text">{label}</strong> con el resto y
-              arme tu primer outfit.
-            </p>
-            <Link href="/outfits">
-              <Button size="lg" fullWidth>
-                ✨ Generar mi primer outfit
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  return null;
-}
-
-// ── Prenda olvidada (real) ──────────────────────────────────────────────────
-
-function PrendaOlvidadaCard({ prendaOlvidada }: { prendaOlvidada: PrendaOlvidada }) {
-  if (!prendaOlvidada) {
-    return (
-      <Card padding="md" className="flex flex-col">
-        <div
-          aria-hidden="true"
-          className="flex aspect-square w-full items-center justify-center rounded-lg bg-primary-light text-3xl"
-        >
-          🎉
-        </div>
-        <div className="mt-3">
-          <h3 className="font-display text-sm font-semibold text-text">
-            Todo tu armario está activo
-          </h3>
-          <p className="mt-1 text-xs text-text-muted">
-            Ninguna prenda lleva mucho tiempo sin usarse. ¡Seguí así!
-          </p>
-        </div>
-      </Card>
-    );
-  }
+  const descripcion = prendaEstrella
+    ? `${prenda.nombre} es tu prenda de mayor rotación (${prendaEstrella.usos} ${prendaEstrella.usos === 1 ? "uso" : "usos"}). Deja que la IA arme un look nuevo con ella hoy.`
+    : `Ya tienes prendas en tu armario. Deja que la IA combine ${prenda.nombre} con el resto y arme tu primer outfit.`;
 
   return (
-    <Card padding="md" className="flex flex-col">
+    <section className="overflow-hidden rounded-xl bg-surface-offset">
+      <div className="flex flex-col gap-4 p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-text-muted">
+              Recomendación de hoy
+            </p>
+            <h2 className="font-display text-2xl text-text sm:text-3xl">
+              Outfit del día
+            </h2>
+          </div>
+          {weekUses > 0 && (
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-text shadow-sm backdrop-blur">
+              {weekUses} {weekUses === 1 ? "outfit esta semana" : "outfits esta semana"}
+            </span>
+          )}
+        </div>
+
+        <div
+          className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-surface sm:mx-auto sm:max-w-md"
+          style={{ backgroundColor: prenda.primary_color ?? "#f0edea" }}
+        >
+          {prenda.image_url ? (
+            <LazyImage
+              src={prenda.image_url}
+              alt={prenda.nombre}
+              className="h-full w-full object-cover"
+            />
+          ) : null}
+        </div>
+
+        <div className="flex flex-col gap-4 sm:mx-auto sm:w-full sm:max-w-md">
+          <p className="text-sm leading-relaxed text-text-muted">{descripcion}</p>
+          <Link
+            href={`/outfits?prenda=${prenda.id}&nombre=${encodeURIComponent(prenda.nombre)}`}
+          >
+            <Button size="lg" fullWidth>
+              Generar outfit de hoy
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── Tus más usados (prenda olvidada real) ────────────────────────────────────
+
+function MasUsadosCard({
+  prendaOlvidada,
+  totalItems,
+}: {
+  prendaOlvidada: PrendaOlvidada;
+  totalItems: number;
+}) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-xl bg-surface-2">
       <div
-        className="aspect-square w-full overflow-hidden rounded-lg bg-surface-2"
-        style={{ backgroundColor: prendaOlvidada.primary_color ?? "#E8EFE7" }}
+        className="aspect-square w-full overflow-hidden"
+        style={{
+          backgroundColor: prendaOlvidada?.primary_color ?? "#e5e2df",
+        }}
       >
-        {prendaOlvidada.image_url ? (
+        {prendaOlvidada?.image_url ? (
           <LazyImage
             src={prendaOlvidada.image_url}
             alt={prendaOlvidada.nombre}
@@ -414,70 +296,90 @@ function PrendaOlvidadaCard({ prendaOlvidada }: { prendaOlvidada: PrendaOlvidada
           />
         ) : null}
       </div>
-      <div className="mt-3">
-        <h3 className="font-display text-sm font-semibold text-text">
-          Prenda olvidada
-        </h3>
-        <p className="mt-1 text-xs text-text-muted">
-          {prendaOlvidada.nombre} lleva {prendaOlvidada.diasOlvidada} días sin
-          salir del armario.
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="font-display text-base text-text">Tus más usados</h3>
+        <p className="mt-1 flex-1 text-xs leading-relaxed text-text-muted">
+          {prendaOlvidada
+            ? `Redescubre tus favoritos: ${prendaOlvidada.nombre} lleva ${prendaOlvidada.diasOlvidada} días sin salir del armario.`
+            : `Tienes ${totalItems} ${totalItems === 1 ? "prenda" : "prendas"} en rotación. Dale una nueva oportunidad a las que menos usas.`}
         </p>
         <Link
-          href={`/outfits?prenda=${prendaOlvidada.id}&nombre=${encodeURIComponent(prendaOlvidada.nombre)}`}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-primary-light px-3 py-2 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          href={
+            prendaOlvidada
+              ? `/outfits?prenda=${prendaOlvidada.id}&nombre=${encodeURIComponent(prendaOlvidada.nombre)}`
+              : "/wardrobe"
+          }
+          className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-primary-mid/60 px-4 py-2 text-xs font-semibold text-text transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Revisar armario
           <span aria-hidden="true">→</span>
         </Link>
       </div>
-    </Card>
+    </div>
   );
 }
 
-// ── Comunidad (placeholder visual, sin funcionalidad todavía) ──────────────
+// ── Comunidad ────────────────────────────────────────────────────────────────
 
 function ComunidadCard() {
   return (
-    <Card padding="md" className="flex flex-col opacity-90">
+    <div className="flex flex-col overflow-hidden rounded-xl bg-surface-2">
       <div
         aria-hidden="true"
-        className="flex aspect-square w-full items-center justify-center rounded-lg bg-surface-2 text-3xl"
+        className="flex aspect-square w-full items-center justify-center bg-primary-light text-primary"
       >
-        👥
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="9" cy="8" r="3" />
+          <path d="M3.5 20c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+          <circle cx="17" cy="9" r="2.4" />
+          <path d="M16.5 15.2c2.6.3 4.5 2.1 4.5 4.8" />
+        </svg>
       </div>
-      <div className="mt-3">
-        <h3 className="font-display text-sm font-semibold text-text">
-          Comunidad
-        </h3>
-        <p className="mt-1 text-xs text-text-muted">
-          Descubrí qué usan tus amigos y ganá puntos cumpliendo retos.
+      <div className="flex flex-1 flex-col p-4">
+        <h3 className="font-display text-base text-text">Comunidad</h3>
+        <p className="mt-1 flex-1 text-xs leading-relaxed text-text-muted">
+          Descubre qué están usando tus amigos y gana puntos cumpliendo
+          nuestros Fashion Quests.
         </p>
-        <span className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-surface-2 px-3 py-2 text-center text-xs font-semibold text-text-muted">
-          Próximamente
-        </span>
+        <Link
+          href="/comunidad"
+          className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-primary-mid/60 px-4 py-2 text-xs font-semibold text-text transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Explora la comunidad
+          <span aria-hidden="true">→</span>
+        </Link>
       </div>
-    </Card>
+    </div>
   );
 }
 
 // ── Inspiración ──────────────────────────────────────────────────────────────
 
-function InspiracionCard() {
+function InspiracionBanner() {
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-primary-light p-5 sm:p-6">
+    <div className="flex flex-col gap-3 rounded-xl bg-surface-offset p-5 sm:p-6">
       <div className="flex items-center gap-2">
-        <span aria-hidden="true" className="text-lg">✨</span>
-        <h3 className="font-display text-lg font-semibold text-text">
-          ¿Buscás inspiración?
+        <svg
+          aria-hidden="true"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="text-primary"
+        >
+          <path d="M12 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Zm7 12c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3Z" />
+        </svg>
+        <h3 className="font-display text-xl text-text">
+          ¿Buscas inspiración?
         </h3>
       </div>
-      <p className="text-sm leading-relaxed text-text-muted">
-        Dejá que nuestra IA te inspire: descubrí qué prendas comprar o
-        encontrá el look perfecto combinando lo que ya tenés.
+      <p className="max-w-prose text-sm leading-relaxed text-text-muted">
+        ¡Deja que nuestra IA te inspire! Descubre qué prendas comprar o
+        encuentra el look perfecto explorando los outfits de nuestra comunidad.
       </p>
       <Link
         href="/outfits"
-        className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="inline-flex w-fit items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         Explorar más
         <span aria-hidden="true">→</span>

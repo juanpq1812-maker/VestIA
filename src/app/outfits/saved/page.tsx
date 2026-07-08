@@ -12,6 +12,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
+import WardrobeTabs from "@/components/wardrobe/WardrobeTabs";
 import SavedOutfitCard from "@/components/outfits/SavedOutfitCard";
 import RepeatedOutfitsSection, {
   type RepeatableOutfit,
@@ -120,19 +121,20 @@ export default async function SavedOutfitsPage() {
   return (
     <div className="flex flex-1 flex-col">
       <Header email={user?.email} displayName={profile?.display_name} />
-      <main className="flex-1 pb-24 pt-10 sm:pb-14 sm:pt-14">
+      <main className="flex-1 pb-24 pt-8 sm:pb-14 sm:pt-12">
         <Container size="lg">
-          <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-text-muted">Outfits con IA</p>
-              <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
-                Mis outfits guardados
-              </h1>
-            </div>
+          <header className="flex items-end justify-between gap-4">
+            <h1 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
+              Armario
+            </h1>
             <Link href="/outfits">
-              <Button variant="secondary">+ Generar nuevo outfit</Button>
+              <Button variant="secondary">+ Generar outfit</Button>
             </Link>
           </header>
+
+          <div className="mt-6">
+            <WardrobeTabs active="outfits" />
+          </div>
 
           {outfits.length === 0 ? (
             <EmptyState />
