@@ -17,6 +17,7 @@ import Button from "@/components/ui/Button";
 import LazyImage from "@/components/ui/LazyImage";
 import type { ClothingCategory } from "@/types/database";
 
+import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
 type RecentItem = {
@@ -58,10 +59,15 @@ type Props = {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fechaHoyEspanol(): string {
+  // Este componente se renderiza en el servidor (Vercel corre en UTC): sin
+  // timeZone explícita, un usuario en Colombia vería la fecha de "mañana"
+  // desde las 7 pm. El piloto es Colombia; si la app se expande a otras
+  // zonas, esta fecha debería calcularse en el cliente.
   const fecha = new Date().toLocaleDateString("es-CO", {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: "America/Bogota",
   });
   return fecha.charAt(0).toUpperCase() + fecha.slice(1);
 }
@@ -125,7 +131,16 @@ export default function DashboardView({
 function NuevoUsuario() {
   return (
     <div className="flex flex-col items-center gap-6 rounded-xl bg-surface-offset px-6 py-14 text-center">
-      <span aria-hidden="true" className="text-5xl">🌱</span>
+      <span
+        aria-hidden="true"
+        className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary"
+      >
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 21v-8" />
+          <path d="M12 13c0-3.5-2.5-6-6-6H4c0 3.5 2.5 6 6 6h2Z" />
+          <path d="M12 11c0-2.8 2-4.8 4.8-4.8H20c0 2.8-2 4.8-4.8 4.8H12Z" />
+        </svg>
+      </span>
       <div>
         <h2 className="font-display text-2xl text-text sm:text-3xl">
           Tu armario digital te espera
@@ -237,7 +252,7 @@ function OutfitDelDiaHero({
             </h2>
           </div>
           {weekUses > 0 && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-text shadow-sm backdrop-blur">
+            <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-text shadow-sm">
               {weekUses} {weekUses === 1 ? "outfit esta semana" : "outfits esta semana"}
             </span>
           )}
@@ -245,7 +260,7 @@ function OutfitDelDiaHero({
 
         <div
           className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-surface sm:mx-auto sm:max-w-md"
-          style={{ backgroundColor: prenda.primary_color ?? "#f0edea" }}
+          style={{ backgroundColor: prenda.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
         >
           {prenda.image_url ? (
             <LazyImage
@@ -285,7 +300,7 @@ function MasUsadosCard({
       <div
         className="aspect-square w-full overflow-hidden"
         style={{
-          backgroundColor: prendaOlvidada?.primary_color ?? "#e5e2df",
+          backgroundColor: prendaOlvidada?.primary_color ?? GARMENT_PLACEHOLDER_COLOR,
         }}
       >
         {prendaOlvidada?.image_url ? (

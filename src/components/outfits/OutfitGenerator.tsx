@@ -30,6 +30,7 @@ import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSe
 import InspirationSection from "@/components/outfits/InspirationSection";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 
+import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
 // `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
 const OCASIONES = [
@@ -56,8 +57,6 @@ type Tab = "occasion" | "description" | "surprise";
 type Props = {
   /** Cantidad total de prendas en el armario. Si <2 el componente no renderiza el generador. */
   totalItems: number;
-  /** Outfits guardados del usuario. Se muestra un acceso rápido si > 0. */
-  savedOutfitsCount?: number;
   /** ID de la prenda que la IA debe incluir obligatoriamente en todos los outfits. */
   lockedItemId?: string | null;
   /** Nombre de la prenda bloqueada para mostrar en el badge. */
@@ -68,7 +67,6 @@ type Props = {
 
 export default function OutfitGenerator({
   totalItems,
-  savedOutfitsCount = 0,
   lockedItemId,
   lockedItemName,
   wardrobeSummary = {},
@@ -135,9 +133,6 @@ export default function OutfitGenerator({
       {tieneLockedItem && (
         <LockedGarmentBanner itemName={lockedItemName} onGenerar={onGenerar} isPending={isPending} />
       )}
-      {!tieneLockedItem && savedOutfitsCount > 0 && (
-        <SavedOutfitsBanner count={savedOutfitsCount} />
-      )}
       <section className="rounded-xl bg-surface p-5 shadow-sm sm:p-8">
         <h2 className="font-display text-2xl text-text">Crea tu outfit</h2>
 
@@ -156,24 +151,16 @@ export default function OutfitGenerator({
         </div>
       </section>
 
-      <div className="flex flex-col gap-3">
-        <Button
-          variant="primary"
-          size="lg"
-          fullWidth
-          onClick={onGenerar}
-          isLoading={isPending}
-          loadingText="Generando outfit..."
-        >
-          Generar outfit
-        </Button>
-        <Link
-          href="/outfits/saved"
-          className="self-center text-sm font-medium text-primary hover:underline"
-        >
-          Ver mis outfits guardados →
-        </Link>
-      </div>
+      <Button
+        variant="primary"
+        size="lg"
+        fullWidth
+        onClick={onGenerar}
+        isLoading={isPending}
+        loadingText="Generando outfit..."
+      >
+        Generar outfit
+      </Button>
 
       {error && (
         <div
@@ -673,7 +660,7 @@ const CATEGORIA_LABELS: Record<string, string> = {
 };
 
 function ItemThumb({ item }: { item: ClothingItem }) {
-  const fallback = item.primary_color ?? "#f0edea";
+  const fallback = item.primary_color ?? GARMENT_PLACEHOLDER_COLOR;
   return (
     <div
       className="h-28 w-24 shrink-0 overflow-hidden"
@@ -740,32 +727,6 @@ function LockedGarmentBanner({
         Regenerar
       </Button>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Banner de acceso rápido a outfits guardados.
-// ---------------------------------------------------------------------------
-
-function SavedOutfitsBanner({ count }: { count: number }) {
-  return (
-    <Link
-      href="/outfits/saved"
-      className="flex items-center justify-between gap-4 rounded-xl border border-primary bg-primary-light px-5 py-4 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-    >
-      <div className="flex items-center gap-3">
-        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-primary">
-          <path d="M19 21 12 16 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
-        </svg>
-        <div>
-          <p className="font-semibold text-text">Ver mis outfits guardados</p>
-          <p className="text-xs text-text-muted">
-            {count === 1 ? "Tienes 1 outfit guardado" : `Tienes ${count} outfits guardados`}
-          </p>
-        </div>
-      </div>
-      <span aria-hidden="true" className="text-text-muted text-lg">→</span>
-    </Link>
   );
 }
 

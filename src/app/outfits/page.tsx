@@ -25,7 +25,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [categoriesRes, profileRes, savedOutfitsCountRes, sp] = await Promise.all([
+  const [categoriesRes, profileRes, sp] = await Promise.all([
     supabase
       .from("clothing_items")
       .select("category")
@@ -35,10 +35,6 @@ export default async function OutfitsPage({ searchParams }: Props) {
       .select("display_name")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
-    supabase
-      .from("outfits")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user?.id ?? ""),
     searchParams,
   ]);
 
@@ -72,7 +68,6 @@ export default async function OutfitsPage({ searchParams }: Props) {
           <div className="mt-8">
             <OutfitGenerator
               totalItems={totalItems}
-              savedOutfitsCount={savedOutfitsCountRes.count ?? 0}
               lockedItemId={lockedItemId}
               lockedItemName={lockedItemName}
               wardrobeSummary={wardrobeSummary}

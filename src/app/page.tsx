@@ -31,6 +31,10 @@ export default async function RootPage() {
   const today = new Date();
   const sevenDaysAgoStr = offsetDate(today, -7);
   const fifteenDaysAgoStr = offsetDate(today, -15);
+  // Ventana de análisis: los cálculos de prenda estrella/olvidada solo miran
+  // los últimos 90 días — evita que el payload de usos crezca sin límite con
+  // el historial del usuario.
+  const ninetyDaysAgoStr = offsetDate(today, -90);
 
   const [
     profileRes,
@@ -48,7 +52,10 @@ export default async function RootPage() {
       .from("outfit_uses")
       .select("id", { count: "exact", head: true })
       .gte("used_date", sevenDaysAgoStr),
-    supabase.from("outfit_uses").select("outfit_id, used_date"),
+    supabase
+      .from("outfit_uses")
+      .select("outfit_id, used_date")
+      .gte("used_date", ninetyDaysAgoStr),
     supabase.from("outfits").select("id, clothing_item_ids"),
     supabase
       .from("clothing_items")

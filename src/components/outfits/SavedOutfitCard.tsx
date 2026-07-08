@@ -28,6 +28,7 @@ import {
 } from "@/lib/outfits/dateUtils";
 import type { ClothingItem } from "@/types/database";
 
+import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 type Props = {
   outfitId: string;
   name: string | null;
@@ -155,7 +156,7 @@ export default function SavedOutfitCard({
             <li key={it.id} className="text-center">
               <div
                 className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border"
-                style={{ backgroundColor: it.primary_color ?? "#E8EFE7" }}
+                style={{ backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
                 title={it.name ?? it.subcategory ?? it.category}
               >
                 {it.image_url ? (

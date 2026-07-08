@@ -13,6 +13,7 @@ import Toast from "@/components/ui/Toast";
 import { lastUsedLabel, todayIso } from "@/lib/outfits/dateUtils";
 import type { ClothingItem } from "@/types/database";
 
+import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 export type RepeatableOutfit = {
   id: string;
   name: string | null;
@@ -94,7 +95,7 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
                 <div
                   className="relative aspect-square w-full overflow-hidden"
                   style={{
-                    backgroundColor: o.cover?.primary_color ?? "#E8EFE7",
+                    backgroundColor: o.cover?.primary_color ?? GARMENT_PLACEHOLDER_COLOR,
                   }}
                 >
                   {o.cover?.image_url ? (

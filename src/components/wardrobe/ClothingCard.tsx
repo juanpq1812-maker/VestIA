@@ -9,6 +9,7 @@ import Link from "next/link";
 import type { ClothingCategory, ClothingItem } from "@/types/database";
 import LazyImage from "@/components/ui/LazyImage";
 
+import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 const CATEGORY_LABELS: Record<ClothingCategory, string> = {
   top: "Top",
   bottom: "Bottom",
@@ -28,7 +29,7 @@ export default function ClothingCard({ item }: Props) {
     item.name?.trim() ||
     item.subcategory?.trim() ||
     CATEGORY_LABELS[item.category];
-  const colorBase = item.primary_color ?? "#E8EFE7";
+  const colorBase = item.primary_color ?? GARMENT_PLACEHOLDER_COLOR;
 
   return (
     <article className="group">
