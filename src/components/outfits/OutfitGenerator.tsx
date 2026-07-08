@@ -30,6 +30,7 @@ import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSe
 import InspirationSection from "@/components/outfits/InspirationSection";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 
+import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
 // `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
 const OCASIONES = [
@@ -659,7 +660,7 @@ const CATEGORIA_LABELS: Record<string, string> = {
 };
 
 function ItemThumb({ item }: { item: ClothingItem }) {
-  const fallback = item.primary_color ?? "#f0edea";
+  const fallback = item.primary_color ?? GARMENT_PLACEHOLDER_COLOR;
   return (
     <div
       className="h-28 w-24 shrink-0 overflow-hidden"
