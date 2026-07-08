@@ -13,7 +13,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import {
@@ -44,11 +44,11 @@ const OCASIONES = [
 ] as const;
 
 const MENSAJES_LOADING = [
-  "✨ Analizando tu armario...",
-  "👗 Combinando prendas...",
-  "🎨 Buscando la combinación perfecta...",
-  "🌟 Casi listo...",
-  "💫 Armando tu look...",
+  "Analizando tu armario…",
+  "Combinando prendas…",
+  "Buscando la combinación perfecta…",
+  "Casi listo…",
+  "Armando tu look…",
 ] as const;
 
 type Tab = "occasion" | "description" | "surprise";
@@ -138,37 +138,42 @@ export default function OutfitGenerator({
       {!tieneLockedItem && savedOutfitsCount > 0 && (
         <SavedOutfitsBanner count={savedOutfitsCount} />
       )}
-      <ModeSelector tab={tab} setTab={setTab} />
+      <section className="rounded-xl bg-surface p-5 shadow-sm sm:p-8">
+        <h2 className="font-display text-2xl text-text">Crea tu outfit</h2>
 
-      <section className="rounded-xl border border-border bg-surface p-6 shadow-sm sm:p-8">
-        {tab === "occasion" && (
-          <OccasionPicker value={occasion} onChange={setOccasion} />
-        )}
-        {tab === "description" && (
-          <DescriptionInput value={description} onChange={setDescription} />
-        )}
-        {tab === "surprise" && <SurpriseBlurb />}
+        <div className="mt-5">
+          <ModeSelector tab={tab} setTab={setTab} />
+        </div>
 
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={onGenerar}
-            isLoading={isPending}
-            loadingText="Generando outfit..."
-          >
-            {tab === "surprise"
-              ? "✨ Sorprendeme con un outfit"
-              : "Generar outfit"}
-          </Button>
-          <Link
-            href="/outfits/saved"
-            className="text-sm font-medium text-primary hover:underline"
-          >
-            Ver mis outfits guardados →
-          </Link>
+        <div className="mt-6">
+          {tab === "occasion" && (
+            <OccasionPicker value={occasion} onChange={setOccasion} />
+          )}
+          {tab === "description" && (
+            <DescriptionInput value={description} onChange={setDescription} />
+          )}
+          {tab === "surprise" && <SurpriseBlurb />}
         </div>
       </section>
+
+      <div className="flex flex-col gap-3">
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          onClick={onGenerar}
+          isLoading={isPending}
+          loadingText="Generando outfit..."
+        >
+          Generar outfit
+        </Button>
+        <Link
+          href="/outfits/saved"
+          className="self-center text-sm font-medium text-primary hover:underline"
+        >
+          Ver mis outfits guardados →
+        </Link>
+      </div>
 
       {error && (
         <div
@@ -219,24 +224,35 @@ function ModeSelector({
   tab: Tab;
   setTab: (t: Tab) => void;
 }) {
-  const opciones: { id: Tab; titulo: string; sub: string; icono: string }[] = [
+  const opciones: { id: Tab; titulo: string; icono: ReactNode }[] = [
     {
       id: "occasion",
       titulo: "Por ocasión",
-      sub: "Elige una ocasión y deja que la IA arme algo apropiado.",
-      icono: "📅",
+      icono: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg>
+      ),
     },
     {
       id: "description",
       titulo: "Descripción libre",
-      sub: "Cuenta en tus palabras lo que necesitas.",
-      icono: "✍️",
+      icono: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m17 3 4 4L8 20l-5 1 1-5L17 3Z" />
+        </svg>
+      ),
     },
     {
       id: "surprise",
-      titulo: "Sorprendeme",
-      sub: "Sin reglas: que la IA improvise.",
-      icono: "✨",
+      titulo: "Sorpréndeme",
+      icono: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 3c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
+          <path d="M19 15c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3Z" />
+        </svg>
+      ),
     },
   ];
 
@@ -244,7 +260,7 @@ function ModeSelector({
     <div
       role="tablist"
       aria-label="Modo de generación de outfit"
-      className="grid gap-3 sm:grid-cols-3"
+      className="grid grid-cols-3 gap-3"
     >
       {opciones.map((op) => {
         const activo = tab === op.id;
@@ -255,27 +271,22 @@ function ModeSelector({
             aria-selected={activo}
             onClick={() => setTab(op.id)}
             className={[
-              "rounded-xl border p-4 text-left transition-all",
+              "flex min-h-[88px] flex-col items-center justify-center gap-2 rounded-xl border p-3 text-center transition-all duration-150",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
               activo
-                ? "border-primary bg-primary-light shadow-sm"
-                : "border-border bg-surface hover:border-primary-mid hover:bg-surface-2",
+                ? "border-primary bg-primary-light text-primary shadow-sm"
+                : "border-border bg-surface text-text-muted hover:border-primary-mid hover:bg-surface-2 hover:text-text",
             ].join(" ")}
           >
-            <div className="flex items-center gap-2">
-              <span aria-hidden="true" className="text-xl">
-                {op.icono}
-              </span>
-              <span
-                className={[
-                  "font-semibold",
-                  activo ? "text-primary" : "text-text",
-                ].join(" ")}
-              >
-                {op.titulo}
-              </span>
-            </div>
-            <p className="mt-1.5 text-xs text-text-muted">{op.sub}</p>
+            {op.icono}
+            <span
+              className={[
+                "text-xs font-semibold leading-tight",
+                activo ? "text-primary" : "text-text",
+              ].join(" ")}
+            >
+              {op.titulo}
+            </span>
           </button>
         );
       })}
@@ -357,7 +368,7 @@ function SurpriseBlurb() {
   return (
     <div className="text-center">
       <p className="font-display text-xl text-text sm:text-2xl">
-        Confiá en la IA.
+        Confía en la IA.
       </p>
       <p className="mt-2 text-sm text-text-muted">
         Te proponemos 2 combinaciones inesperadas con prendas de tu armario.
@@ -404,14 +415,14 @@ function LoadingState() {
         {MENSAJES_LOADING[idx]}
       </p>
 
-      {/* Barra de progreso */}
+      {/* Barra de progreso (scaleX en vez de width para no forzar layout) */}
       <div className="w-full max-w-sm">
         <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
           <div
-            className="h-full rounded-full bg-primary"
+            className="h-full w-full origin-left rounded-full bg-primary"
             style={{
-              width: `${progress}%`,
-              transition: "width 15s linear",
+              transform: `scaleX(${progress / 100})`,
+              transition: "transform 15s linear",
             }}
           />
         </div>
@@ -438,11 +449,20 @@ function ResultsGrid({
   return (
     <section aria-label="Outfits propuestos" className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="font-display text-2xl font-bold text-text">
+        <h2 className="font-display text-2xl text-text">
           Tus outfits
         </h2>
-        <Button variant="ghost" onClick={onRegenerate}>
-          🔄 Regenerar
+        <Button
+          variant="ghost"
+          onClick={onRegenerate}
+          leftIcon={
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36L21 8" />
+              <path d="M21 3v5h-5" />
+            </svg>
+          }
+        >
+          Regenerar
         </Button>
       </div>
       <div className="grid gap-6 md:grid-cols-2">
@@ -560,9 +580,9 @@ function OutfitCard({
   const usadoHoy = estado === "usedToday";
 
   return (
-    <article className="rounded-xl border border-border bg-surface p-5 shadow-sm">
+    <article className="flex flex-col gap-3">
       <header className="flex items-start justify-between gap-3">
-        <h3 className="font-display text-xl font-semibold text-text">
+        <h3 className="font-display text-xl text-text">
           {outfit.name}
         </h3>
         <span className="rounded-full bg-primary-light px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
@@ -570,42 +590,68 @@ function OutfitCard({
         </span>
       </header>
 
-      <ul className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5">
-        {visibles.map((it) => (
-          <li key={it.id} className="text-center">
-            <ItemThumb item={it} />
-            <p className="mt-1.5 truncate text-[11px] text-text-muted">
-              {it.subcategory ?? it.category}
-            </p>
-          </li>
-        ))}
+      {/* Prendas como cards horizontales (strandia_resultado_outfit_generado) */}
+      <ul className="flex flex-col gap-3">
+        {visibles.map((it) => {
+          const nombre = it.name ?? it.subcategory ?? it.category;
+          return (
+            <li
+              key={it.id}
+              className="flex overflow-hidden rounded-xl bg-surface shadow-sm"
+            >
+              <ItemThumb item={it} />
+              <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-faint">
+                  {CATEGORIA_LABELS[it.category] ?? it.category}
+                </p>
+                <p className="truncate font-display text-base text-text" title={nombre}>
+                  {nombre}
+                </p>
+                {it.subcategory && it.name ? (
+                  <span className="w-fit rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                    {it.subcategory}
+                  </span>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
       </ul>
 
       {outfit.explanation && (
-        <p className="mt-4 text-xs leading-relaxed text-text-muted">
+        <p className="text-xs leading-relaxed text-text-muted">
           {outfit.explanation}
         </p>
       )}
 
-      <div className="mt-5 flex flex-wrap items-center gap-3">
+      <div className="mt-2 flex flex-col gap-3">
         <Button
           variant={yaGuardado ? "secondary" : "primary"}
+          size="lg"
+          fullWidth
           onClick={onGuardar}
           isLoading={estado === "saving"}
           loadingText="Guardando..."
           disabled={yaGuardado || estado === "saving" || estado === "usingToday"}
+          leftIcon={
+            <svg width="16" height="16" viewBox="0 0 24 24" fill={yaGuardado ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 21 12 16 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
+            </svg>
+          }
         >
-          {yaGuardado ? "✓ Guardado" : "💾 Guardar outfit"}
+          {yaGuardado ? "Guardado" : "Guardar outfit"}
         </Button>
 
         <Button
-          variant={usadoHoy ? "secondary" : "primary"}
+          variant={usadoHoy ? "secondary" : "ghost"}
+          size="lg"
+          fullWidth
           onClick={onUsarHoy}
           isLoading={estado === "usingToday"}
           loadingText="Registrando..."
           disabled={usadoHoy || estado === "saving" || estado === "usingToday"}
         >
-          {usadoHoy ? "✓ Ya usado hoy" : "👕 Lo usaré hoy"}
+          {usadoHoy ? "Ya usado hoy" : "Lo usaré hoy"}
         </Button>
 
         {estado === "error" && errMsg && (
@@ -616,11 +662,21 @@ function OutfitCard({
   );
 }
 
+const CATEGORIA_LABELS: Record<string, string> = {
+  top: "Top",
+  bottom: "Pantalón",
+  dress: "Vestido",
+  outerwear: "Abrigo",
+  footwear: "Calzado",
+  accessory: "Accesorio",
+  body: "Body",
+};
+
 function ItemThumb({ item }: { item: ClothingItem }) {
-  const fallback = item.primary_color ?? "#E8EFE7";
+  const fallback = item.primary_color ?? "#f0edea";
   return (
     <div
-      className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border"
+      className="h-28 w-24 shrink-0 overflow-hidden"
       style={{ backgroundColor: fallback }}
       title={item.name ?? item.subcategory ?? item.category}
     >
@@ -659,9 +715,11 @@ function LockedGarmentBanner({
   }, []);
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-primary bg-primary-light px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-4 rounded-xl bg-primary-light px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
-        <span aria-hidden="true" className="text-2xl">✨</span>
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-primary">
+          <path d="M12 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
+        </svg>
         <div>
           <p className="font-semibold text-text">
             Basado en:{" "}
@@ -679,7 +737,7 @@ function LockedGarmentBanner({
         isLoading={isPending}
         loadingText="Generando..."
       >
-        🔄 Regenerar
+        Regenerar
       </Button>
     </div>
   );
@@ -696,7 +754,9 @@ function SavedOutfitsBanner({ count }: { count: number }) {
       className="flex items-center justify-between gap-4 rounded-xl border border-primary bg-primary-light px-5 py-4 transition-colors hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
     >
       <div className="flex items-center gap-3">
-        <span aria-hidden="true" className="text-2xl">👗</span>
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-primary">
+          <path d="M19 21 12 16 5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16Z" />
+        </svg>
         <div>
           <p className="font-semibold text-text">Ver mis outfits guardados</p>
           <p className="text-xs text-text-muted">
@@ -715,17 +775,17 @@ function SavedOutfitsBanner({ count }: { count: number }) {
 
 function EmptyWardrobeCallout() {
   return (
-    <div className="rounded-xl border-2 border-dashed border-border bg-surface-2 p-10 text-center">
+    <div className="rounded-xl bg-surface-offset p-10 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
-        <span aria-hidden="true" className="text-2xl">
-          👕
-        </span>
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20.4 6.4 16 4l-1.5 2h-5L8 4 3.6 6.4a1 1 0 0 0-.4 1.3l1.6 3a1 1 0 0 0 1.3.4L7 10.4V19a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-8.6l.9.7a1 1 0 0 0 1.3-.4l1.6-3a1 1 0 0 0-.4-1.3Z" />
+        </svg>
       </div>
-      <h3 className="mt-4 font-display text-xl font-semibold text-text">
+      <h3 className="mt-4 font-display text-xl text-text">
         Necesitas al menos 2 prendas en tu armario
       </h3>
       <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
-        Para que la IA pueda combinar, subí primero algunas prendas. Te
+        Para que la IA pueda combinar, sube primero algunas prendas. Te
         recomendamos al menos 1 top, 1 bottom y 1 calzado.
       </p>
       <div className="mt-6 flex justify-center">

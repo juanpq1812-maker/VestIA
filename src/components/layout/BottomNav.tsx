@@ -1,5 +1,5 @@
 // Bottom navigation bar — patrón de navegación primario en mobile.
-// El Header sigue existiendo (logo + logout), pero la navegación entre
+// El Header sigue existiendo (logo + perfil), pero la navegación entre
 // secciones vive acá abajo, fija, siempre accesible con el pulgar.
 // En desktop (md+) se oculta: ahí la navegación vive en el nav horizontal del Header.
 
@@ -18,7 +18,8 @@ type NavItem = {
 const ITEMS: NavItem[] = [
   { href: "/", label: "Inicio", icon: (a) => <IconHome active={a} /> },
   { href: "/wardrobe", label: "Armario", icon: (a) => <IconWardrobe active={a} /> },
-  { href: "/outfits", label: "Outfits", icon: (a) => <IconSparkle active={a} /> },
+  { href: "/outfits", label: "AI Studio", icon: (a) => <IconSparkle active={a} /> },
+  { href: "/comunidad", label: "Comunidad", icon: (a) => <IconCommunity active={a} /> },
 ];
 
 export default function BottomNav() {
@@ -39,11 +40,11 @@ export default function BottomNav() {
             key={item.href}
             href={item.href}
             aria-current={activo ? "page" : undefined}
-            className="flex flex-col items-center gap-1 rounded-xl px-3 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="flex flex-col items-center gap-1 rounded-xl px-2 py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <span
               className={[
-                "flex h-9 w-9 items-center justify-center rounded-full transition-colors duration-150",
+                "flex h-9 w-14 items-center justify-center rounded-full transition-colors duration-150",
                 activo ? "bg-primary-light text-primary" : "text-text-muted",
               ].join(" ")}
               aria-hidden="true"
@@ -93,6 +94,17 @@ function IconSparkle({ active }: { active: boolean }) {
     <svg width="20" height="20" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3v3M12 18v3M3 12h3M18 12h3" strokeLinecap="round" />
       <path d="M12 7c0 2.76-2.24 5-5 5 2.76 0 5 2.24 5 5 0-2.76 2.24-5 5-5-2.76 0-5-2.24-5-5Z" />
+    </svg>
+  );
+}
+
+function IconCommunity({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3" fill={active ? "currentColor" : "none"} />
+      <path d="M3.5 20c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+      <circle cx="17" cy="9" r="2.4" />
+      <path d="M16.5 15.2c2.6.3 4.5 2.1 4.5 4.8" />
     </svg>
   );
 }

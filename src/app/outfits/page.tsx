@@ -59,9 +59,8 @@ export default async function OutfitsPage({ searchParams }: Props) {
       <main className="flex-1 pb-24 pt-10 sm:pb-14 sm:pt-14">
         <Container size="lg">
           <header className="max-w-2xl">
-            <p className="text-sm text-text-muted">Outfits con IA</p>
-            <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
-              ¿Qué te pondrás hoy?
+            <h1 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
+              AI Studio
             </h1>
             <p className="mt-2 text-base text-text-muted">
               Elige un modo y la IA combinará prendas reales de tu armario.
@@ -70,7 +69,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
             </p>
           </header>
 
-          <div className="mt-10">
+          <div className="mt-8">
             <OutfitGenerator
               totalItems={totalItems}
               savedOutfitsCount={savedOutfitsCountRes.count ?? 0}

@@ -7,50 +7,52 @@
   de `:root` y todo el resto de la app se actualiza.
 */
 :root {
-  /* Fondos y superficies */
-  --color-bg: #FAF0E6;
-  --color-surface: #FDFAF7;
-  --color-surface-2: #E8EFE7;
-  --color-surface-offset: #E8EFE7;
-  --color-divider: #d1d5db;
-  --color-border: rgba(139, 158, 138, 0.25);
+  /* Fondos y superficies — "Organic Minimalism" (Design STRANDIA/designs/strandia/DESIGN.md).
+     Base cálida casi blanca; la profundidad se comunica con capas tonales,
+     no con sombras pesadas. */
+  --color-bg: #fcf9f6;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0edea;
+  --color-surface-offset: #ebe1d7; /* crema lino para secciones editoriales */
+  --color-divider: #eae8e5;
+  --color-border: #dcd9d7;
 
   /* Texto */
-  --color-text: #2C2C2C;
-  /* Oscurecidos para pasar WCAG AA (4.5:1) sobre --color-surface y
-     --color-surface-2; mismo hue/tono cálido, solo baja la luminosidad. */
-  --color-text-muted: #68685A;
-  --color-text-faint: #6B6B57;
-  --color-text-inverse: #FDFAF7;
+  --color-text: #1c1c1a;
+  --color-text-muted: #434842;
+  /* Al límite AA sobre --color-bg; solo para texto secundario pequeño. */
+  --color-text-faint: #6b6f69;
+  --color-text-inverse: #f3f0ed;
 
-  /* Marca (sage StrandIA). Oscurecida para que sirva como texto/CTA (WCAG AA
-     4.5:1) además de como fondo con texto blanco encima — antes solo pasaba
-     como superficie decorativa. Mismo hue que antes (sage), sin segundo
-     acento: ver "The One Sage Rule" en DESIGN.md. */
-  --color-primary: #5a6e59;
-  --color-primary-hover: #4F5F4F;
-  --color-primary-active: #3F4B3E;
-  --color-primary-light: #E8EFE7;
-  --color-primary-mid: #b8c9b7;
+  /* Marca (sage profundo). Sirve como texto/CTA (WCAG AA 4.5:1) y como
+     fondo con texto blanco. Sin segundo acento: ver DESIGN.md. */
+  --color-primary: #516351;
+  --color-primary-hover: #435243;
+  --color-primary-active: #364336;
+  --color-primary-light: #e6ece5;
+  --color-primary-mid: #b8ccb6;
+  /* Verde tinta casi negro para momentos editoriales de alto contraste. */
+  --color-ink: #2d312e;
 
   /* Estados */
   --color-success: #059669;
   --color-success-light: #d1fae5;
   --color-warning: #d97706;
   --color-warning-light: #fef3c7;
-  --color-danger: #dc2626;
-  --color-danger-light: #fee2e2;
+  --color-danger: #ba1a1a;
+  --color-danger-light: #ffdad6;
 
-  /* Bordes redondeados */
-  --radius-sm: 0.375rem;
-  --radius-md: 0.625rem;
+  /* Bordes redondeados — lenguaje "Soft-Tactile": botones/inputs 8px,
+     search 12px, contenedores grandes 16px. */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
   --radius-lg: 1rem;
   --radius-xl: 1.5rem;
 
-  /* Sombras suaves */
-  --shadow-sm: 0 1px 3px rgba(44, 44, 44, 0.08);
-  --shadow-md: 0 4px 16px rgba(44, 44, 44, 0.10);
-  --shadow-lg: 0 12px 40px rgba(44, 44, 44, 0.14);
+  /* Sombras difusas tintadas con el verde tinta, nunca negro puro. */
+  --shadow-sm: 0 1px 2px rgba(45, 49, 46, 0.05);
+  --shadow-md: 0 6px 20px rgba(45, 49, 46, 0.07);
+  --shadow-lg: 0 10px 30px rgba(45, 49, 46, 0.10);
 
   /* Transicion estandar */
   --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -79,6 +81,7 @@
   --color-primary-active: var(--color-primary-active);
   --color-primary-light: var(--color-primary-light);
   --color-primary-mid: var(--color-primary-mid);
+  --color-ink: var(--color-ink);
 
   --color-success: var(--color-success);
   --color-success-light: var(--color-success-light);
@@ -97,8 +100,8 @@
   --shadow-lg: var(--shadow-lg);
 
   /* Tipografias servidas por next/font (definidas en layout.tsx). */
-  --font-sans: var(--font-dm-sans), "Helvetica Neue", system-ui, sans-serif;
-  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-hanken), "Helvetica Neue", system-ui, sans-serif;
+  --font-display: var(--font-caslon), Georgia, "Times New Roman", serif;
 }
 
 html {

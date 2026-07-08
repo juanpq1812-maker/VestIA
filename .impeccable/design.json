@@ -1,46 +1,179 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-01T00:00:00.000Z",
+  "generatedAt": "2026-07-07T00:00:00.000Z",
   "title": "Design System: StrandIA",
   "extensions": {
     "colorMeta": {
-      "sage-primary": { "role": "primary", "displayName": "Sage", "canonical": "#5a6e59", "tonalRamp": ["#2E362D", "#3F4B3E", "#4F5F4F", "#5a6e59", "#8B9E8A", "#b8c9b7", "#d9e4d8", "#E8EFE7"] },
-      "sage-hover": { "role": "primary", "displayName": "Sage Hover", "canonical": "#4F5F4F" },
-      "sage-active": { "role": "primary", "displayName": "Sage Active", "canonical": "#3F4B3E" },
-      "sage-light": { "role": "primary", "displayName": "Sage Light", "canonical": "#E8EFE7" },
-      "sage-mid": { "role": "primary", "displayName": "Sage Mid", "canonical": "#b8c9b7" },
-      "cream-bg": { "role": "neutral", "displayName": "Warm Cream", "canonical": "#FAF0E6", "tonalRamp": ["#2C2C2C", "#4a4438", "#6e6555", "#9a8f78", "#c9bda3", "#e8ddc9", "#f5ecdf", "#FAF0E6"] },
-      "paper-surface": { "role": "neutral", "displayName": "Paper", "canonical": "#FDFAF7" },
-      "sage-tint-surface": { "role": "neutral", "displayName": "Sage Tint Surface", "canonical": "#E8EFE7" },
-      "divider-gray": { "role": "neutral", "displayName": "Divider Gray", "canonical": "#d1d5db" },
-      "border-sage": { "role": "neutral", "displayName": "Sage Border", "canonical": "rgba(139, 158, 138, 0.25)" },
-      "ink-text": { "role": "neutral", "displayName": "Ink", "canonical": "#2C2C2C" },
-      "text-muted": { "role": "neutral", "displayName": "Muted Olive-Gray", "canonical": "#68685A" },
-      "text-faint": { "role": "neutral", "displayName": "Faint Olive-Gray", "canonical": "#6B6B57" },
-      "text-inverse": { "role": "neutral", "displayName": "Inverse Text", "canonical": "#FDFAF7" },
-      "success": { "role": "success", "displayName": "Success Green", "canonical": "#059669" },
-      "warning": { "role": "warning", "displayName": "Warning Amber", "canonical": "#d97706" },
-      "danger": { "role": "danger", "displayName": "Danger Red", "canonical": "#dc2626" }
+      "sage-primary": {
+        "role": "primary",
+        "displayName": "Sage",
+        "canonical": "#516351",
+        "tonalRamp": [
+          "#2d312e",
+          "#364336",
+          "#435243",
+          "#516351",
+          "#8b9e8a",
+          "#b8ccb6",
+          "#d4e8d2",
+          "#e6ece5"
+        ]
+      },
+      "sage-hover": {
+        "role": "primary",
+        "displayName": "Sage Hover",
+        "canonical": "#435243"
+      },
+      "sage-active": {
+        "role": "primary",
+        "displayName": "Sage Active",
+        "canonical": "#364336"
+      },
+      "sage-light": {
+        "role": "primary",
+        "displayName": "Sage Light",
+        "canonical": "#e6ece5"
+      },
+      "sage-mid": {
+        "role": "primary",
+        "displayName": "Sage Mid",
+        "canonical": "#b8ccb6"
+      },
+      "ink-green": {
+        "role": "primary",
+        "displayName": "Ink Green",
+        "canonical": "#2d312e"
+      },
+      "cream-bg": {
+        "role": "neutral",
+        "displayName": "Warm Cream",
+        "canonical": "#fcf9f6"
+      },
+      "paper-surface": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff"
+      },
+      "neutral-surface": {
+        "role": "neutral",
+        "displayName": "Neutral Surface",
+        "canonical": "#f0edea"
+      },
+      "linen-offset": {
+        "role": "neutral",
+        "displayName": "Linen",
+        "canonical": "#ebe1d7"
+      },
+      "divider-gray": {
+        "role": "neutral",
+        "displayName": "Divider",
+        "canonical": "#eae8e5"
+      },
+      "border-warm": {
+        "role": "neutral",
+        "displayName": "Warm Border",
+        "canonical": "#dcd9d7"
+      },
+      "ink-text": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1c1c1a"
+      },
+      "text-muted": {
+        "role": "neutral",
+        "displayName": "Muted Olive-Gray",
+        "canonical": "#434842"
+      },
+      "text-faint": {
+        "role": "neutral",
+        "displayName": "Faint Olive-Gray",
+        "canonical": "#6b6f69"
+      },
+      "text-inverse": {
+        "role": "neutral",
+        "displayName": "Inverse Text",
+        "canonical": "#f3f0ed"
+      },
+      "success": {
+        "role": "success",
+        "displayName": "Success Green",
+        "canonical": "#059669"
+      },
+      "warning": {
+        "role": "warning",
+        "displayName": "Warning Amber",
+        "canonical": "#d97706"
+      },
+      "danger": {
+        "role": "danger",
+        "displayName": "Danger Red",
+        "canonical": "#ba1a1a"
+      }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Screen-level H1 titles only, Playfair Display." },
-      "headline": { "displayName": "Headline", "purpose": "Section H2 titles within a screen." },
-      "body": { "displayName": "Body", "purpose": "All reading content, labels, descriptions." },
-      "label": { "displayName": "Label", "purpose": "Uppercase eyebrows and category badges, used sparingly." }
+      "display": {
+        "displayName": "Display",
+        "purpose": "Screen-level H1 titles only, Libre Caslon Text."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section H2 titles within a screen."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All reading content, labels, descriptions."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase eyebrows and category badges, used sparingly."
+      },
+      "icons": {
+        "displayName": "Icons",
+        "purpose": "Material Symbols Outlined — fuente de íconos monocroma."
+      }
     },
     "shadows": [
-      { "name": "ambient-rest", "value": "0 1px 3px rgba(44, 44, 44, 0.08)", "purpose": "Default resting shadow for cards, buttons, badges." },
-      { "name": "hover-lift", "value": "0 4px 16px rgba(44, 44, 44, 0.10)", "purpose": "Hover state on cards and primary buttons, paired with a 1px translate-y lift." },
-      { "name": "overlay", "value": "0 12px 40px rgba(44, 44, 44, 0.14)", "purpose": "Modals and dropdown menus floating above the page." }
+      {
+        "name": "ambient-rest",
+        "value": "0 1px 2px rgba(45, 49, 46, 0.05)",
+        "purpose": "Default resting shadow for cards, buttons, badges."
+      },
+      {
+        "name": "hover-lift",
+        "value": "0 6px 20px rgba(45, 49, 46, 0.07)",
+        "purpose": "Hover state on cards and primary buttons, paired with a 1px translate-y lift."
+      },
+      {
+        "name": "overlay",
+        "value": "0 10px 30px rgba(45, 49, 46, 0.10)",
+        "purpose": "Modals, bottom sheets and FABs floating above the page."
+      }
     ],
     "motion": [
-      { "name": "ease-standard", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default easing for state transitions, modal entrances, fades." },
-      { "name": "duration-standard", "value": "160-240ms", "purpose": "Standard UI transition window; nothing slower except the AI-loading message rotation." }
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing for state transitions, modal entrances, fades."
+      },
+      {
+        "name": "duration-standard",
+        "value": "160-240ms",
+        "purpose": "Standard UI transition window; nothing slower except the AI-loading message rotation."
+      }
     ],
     "breakpoints": [
-      { "name": "sm", "value": "640px" },
-      { "name": "md", "value": "768px" },
-      { "name": "lg", "value": "1024px" }
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
     ]
   },
   "components": [
@@ -103,7 +236,7 @@
   ],
   "narrative": {
     "northStar": "The Editorial Wardrobe",
-    "overview": "StrandIA feels like a personal closet photographed for a magazine spread — warm, natural light, sage green and cream paper tones — but disciplined like a well-built product, not a mood board. Playfair Display gives every heading the weight of an editorial pull-quote; DM Sans carries everything functional with quiet precision. The system exists to make the user's own wardrobe photos the visual protagonist: UI chrome recedes into soft cream and sage so real garment colors and textures read as the highlight of every screen. This system explicitly rejects cold corporate SaaS (no blue-gradient dashboards, no generic flat iconography, no glassmorphism) and rejects fast-fashion urgency (no discount banners, no clashing high-contrast sale colors). It also rejects maximalist fashion-magazine excess — density and ornament stay in check so the product still feels like a clean, fast, trustworthy tool.",
+    "overview": "StrandIA feels like a personal closet photographed for a magazine spread — warm, natural light, sage green and cream paper tones — but disciplined like a well-built product, not a mood board. Libre Caslon Text gives every heading the weight of an editorial pull-quote; Hanken Grotesk carries everything functional with quiet precision. The system exists to make the user's own wardrobe photos the visual protagonist: UI chrome recedes into soft cream and sage so real garment colors and textures read as the highlight of every screen. This system explicitly rejects cold corporate SaaS (no blue-gradient dashboards, no generic flat iconography, no glassmorphism) and rejects fast-fashion urgency (no discount banners, no clashing high-contrast sale colors). It also rejects maximalist fashion-magazine excess — density and ornament stay in check so the product still feels like a clean, fast, trustworthy tool.",
     "keyCharacteristics": [
       "Warm neutral base (cream #FAF0E6 bg, paper #FDFAF7 surfaces) instead of stark white or cold gray.",
       "One committed brand hue — sage green — carrying identity across buttons, active states, and accents.",
@@ -112,17 +245,37 @@
       "Fully rounded (pill) interactive controls — buttons, chips — paired with generous xl radii on content cards."
     ],
     "rules": [
-      { "name": "The One Sage Rule", "body": "Sage is the only saturated color in the system. It never competes with a second accent hue — variety comes from tint (light/mid/hover/active), never from introducing blue, purple, or a second brand color.", "section": "colors" },
-      { "name": "The Warm-Never-Cold Rule", "body": "Every neutral in this system — background, surface, border, muted text — carries a warm/olive undertone. A pure gray or pure white anywhere in this system is a bug, not a stylistic choice.", "section": "colors" },
-      { "name": "The Serif-Never-Body Rule", "body": "Playfair Display renders headings only. It never appears in body copy, buttons, form fields, or navigation — those are always DM Sans.", "section": "typography" },
-      { "name": "The Shadow-as-Breath Rule", "body": "Shadow opacity never exceeds 0.14. If a shadow reads as dark or dramatic, it's wrong for this system — depth here is suggested, not staged.", "section": "elevation" },
-      { "name": "The Real-Routes-Only Rule", "body": "The bottom nav only links to routes that exist and work. A feature that's still a placeholder (like Comunidad) stays a visual card inside a screen, never a bottom nav tab — a global nav slot implies the destination is real.", "section": "components" }
+      {
+        "name": "The One Sage Rule",
+        "body": "Sage is the only saturated color in the system. It never competes with a second accent hue — variety comes from tint (light/mid/hover/active), never from introducing blue, purple, or a second brand color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Warm-Never-Cold Rule",
+        "body": "Every neutral in this system — background, surface, border, muted text — carries a warm/olive undertone. A pure gray or pure white anywhere in this system is a bug, not a stylistic choice.",
+        "section": "colors"
+      },
+      {
+        "name": "The Serif-Never-Body Rule",
+        "body": "Libre Caslon Text renders headings only. It never appears in body copy, buttons, form fields, or navigation — those are always Hanken Grotesk.",
+        "section": "typography"
+      },
+      {
+        "name": "The Shadow-as-Breath Rule",
+        "body": "Shadow opacity never exceeds 0.14. If a shadow reads as dark or dramatic, it's wrong for this system — depth here is suggested, not staged.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Real-Routes-Only Rule",
+        "body": "The bottom nav only links to routes that exist and work. A feature that's still a placeholder (like Comunidad) stays a visual card inside a screen, never a bottom nav tab — a global nav slot implies the destination is real.",
+        "section": "components"
+      }
     ],
     "dos": [
       "Do let the user's garment photos be the most saturated, highest-contrast element on any wardrobe screen — UI chrome stays in the cream/sage/paper register around them.",
       "Do use sage as the only saturated brand color; express variety through its tint scale (light/mid/hover/active), not a second hue.",
       "Do keep shadow opacity at or below 0.14 and pair every hover shadow with a 1px translate lift.",
-      "Do reserve Playfair Display for headings only; DM Sans everywhere else.",
+      "Do reserve Libre Caslon Text for headings only; Hanken Grotesk everywhere else.",
       "Do give every interactive element a visible active: state, not just hover:.",
       "Do keep the timing window at 160-240ms for UI transitions; the AI-loading message rotation is the sanctioned exception."
     ],

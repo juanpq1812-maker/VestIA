@@ -1,7 +1,8 @@
-// Pagina del armario (/wardrobe). Server Component: leemos al usuario y sus
-// prendas desde Supabase con RLS, firmamos URLs temporales para las imagenes
-// privadas en Storage, y delegamos el filtrado/render al Client Component
-// `CategoryFilter`.
+// Pagina del armario (/wardrobe). Server Component: leemos al usuario, sus
+// prendas y los usos de outfits desde Supabase con RLS, firmamos URLs
+// temporales para las imagenes privadas en Storage, calculamos las prendas
+// destacadas (mas/menos usada) y delegamos el render al Client Component
+// `WardrobeView`.
 //
 // La proteccion de la ruta y el gate del onboarding la hace el Proxy
 // (`src/proxy.ts`); aqui solo leemos defensivamente.
@@ -11,7 +12,8 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
-import CategoryFilter from "@/components/wardrobe/CategoryFilter";
+import WardrobeView, { type FeaturedItem } from "@/components/wardrobe/WardrobeView";
+import WardrobeTabs from "@/components/wardrobe/WardrobeTabs";
 import OnboardingProgressBar from "@/components/wardrobe/OnboardingProgressBar";
 import UploadSuccessBanner from "@/components/wardrobe/UploadSuccessBanner";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
@@ -28,19 +30,24 @@ export default async function WardrobePage({ searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Gracias a RLS, esta consulta solo trae las prendas del usuario logueado.
-  const { data: itemsData } = await supabase
-    .from("clothing_items")
-    .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, created_at, updated_at"
-    )
-    .order("created_at", { ascending: false });
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user?.id ?? "")
-    .maybeSingle();
+  // Gracias a RLS, estas consultas solo traen datos del usuario logueado.
+  const [{ data: itemsData }, { data: outfitsData }, { data: usesData }, { data: profile }] =
+    await Promise.all([
+      supabase
+        .from("clothing_items")
+        .select(
+          "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, created_at, updated_at"
+        )
+        .order("created_at", { ascending: false }),
+      supabase.from("outfits").select("id, clothing_item_ids"),
+      supabase.from("outfit_uses").select("outfit_id"),
+      supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", user?.id ?? "")
+        .maybeSingle(),
+    ]);
+  void profile;
 
   const itemsRaw = (itemsData ?? []) as ClothingItem[];
 
@@ -56,8 +63,36 @@ export default async function WardrobePage({ searchParams }: Props) {
   }));
 
   const tienePrendas = items.length > 0;
-  const saludo =
-    profile?.display_name?.trim() || user?.email?.split("@")[0] || "tu";
+
+  // ── Destacadas: prenda mas usada y menos usada segun outfit_uses ─────────
+  const outfitItemIds = new Map<string, string[]>();
+  for (const o of outfitsData ?? []) {
+    outfitItemIds.set(o.id, o.clothing_item_ids ?? []);
+  }
+  const useCounts = new Map<string, number>();
+  for (const item of items) useCounts.set(item.id, 0);
+  for (const use of usesData ?? []) {
+    for (const itemId of outfitItemIds.get(use.outfit_id) ?? []) {
+      if (useCounts.has(itemId)) {
+        useCounts.set(itemId, (useCounts.get(itemId) ?? 0) + 1);
+      }
+    }
+  }
+
+  const destacadas: FeaturedItem[] = [];
+  if (items.length >= 2 && [...useCounts.values()].some((n) => n > 0)) {
+    const ordenadas = [...items].sort(
+      (a, b) => (useCounts.get(b.id) ?? 0) - (useCounts.get(a.id) ?? 0)
+    );
+    const masUsada = ordenadas[0];
+    const menosUsada = ordenadas[ordenadas.length - 1];
+    if (masUsada && menosUsada && masUsada.id !== menosUsada.id) {
+      destacadas.push(
+        { item: masUsada, label: "Prenda más usada" },
+        { item: menosUsada, label: "Prenda menos usada" }
+      );
+    }
+  }
 
   // Items sin categorizar (subcategory null → subidas en bulk)
   const sinCategorizar = items.filter((i) => i.subcategory === null);
@@ -68,9 +103,9 @@ export default async function WardrobePage({ searchParams }: Props) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <Header email={user?.email} displayName={profile?.display_name} />
+      <Header email={user?.email} />
 
-      <main className="flex-1 pb-24 pt-10 sm:pb-14 sm:pt-14">
+      <main className="flex-1 pb-32 pt-8 sm:pb-14 sm:pt-12">
         <Container size="lg">
           {mostrarBanner ? <UploadSuccessBanner /> : null}
 
@@ -81,14 +116,13 @@ export default async function WardrobePage({ searchParams }: Props) {
           {sinCategorizar.length > 0 ? (
             <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-warning bg-warning-light px-4 py-3">
               <p className="text-sm text-text">
-                <span className="mr-1">📝</span>
                 <strong>
                   Tienes {sinCategorizar.length}{" "}
                   {sinCategorizar.length === 1
                     ? "prenda sin categorizar"
                     : "prendas sin categorizar"}
                 </strong>{" "}
-                — Categorizalas para mejores outfits
+                — Categorízalas para mejores outfits
               </p>
               {primeraSinCategorizar ? (
                 <Link href={`/wardrobe/${primeraSinCategorizar.id}/edit`}>
@@ -100,20 +134,13 @@ export default async function WardrobePage({ searchParams }: Props) {
             </div>
           ) : null}
 
-          {/* Saludo + CTA */}
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-text-muted">Hola de nuevo 👋</p>
-              <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
-                {saludo}
-              </h1>
-              <p className="mt-2 max-w-xl text-base text-text-muted">
-                {tienePrendas
-                  ? "Aquí está tu armario digital. Filtra por categoría o sube una nueva prenda."
-                  : "Sube tus primeras 6 prendas para tu primer outfit con IA."}
-              </p>
-            </div>
-            <div className="flex gap-3">
+          {/* ── Título + tabs ─────────────────────────────────────────── */}
+          <div className="flex items-end justify-between gap-4">
+            <h1 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
+              Armario
+            </h1>
+            {/* CTA desktop — en mobile vive como FAB */}
+            <div className="hidden md:block">
               <Link href="/wardrobe/upload">
                 <Button variant="primary" size="md">
                   + Agregar prenda
@@ -122,31 +149,46 @@ export default async function WardrobePage({ searchParams }: Props) {
             </div>
           </div>
 
-          <section className="mt-10">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-text">Mi armario</h2>
-              <span className="text-xs text-text-muted">
-                {items.length} {items.length === 1 ? "prenda" : "prendas"}
-              </span>
-            </div>
+          <div className="mt-6">
+            <WardrobeTabs active="prendas" />
+          </div>
 
+          <section className="mt-8">
             {tienePrendas ? (
-              <div className="mt-4">
-                <CategoryFilter items={items} />
-              </div>
+              <WardrobeView items={items} destacadas={destacadas} />
             ) : (
               <EmptyWardrobe />
             )}
           </section>
         </Container>
       </main>
+
+      {/* ── FAB mobile: Agregar Prenda ──────────────────────────────────── */}
+      <Link
+        href="/wardrobe/upload"
+        className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-4 z-30 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-3.5 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-primary-hover active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:hidden"
+      >
+        <svg
+          aria-hidden="true"
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+        >
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+        Agregar prenda
+      </Link>
     </div>
   );
 }
 
 function EmptyWardrobe() {
   return (
-    <div className="mt-4 rounded-xl border-2 border-dashed border-border bg-surface-2 p-10 text-center">
+    <div className="rounded-xl bg-surface-offset p-10 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
         <svg
           width="22"
@@ -161,7 +203,7 @@ function EmptyWardrobe() {
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
       </div>
-      <h3 className="mt-4 font-display text-xl font-semibold text-text">
+      <h3 className="mt-4 font-display text-xl text-text">
         Sube 6 prendas para tu primer outfit
       </h3>
       <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
