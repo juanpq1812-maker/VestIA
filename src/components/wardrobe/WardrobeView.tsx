@@ -7,6 +7,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import Chip from "@/components/onboarding/Chip";
+import CategoryDropdown, { type CategoryOption } from "./CategoryDropdown";
 import ClothingCard from "./ClothingCard";
 import LazyImage from "@/components/ui/LazyImage";
 import {
@@ -124,10 +125,21 @@ export default function WardrobeView({ items, destacadas }: Props) {
         <h2 className="font-display text-sm uppercase tracking-widest text-text">
           Categoría
         </h2>
+
+        {/* Mobile (<md): dropdown — el espacio horizontal escasea. */}
+        <div className="mt-3 md:hidden">
+          <CategoryDropdown
+            opciones={opcionesCategoria(counts)}
+            valor={filter}
+            onChange={(v) => setFilter(v as Filter)}
+          />
+        </div>
+
+        {/* Desktop (md+): chips — todas las categorías visibles de un vistazo. */}
         <div
           role="tablist"
           aria-label="Filtrar por categoría"
-          className="-mx-1 mt-3 flex flex-wrap gap-2 px-1"
+          className="-mx-1 mt-3 hidden flex-wrap gap-2 px-1 md:flex"
         >
           <Chip
             role="tab"
@@ -180,6 +192,17 @@ export default function WardrobeView({ items, destacadas }: Props) {
       </div>
     </div>
   );
+}
+
+function opcionesCategoria(counts: Record<string, number>): CategoryOption[] {
+  return [
+    { value: "all", label: "Todo", count: counts.all ?? 0 },
+    ...CLOTHING_CATEGORIES.map((cat) => ({
+      value: cat.value,
+      label: cat.label,
+      count: counts[cat.value] ?? 0,
+    })),
+  ];
 }
 
 function tituloDe(item: ClothingItem): string {

@@ -8,6 +8,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { esRutaActiva } from "@/lib/nav/activeRoute";
 
 type NavItem = {
   href: string;
@@ -31,10 +32,7 @@ export default function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-divider bg-surface/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:hidden"
     >
       {ITEMS.map((item) => {
-        const activo =
-          item.href === "/"
-            ? pathname === "/"
-            : pathname === item.href || pathname?.startsWith(`${item.href}/`);
+        const activo = esRutaActiva(item.href, pathname);
         return (
           <Link
             key={item.href}
