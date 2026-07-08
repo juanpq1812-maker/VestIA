@@ -1,78 +1,193 @@
+// Botón "Continuar con Google" usando Google Identity Services (GIS).
+//
+// A diferencia del flujo OAuth clásico (signInWithOAuth → redirect al dominio
+// de Supabase), GIS entrega el ID token directamente en strandia.fashion y lo
+// pasamos a Supabase con signInWithIdToken(). Resultado: la pantalla de Google
+// muestra "StrandIA" y nuestro dominio — el dominio técnico de Supabase
+// desaparece del flujo visible.
+//
+// Seguridad: generamos un nonce por sesión de botón; GIS recibe el SHA-256
+// del nonce y Supabase recibe el nonce crudo — Supabase verifica que el hash
+// dentro del ID token coincida (por eso "Skip nonce checks" queda apagado).
+
 "use client";
 
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import Script from "next/script";
+import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 
-export default function GoogleButton() {
-  const [isLoading, setIsLoading] = useState(false);
+// El client ID de OAuth es un identificador público por diseño (viaja en cada
+// request del navegador). Se puede sobreescribir por env para otros entornos.
+const GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ??
+  "120491872282-f371qct2vg8n0v1cfg3n1oq86knc0p11.apps.googleusercontent.com";
 
-  async function handleClick() {
-    setIsLoading(true);
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    // No reseteamos isLoading: la página navega entera hacia Google.
+type CredentialResponse = { credential: string };
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize(config: {
+            client_id: string;
+            callback: (response: CredentialResponse) => void;
+            nonce?: string;
+            use_fedcm_for_prompt?: boolean;
+          }): void;
+          renderButton(
+            parent: HTMLElement,
+            options: {
+              type?: "standard" | "icon";
+              theme?: "outline" | "filled_blue" | "filled_black";
+              size?: "large" | "medium" | "small";
+              text?: "signin_with" | "signup_with" | "continue_with";
+              shape?: "rectangular" | "pill" | "circle" | "square";
+              logo_alignment?: "left" | "center";
+              width?: number;
+              locale?: string;
+            }
+          ): void;
+        };
+      };
+    };
   }
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={isLoading}
-      aria-busy={isLoading}
-      className={[
-        "inline-flex w-full items-center justify-center gap-3",
-        "rounded-full border border-primary/40 bg-surface",
-        "px-6 py-4 text-base font-semibold text-text",
-        "shadow-sm transition-all duration-200 ease-out",
-        "hover:bg-primary-light hover:shadow-md hover:-translate-y-px",
-        "active:translate-y-0 active:shadow-sm",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-        "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-sm",
-      ].join(" ")}
-    >
-      {isLoading ? (
-        <span
-          className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent"
-          aria-hidden="true"
-        />
-      ) : (
-        <GoogleLogo />
-      )}
-      <span>{isLoading ? "Redirigiendo a Google…" : "Continuar con Google"}</span>
-    </button>
-  );
 }
 
-function GoogleLogo() {
+/** Nonce crudo (para Supabase) + su SHA-256 en hex (para GIS). */
+async function generarNonce(): Promise<{ nonce: string; hashed: string }> {
+  const nonce = btoa(
+    String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))
+  );
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(nonce)
+  );
+  const hashed = Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+  return { nonce, hashed };
+}
+
+export default function GoogleButton() {
+  const router = useRouter();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const nonceRef = useRef<string | null>(null);
+  const [gisListo, setGisListo] = useState(false);
+  const [procesando, setProcesando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const manejarCredencial = useCallback(
+    async (response: CredentialResponse) => {
+      setProcesando(true);
+      setError(null);
+
+      const supabase = createSupabaseBrowserClient();
+      const { error: authError } = await supabase.auth.signInWithIdToken({
+        provider: "google",
+        token: response.credential,
+        nonce: nonceRef.current ?? undefined,
+      });
+
+      if (authError) {
+        setProcesando(false);
+        setError("No se pudo iniciar sesión con Google. Inténtalo de nuevo.");
+        return;
+      }
+
+      // Replicamos la lógica del callback OAuth: waitlist → onboarding → app.
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("approved, onboarding_completed")
+        .eq("id", user?.id ?? "")
+        .maybeSingle();
+
+      const destino = !profile?.approved
+        ? "/waitlist"
+        : !profile.onboarding_completed
+          ? "/onboarding"
+          : "/";
+      router.push(destino);
+      router.refresh();
+    },
+    [router]
+  );
+
+  const inicializarGis = useCallback(async () => {
+    if (!window.google || !containerRef.current) return;
+
+    const { nonce, hashed } = await generarNonce();
+    nonceRef.current = nonce;
+
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: manejarCredencial,
+      nonce: hashed,
+      use_fedcm_for_prompt: true,
+    });
+
+    window.google.accounts.id.renderButton(containerRef.current, {
+      type: "standard",
+      theme: "outline",
+      size: "large",
+      text: "continue_with",
+      shape: "pill",
+      logo_alignment: "center",
+      width: Math.min(containerRef.current.offsetWidth || 400, 400),
+      locale: "es",
+    });
+    setGisListo(true);
+  }, [manejarCredencial]);
+
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        fill="#4285F4"
-        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+    <div>
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onReady={() => {
+          void inicializarGis();
+        }}
       />
-      <path
-        fill="#34A853"
-        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-      />
-      <path
-        fill="#EA4335"
-        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-      />
-    </svg>
+
+      {/* El div del ref es propiedad exclusiva de Google (renderButton muta su
+          DOM); React nunca debe renderizar hijos ahí dentro. El skeleton vive
+          como hermano y se oculta cuando GIS termina. */}
+      <div className="relative min-h-[44px] w-full" aria-busy={procesando}>
+        <div ref={containerRef} className="flex w-full justify-center" />
+        {!gisListo && (
+          <div
+            className="absolute inset-0 mx-auto h-11 w-full max-w-[400px] animate-pulse rounded-full bg-surface-2"
+            aria-hidden="true"
+          />
+        )}
+      </div>
+
+      {procesando && (
+        <p
+          role="status"
+          aria-live="polite"
+          className="mt-3 flex items-center justify-center gap-2 text-sm text-text-muted"
+        >
+          <span
+            className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            aria-hidden="true"
+          />
+          Iniciando sesión…
+        </p>
+      )}
+
+      {error && (
+        <p
+          role="alert"
+          className="mt-3 rounded-md bg-danger-light px-3 py-2 text-center text-sm font-medium text-danger"
+        >
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
