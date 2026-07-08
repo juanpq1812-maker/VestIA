@@ -9,6 +9,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BottomNav from "@/components/layout/BottomNav";
+import { esRutaActiva } from "@/lib/nav/activeRoute";
 
 type LinkNav = {
   href: string;
@@ -61,10 +62,7 @@ export default function Header({ hideNav = false }: Props) {
               className="hidden md:flex items-center gap-1"
             >
               {NAV.map((item) => {
-                const activo =
-                  item.href === "/"
-                    ? pathname === "/"
-                    : pathname === item.href || pathname?.startsWith(`${item.href}/`);
+                const activo = esRutaActiva(item.href, pathname);
                 return (
                   <Link
                     key={item.href}
