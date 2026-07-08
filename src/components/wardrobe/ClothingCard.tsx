@@ -31,9 +31,9 @@ export default function ClothingCard({ item }: Props) {
   const colorBase = item.primary_color ?? "#E8EFE7";
 
   return (
-    <article className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow duration-200 hover:shadow-md">
+    <article className="group">
       <div
-        className="relative aspect-[3/4] w-full overflow-hidden"
+        className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-surface-2"
         style={{ backgroundColor: colorBase }}
       >
         {item.image_url ? (
@@ -72,8 +72,8 @@ export default function ClothingCard({ item }: Props) {
         ) : null}
       </div>
 
-      <div className="p-3">
-        <h3 className="truncate text-sm font-semibold text-text" title={titulo}>
+      <div className="pt-2.5">
+        <h3 className="truncate text-sm font-medium text-text" title={titulo}>
           {titulo}
         </h3>
         {item.subcategory && item.name ? (
@@ -84,9 +84,9 @@ export default function ClothingCard({ item }: Props) {
 
         <Link
           href={`/outfits?prenda=${item.id}&nombre=${encodeURIComponent(titulo)}`}
-          className="mt-3 block w-full rounded-lg bg-primary-light px-3 py-2 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="mt-2.5 block w-full rounded-lg bg-primary-light px-3 py-2 text-center text-xs font-semibold text-primary transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
-          ✨ Crear outfit con esta prenda
+          Crear outfit con esta prenda
         </Link>
       </div>
     </article>
