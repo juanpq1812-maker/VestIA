@@ -9,17 +9,32 @@ import Button from "@/components/ui/Button";
 
 const features = [
   {
-    emoji: "📸",
+    icono: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
+        <circle cx="12" cy="13.5" r="3.5" />
+      </svg>
+    ),
     titulo: "Cataloga tu armario",
     descripcion: "Sube fotos de tu ropa y arma tu armario digital en minutos.",
   },
   {
-    emoji: "✨",
+    icono: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
+        <path d="M19 15c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3Z" />
+      </svg>
+    ),
     titulo: "Genera outfits con IA",
     descripcion: "Combinaciones inteligentes con lo que ya tienes.",
   },
   {
-    emoji: "🛍️",
+    icono: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M6 8h12l1.2 12a1 1 0 0 1-1 1.1H5.8a1 1 0 0 1-1-1.1L6 8Z" />
+        <path d="M9 10V6a3 3 0 0 1 6 0v4" />
+      </svg>
+    ),
     titulo: "Compra con inteligencia",
     descripcion: "Recomendaciones de qué comprar según lo que ya tienes.",
   },
@@ -59,7 +74,7 @@ export default function LandingContent() {
           className="absolute inset-0 -z-10"
           style={{
             background:
-              "linear-gradient(160deg,#3F4B3E 0%,#4F5F4F 45%,#5a6e59 80%,#E8EFE7 100%)",
+              "linear-gradient(160deg, #8b9e8a 0%, #516351 55%, #2d312e 100%)",
           }}
           aria-hidden="true"
         />
@@ -76,16 +91,16 @@ export default function LandingContent() {
           <div className="grid items-center gap-12 lg:grid-cols-2">
             {/* Copy */}
             <div className="text-center lg:text-left">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur">
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white">
                 Proyecto de grado · 2026
               </span>
 
               <div className="mt-6 flex items-center justify-center gap-3 lg:justify-start">
                 <Logo size={48} />
-                <Wordmark className="font-display text-4xl font-bold text-white sm:text-5xl" />
+                <Wordmark tone="inverse" className="text-4xl sm:text-5xl" />
               </div>
 
-              <h1 className="mt-4 font-display text-4xl font-bold leading-tight text-white sm:text-5xl lg:text-6xl">
+              <h1 className="mt-4 font-display text-4xl leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
                 Tu armario digital con IA
               </h1>
 
@@ -132,9 +147,12 @@ export default function LandingContent() {
                     </div>
                     <span
                       aria-hidden="true"
-                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/25 text-2xl"
+                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/25 text-white"
                     >
-                      👕
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 4a2 2 0 1 1 2 2c-.9.4-1.4 1-1.4 1.8v.4" />
+                        <path d="m12 9-7.5 5.2a1 1 0 0 0 .6 1.8h13.8a1 1 0 0 0 .6-1.8L12 9Z" />
+                      </svg>
                     </span>
                   </div>
 
@@ -171,10 +189,7 @@ export default function LandingContent() {
       <section className="border-t border-divider bg-surface">
         <Container size="lg" className="py-16 sm:py-20">
           <div className="text-center">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">
-              Qué haces con StrandIA
-            </p>
-            <h2 className="mt-3 font-display text-3xl font-bold text-text sm:text-4xl">
+            <h2 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
               Tu armario, ahora inteligente
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-base text-text-muted">
@@ -183,19 +198,19 @@ export default function LandingContent() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto mt-14 grid max-w-4xl gap-10 text-center sm:grid-cols-3 sm:gap-8">
             {features.map((f) => (
-              <div
-                key={f.titulo}
-                className="rounded-xl border border-border bg-surface-2 p-6 transition-shadow hover:shadow-md"
-              >
-                <span aria-hidden="true" className="text-4xl">
-                  {f.emoji}
+              <div key={f.titulo} className="flex flex-col items-center">
+                <span
+                  aria-hidden="true"
+                  className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary"
+                >
+                  {f.icono}
                 </span>
-                <h3 className="mt-4 text-lg font-semibold text-text">
+                <h3 className="mt-4 font-display text-xl text-text">
                   {f.titulo}
                 </h3>
-                <p className="mt-2 text-sm leading-relaxed text-text-muted">
+                <p className="mt-2 max-w-[28ch] text-sm leading-relaxed text-text-muted">
                   {f.descripcion}
                 </p>
               </div>
@@ -207,7 +222,7 @@ export default function LandingContent() {
       {/* ── CTA FINAL ────────────────────────────────────────────────────── */}
       <section className="border-t border-divider bg-surface">
         <Container size="md" className="py-16 sm:py-20 text-center">
-          <h2 className="font-display text-3xl font-bold text-text sm:text-4xl">
+          <h2 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
             ¿Listo para conocer tu armario?
           </h2>
           <p className="mx-auto mt-4 max-w-md text-base text-text-muted">
