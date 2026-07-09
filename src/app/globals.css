@@ -138,12 +138,81 @@ body {
   to   { opacity: 1; transform: scale(1); }
 }
 
+/* ── Landing: scroll suave (Lenis) ─────────────────────────────────────────── */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ── Landing: coreografía de entrada del hero ──────────────────────────────── */
+@keyframes heroLineUp {
+  from { transform: translateY(115%); }
+  to   { transform: translateY(0); }
+}
+@keyframes heroFade {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes heroPhotoIn {
+  from { opacity: 0; clip-path: inset(0 0 100% 0); transform: scale(1.04); }
+  to   { opacity: 1; clip-path: inset(0 0 0 0); transform: scale(1); }
+}
+
+/* Estado por defecto = visible. La coreografía de entrada solo se aplica
+   cuando el JS añade `.hero-ready` (pestaña visible + movimiento permitido),
+   así el hero nunca se queda en blanco en SSR, sin JS o en pestañas ocultas. */
+.hero-ready .hero-line {
+  animation: heroLineUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hero-ready .hero-fade {
+  animation: heroFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hero-ready .hero-photo {
+  animation: heroPhotoIn 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 260ms;
+}
+.hero-ready .hero-chip {
+  animation: heroFade 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 920ms;
+}
+
+/* ── Landing: reveal on scroll ─────────────────────────────────────────────── */
+[data-reveal="pending"] {
+  opacity: 0;
+  transform: translateY(28px);
+}
+[data-reveal="in"] {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Respeta usuarios que pidan menos animaciones. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+  }
+  /* Con reduced-motion nunca ocultamos contenido esperando un reveal. */
+  .hero-line,
+  .hero-fade,
+  .hero-photo,
+  .hero-chip {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
   }
 }
