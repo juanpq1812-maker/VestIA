@@ -13,7 +13,7 @@
 
 "use client";
 
-import { useEffect, useMemo, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import {
@@ -24,13 +24,12 @@ import {
   type GenerateActionInput,
 } from "@/app/outfits/actions";
 import type { GeneratedOutfit } from "@/lib/ai/generateOutfits";
-import type { ClothingItem } from "@/types/database";
 import Toast from "@/components/ui/Toast";
 import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSection";
 import InspirationSection from "@/components/outfits/InspirationSection";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 
-import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
+import OutfitMoodboard from "@/components/outfits/OutfitMoodboard";
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
 // `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
 const OCASIONES = [
@@ -452,11 +451,12 @@ function ResultsGrid({
           Regenerar
         </Button>
       </div>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="mx-auto flex w-full max-w-xl flex-col gap-10">
         {outfits.map((o, idx) => (
           <OutfitCard
             key={`${o.name}-${idx}`}
             outfit={o}
+            index={idx}
             contextoOcasion={contextoOcasion}
             onToast={onToast}
           />
@@ -483,10 +483,12 @@ type CardEstado =
 
 function OutfitCard({
   outfit,
+  index,
   contextoOcasion,
   onToast,
 }: {
   outfit: GeneratedOutfit;
+  index: number;
   contextoOcasion: string | null;
   onToast: (msg: string, kind: "success" | "error") => void;
 }) {
@@ -495,8 +497,6 @@ function OutfitCard({
   // Una vez guardado, recordamos el id para que "Lo usare hoy" no vuelva a
   // crear un outfit duplicado.
   const [outfitId, setOutfitId] = useState<string | null>(null);
-
-  const visibles = useMemo(() => outfit.items.slice(0, 5), [outfit.items]);
 
   async function onGuardar() {
     setEstado("saving");
@@ -577,38 +577,21 @@ function OutfitCard({
         </span>
       </header>
 
-      {/* Prendas como cards horizontales (strandia_resultado_outfit_generado) */}
-      <ul className="flex flex-col gap-3">
-        {visibles.map((it) => {
-          const nombre = it.name ?? it.subcategory ?? it.category;
-          return (
-            <li
-              key={it.id}
-              className="flex overflow-hidden rounded-xl bg-surface shadow-sm"
-            >
-              <ItemThumb item={it} />
-              <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-faint">
-                  {CATEGORIA_LABELS[it.category] ?? it.category}
-                </p>
-                <p className="truncate font-display text-base text-text" title={nombre}>
-                  {nombre}
-                </p>
-                {it.subcategory && it.name ? (
-                  <span className="w-fit rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                    {it.subcategory}
-                  </span>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {/* Moodboard editorial: prendas superpuestas sobre fondo de marca */}
+      <OutfitMoodboard items={outfit.items} index={index} />
 
-      {outfit.explanation && (
-        <p className="text-xs leading-relaxed text-text-muted">
-          {outfit.explanation}
-        </p>
+      {/* Justificación de la IA + qué tan bien cumple lo que pidió el usuario */}
+      {(outfit.explanation || outfit.matchPercentage !== null) && (
+        <div className="flex flex-col gap-3 rounded-xl bg-surface-2/60 px-4 py-4">
+          {outfit.explanation && (
+            <p className="text-sm leading-relaxed text-text-muted">
+              {outfit.explanation}
+            </p>
+          )}
+          {outfit.matchPercentage !== null && (
+            <MatchRing value={outfit.matchPercentage} />
+          )}
+        </div>
       )}
 
       <div className="mt-2 flex flex-col gap-3">
@@ -649,33 +632,36 @@ function OutfitCard({
   );
 }
 
-const CATEGORIA_LABELS: Record<string, string> = {
-  top: "Top",
-  bottom: "Pantalón",
-  dress: "Vestido",
-  outerwear: "Abrigo",
-  footwear: "Calzado",
-  accessory: "Accesorio",
-  body: "Body",
-};
-
-function ItemThumb({ item }: { item: ClothingItem }) {
-  const fallback = item.primary_color ?? GARMENT_PLACEHOLDER_COLOR;
+// Anillo compacto que comunica qué tan bien el outfit cumple la solicitud.
+// Deliberadamente discreto: no es un "hero metric" gigante.
+function MatchRing({ value }: { value: number }) {
+  const r = 18;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - Math.max(0, Math.min(100, value)) / 100);
   return (
-    <div
-      className="h-28 w-24 shrink-0 overflow-hidden"
-      style={{ backgroundColor: fallback }}
-      title={item.name ?? item.subcategory ?? item.category}
-    >
-      {item.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={item.image_url}
-          alt={item.name ?? item.subcategory ?? item.category}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
-      ) : null}
+    <div className="flex items-center gap-3">
+      <div className="relative h-12 w-12 shrink-0">
+        <svg viewBox="0 0 44 44" className="h-12 w-12 -rotate-90" aria-hidden="true">
+          <circle cx="22" cy="22" r={r} fill="none" stroke="var(--color-surface-2)" strokeWidth="4" />
+          <circle
+            cx="22"
+            cy="22"
+            r={r}
+            fill="none"
+            stroke="var(--color-primary)"
+            strokeWidth="4"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-primary">
+          {value}%
+        </span>
+      </div>
+      <p className="text-xs font-medium text-text-muted">
+        cumple lo que pediste
+      </p>
     </div>
   );
 }
