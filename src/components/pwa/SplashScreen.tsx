@@ -11,8 +11,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Logo from "@/components/ui/Logo";
-import Wordmark from "@/components/ui/Wordmark";
+import Image from "next/image";
 
 // Crema base de la app (token --color-bg) e igual al background_color del
 // manifest: el launch nativo, el splash y el fondo real de la app comparten un
@@ -57,14 +56,20 @@ export default function SplashScreen() {
       }}
     >
       <div
-        className="flex flex-col items-center gap-4 transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transition-none"
+        className="transition-[opacity,transform] duration-[400ms] ease-out motion-reduce:transition-none"
         style={{
           opacity: entered ? 1 : 0,
           transform: entered ? "scale(1)" : "scale(0.95)",
         }}
       >
-        <Logo size={76} />
-        <Wordmark className="text-2xl" />
+        <Image
+          src="/logo-strandia.png"
+          alt="StrandIA"
+          width={220}
+          height={110}
+          priority
+          className="h-auto w-44"
+        />
       </div>
     </div>
   );

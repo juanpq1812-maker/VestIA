@@ -7,8 +7,6 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import Logo from "@/components/ui/Logo";
-import Wordmark from "@/components/ui/Wordmark";
 import Container from "@/components/ui/Container";
 import SmoothScroll from "./SmoothScroll";
 import LandingHero from "./LandingHero";
@@ -53,11 +51,17 @@ export default function LandingContent() {
           <Container size="lg" className="flex items-center justify-between py-3">
             <Link
               href="/"
-              className="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+              className="flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
               aria-label="StrandIA — inicio"
             >
-              <Logo size={30} />
-              <Wordmark className="text-lg sm:text-xl" />
+              <Image
+                src="/logo-strandia.png"
+                alt="StrandIA"
+                width={160}
+                height={80}
+                className="h-9 w-auto sm:h-10"
+                priority
+              />
             </Link>
             <div className="flex items-center gap-2">
               <Link
@@ -265,9 +269,14 @@ export default function LandingContent() {
             size="lg"
             className="flex flex-col items-center justify-between gap-3 py-8 text-center sm:flex-row sm:text-left"
           >
-            <div className="flex items-center gap-2">
-              <Logo size={24} />
-              <Wordmark className="text-base" />
+            <div className="flex items-center">
+              <Image
+                src="/logo-strandia.png"
+                alt="StrandIA"
+                width={140}
+                height={70}
+                className="h-8 w-auto"
+              />
             </div>
             <p className="text-xs text-text-muted">
               Tu armario digital con IA · {new Date().getFullYear()}

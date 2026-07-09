@@ -6,7 +6,7 @@
 // no tiene a donde ir dentro de la app todavia.
 
 import type { Metadata } from "next";
-import Logo from "@/components/ui/Logo";
+import Image from "next/image";
 import LogoutButton from "@/components/auth/LogoutButton";
 import ShareButton from "@/components/waitlist/ShareButton";
 
@@ -19,7 +19,14 @@ export default function WaitlistPage() {
     <main className="flex min-h-dvh flex-col items-center justify-center bg-bg px-4 py-12">
       <div className="w-full max-w-md rounded-xl border border-border bg-surface p-8 text-center shadow-sm md:p-10">
         <div className="flex justify-center">
-          <Logo size={56} />
+          <Image
+            src="/logo-strandia.png"
+            alt="StrandIA"
+            width={180}
+            height={90}
+            className="h-16 w-auto"
+            priority
+          />
         </div>
 
         <h1 className="mt-6 font-display text-3xl font-bold text-text sm:text-4xl">
