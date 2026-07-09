@@ -13,7 +13,7 @@
 
 "use client";
 
-import { useEffect, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import {
@@ -421,6 +421,10 @@ function LoadingState() {
 // Resultados.
 // ---------------------------------------------------------------------------
 
+// Gap horizontal entre tarjetas del carrusel, en px. Debe coincidir con la
+// clase `gap-3` del scroller: se usa para calcular el índice activo.
+const CAROUSEL_GAP = 12;
+
 function ResultsGrid({
   outfits,
   onRegenerate,
@@ -432,8 +436,104 @@ function ResultsGrid({
   contextoOcasion: string | null;
   onToast: (msg: string, kind: "success" | "error") => void;
 }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  // Índice de la tarjeta bajo el snap (se actualiza con el scroll)...
+  const [activeIdx, setActiveIdx] = useState(0);
+  // ...y el que la descripción está mostrando (va detrás, con fade).
+  const [shownIdx, setShownIdx] = useState(0);
+  const [descVisible, setDescVisible] = useState(true);
+
+  // Descripción sincronizada: fade-out 150ms → cambia el texto → fade-in.
+  useEffect(() => {
+    if (activeIdx === shownIdx) return;
+    setDescVisible(false);
+    const t = setTimeout(() => {
+      setShownIdx(activeIdx);
+      setDescVisible(true);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [activeIdx, shownIdx]);
+
+  // Chrome + snap-mandatory: los scrolls PROGRAMÁTICOS se cancelan porque el
+  // navegador re-snappea al elemento que "recuerda" como target (la tarjeta
+  // actual). El workaround estándar: apagar el snap durante el scroll
+  // programático y restaurarlo al llegar (la posición destino es un snap point
+  // exacto, así que restaurar no salta). El swipe del usuario no pasa por aquí
+  // y conserva su snap nativo.
+  function snapSafeScrollTo(el: HTMLElement, left: number, smooth: boolean) {
+    el.style.scrollSnapType = "none";
+    let restored = false;
+    const restore = () => {
+      if (restored) return;
+      restored = true;
+      el.style.scrollSnapType = "";
+      el.removeEventListener("scrollend", restore);
+    };
+    el.scrollTo({ left, behavior: smooth ? "smooth" : "auto" });
+    if (!smooth) {
+      restore();
+      return;
+    }
+    el.addEventListener("scrollend", restore);
+    setTimeout(restore, 700); // fallback por si scrollend no dispara
+  }
+
+  // Hint de primer render: micro-scroll de 20px y de vuelta, para comunicar
+  // que hay más outfits a la derecha. Nunca con reduced-motion. El snap se
+  // apaga durante toda la coreografía (20px no es un snap point).
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (el.scrollWidth <= el.clientWidth) return; // no hay nada que asomar
+    el.style.scrollSnapType = "none";
+    const t1 = setTimeout(() => el.scrollTo({ left: 20, behavior: "smooth" }), 400);
+    const t2 = setTimeout(() => el.scrollTo({ left: 0, behavior: "smooth" }), 850);
+    const t3 = setTimeout(() => {
+      el.style.scrollSnapType = "";
+    }, 1400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      el.style.scrollSnapType = "";
+    };
+  }, []);
+
+  // El índice activo se deriva del rango REAL de scroll (no del ancho de
+  // tarjeta): en contenedores anchos la última tarjeta ancla con snap-end y
+  // su posición es maxScroll, no idx*step.
+  function onScroll() {
+    const el = scrollerRef.current;
+    if (!el || outfits.length < 2) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    if (maxScroll <= 0) return;
+    const per = maxScroll / (outfits.length - 1);
+    const idx = Math.round(el.scrollLeft / per);
+    setActiveIdx(Math.max(0, Math.min(outfits.length - 1, idx)));
+  }
+
+  function scrollToIdx(idx: number) {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const card = el.firstElementChild as HTMLElement | null;
+    if (!card) return;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    const target =
+      idx === outfits.length - 1
+        ? maxScroll
+        : Math.min(idx * (card.offsetWidth + CAROUSEL_GAP), maxScroll);
+    snapSafeScrollTo(
+      el,
+      target,
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    );
+  }
+
+  const shown = outfits[shownIdx];
+
   return (
-    <section aria-label="Outfits propuestos" className="space-y-6">
+    <section aria-label="Outfits propuestos" className="space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="font-display text-2xl text-text">
           Tus outfits
@@ -451,17 +551,83 @@ function ResultsGrid({
           Regenerar
         </Button>
       </div>
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-10">
+
+      {/* Carrusel horizontal con snap. La siguiente tarjeta asoma por la
+          derecha (ancho de tarjeta < ancho del contenedor + padding final). */}
+      <div
+        ref={scrollerRef}
+        onScroll={onScroll}
+        // Sin `scroll-smooth`: en Chrome, scroll-behavior:smooth + snap-mandatory
+        // cancela los scrolls programáticos (los dots dan smooth vía scrollTo).
+        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0"
+      >
         {outfits.map((o, idx) => (
-          <OutfitCard
+          <div
             key={`${o.name}-${idx}`}
-            outfit={o}
-            index={idx}
-            contextoOcasion={contextoOcasion}
-            onToast={onToast}
-          />
+            className={[
+              "w-[88vw] max-w-[360px] shrink-0 transition-transform duration-150 active:scale-[0.99]",
+              // La última tarjeta ancla por su borde derecho: si el contenedor
+              // es más ancho que una tarjeta (desktop), el snap-start de la
+              // última queda fuera del rango de scroll y el snap-mandatory la
+              // rebotaría al inicio. snap-end siempre es alcanzable.
+              idx === outfits.length - 1 ? "snap-end" : "snap-start",
+            ].join(" ")}
+          >
+            <OutfitCard
+              outfit={o}
+              index={idx}
+              contextoOcasion={contextoOcasion}
+              onToast={onToast}
+            />
+          </div>
         ))}
       </div>
+
+      {/* Dots indicadores */}
+      {outfits.length > 1 && (
+        <div className="flex justify-center gap-2" role="tablist" aria-label="Outfit visible">
+          {outfits.map((o, idx) => (
+            <button
+              key={idx}
+              type="button"
+              role="tab"
+              aria-selected={idx === activeIdx}
+              aria-label={`Ver outfit ${idx + 1}: ${o.name}`}
+              onClick={() => scrollToIdx(idx)}
+              className="flex h-6 w-6 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <span
+                aria-hidden="true"
+                className={[
+                  "block rounded-full transition-all duration-200",
+                  idx === activeIdx
+                    ? "h-2.5 w-2.5 bg-primary"
+                    : "h-2 w-2 bg-primary-mid opacity-60",
+                ].join(" ")}
+              />
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Descripción sincronizada con la tarjeta activa */}
+      {shown && (shown.explanation || shown.matchPercentage !== null) && (
+        <div
+          aria-live="polite"
+          className="mx-auto flex min-h-[7.5rem] w-full max-w-[360px] flex-col gap-3 rounded-xl bg-surface-2/60 px-4 py-4 transition-opacity duration-150 sm:max-w-xl"
+          style={{ opacity: descVisible ? 1 : 0 }}
+        >
+          <p className="font-display text-lg text-text">{shown.name}</p>
+          {shown.explanation && (
+            <p className="text-sm leading-relaxed text-text-muted">
+              {shown.explanation}
+            </p>
+          )}
+          {shown.matchPercentage !== null && (
+            <MatchRing value={shown.matchPercentage} />
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -577,22 +743,10 @@ function OutfitCard({
         </span>
       </header>
 
-      {/* Moodboard editorial: prendas superpuestas sobre fondo de marca */}
+      {/* Moodboard editorial: prendas superpuestas sobre fondo de marca.
+          La justificación + % viven fuera del carrusel, sincronizadas con la
+          tarjeta activa (ver ResultsGrid). */}
       <OutfitMoodboard items={outfit.items} index={index} />
-
-      {/* Justificación de la IA + qué tan bien cumple lo que pidió el usuario */}
-      {(outfit.explanation || outfit.matchPercentage !== null) && (
-        <div className="flex flex-col gap-3 rounded-xl bg-surface-2/60 px-4 py-4">
-          {outfit.explanation && (
-            <p className="text-sm leading-relaxed text-text-muted">
-              {outfit.explanation}
-            </p>
-          )}
-          {outfit.matchPercentage !== null && (
-            <MatchRing value={outfit.matchPercentage} />
-          )}
-        </div>
-      )}
 
       <div className="mt-2 flex flex-col gap-3">
         <Button
