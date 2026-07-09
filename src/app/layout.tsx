@@ -73,10 +73,6 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${hanken.variable} ${caslon.variable} h-full`}
-      // Crema base pintada antes de que cargue el CSS: mata el negro por
-      // defecto del arranque/hydrate. Es el mismo valor que el token --color-bg
-      // (#fcf9f6) que aplica el `bg-bg` del <body>, así no hay salto de tono.
-      style={{ backgroundColor: "#fcf9f6" }}
     >
       <head>
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
