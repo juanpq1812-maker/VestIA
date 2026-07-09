@@ -1,257 +1,280 @@
-// Landing pública de StrandIA. Extracted from app/page.tsx para que la raíz
-// pueda alternar entre landing (sin sesión) y dashboard (con sesión).
+// Landing pública de StrandIA — scroll narrativo que explica el producto en
+// una pasada: la ropa que ya tienes + IA = tu outfit de hoy.
+//
+// Server Component que compone el scroll suave (Lenis) + el hero animado +
+// los reveals al hacer scroll. La fotografía editorial (Unsplash, verificada)
+// lleva el peso visual; el chrome de UI se mantiene en el registro sage/crema.
 
 import Link from "next/link";
+import Image from "next/image";
 import Logo from "@/components/ui/Logo";
 import Wordmark from "@/components/ui/Wordmark";
 import Container from "@/components/ui/Container";
-import Button from "@/components/ui/Button";
+import SmoothScroll from "./SmoothScroll";
+import LandingHero from "./LandingHero";
+import Reveal from "./Reveal";
 
-const features = [
+const img = (id: string, w = 1000) =>
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
+
+const pasos = [
   {
-    icono: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" />
-        <circle cx="12" cy="13.5" r="3.5" />
-      </svg>
-    ),
-    titulo: "Cataloga tu armario",
-    descripcion: "Sube fotos de tu ropa y arma tu armario digital en minutos.",
+    n: "01",
+    titulo: "Sube tus prendas",
+    descripcion:
+      "Foto rápida desde el celular. StrandIA les quita el fondo y arma tu armario digital en minutos.",
+    src: img("photo-1490481651871-ab68de25d43d"),
+    alt: "Prendas neutras colgadas en ganchos de madera contra una pared blanca",
   },
   {
-    icono: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M12 3c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
-        <path d="M19 15c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3Z" />
-      </svg>
-    ),
-    titulo: "Genera outfits con IA",
-    descripcion: "Combinaciones inteligentes con lo que ya tienes.",
+    n: "02",
+    titulo: "La IA combina por ti",
+    descripcion:
+      "Elige una ocasión o deja que improvise. Recibes outfits reales, armados solo con lo que ya tienes.",
+    src: img("photo-1523381210434-271e8be1f52b"),
+    alt: "Camisetas verde salvia colgadas en ganchos de madera",
   },
   {
-    icono: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <path d="M6 8h12l1.2 12a1 1 0 0 1-1 1.1H5.8a1 1 0 0 1-1-1.1L6 8Z" />
-        <path d="M9 10V6a3 3 0 0 1 6 0v4" />
-      </svg>
-    ),
-    titulo: "Compra con inteligencia",
-    descripcion: "Recomendaciones de qué comprar según lo que ya tienes.",
+    n: "03",
+    titulo: "Usa el look y repite",
+    descripcion:
+      "Guarda tus favoritos, registra qué usaste y descubre las prendas olvidadas que merecen otra salida.",
+    src: img("photo-1489987707025-afc232f7ea0f"),
+    alt: "Camisetas de colores ordenadas por tono en un perchero",
   },
 ];
 
 export default function LandingContent() {
   return (
-    <main className="flex flex-1 flex-col">
-      {/* Barra de marca */}
-      <div className="border-b border-divider bg-surface/80 backdrop-blur">
-        <Container
-          size="lg"
-          className="flex items-center justify-between py-3"
-        >
-          <div className="flex items-center gap-2">
-            <Logo size={32} />
-            <Wordmark className="text-lg sm:text-xl" />
-          </div>
-          <div className="flex items-center gap-2">
-            <Link href="/login">
-              <Button variant="ghost" className="!px-4 !py-2 text-sm">
+    <SmoothScroll>
+      <main className="flex flex-1 flex-col">
+        {/* ── Nav ──────────────────────────────────────────────────────── */}
+        <header className="sticky top-0 z-30 border-b border-divider bg-surface/80 backdrop-blur supports-[backdrop-filter]:bg-surface/70">
+          <Container size="lg" className="flex items-center justify-between py-3">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+              aria-label="StrandIA — inicio"
+            >
+              <Logo size={30} />
+              <Wordmark className="text-lg sm:text-xl" />
+            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/login"
+                className="rounded-full px-4 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
                 Iniciar sesión
-              </Button>
-            </Link>
-            <Link href="/register" className="hidden sm:inline-block">
-              <Button variant="primary" className="!px-4 !py-2 text-sm">
+              </Link>
+              <Link
+                href="/register"
+                className="hidden rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-px hover:bg-primary-hover hover:shadow-md active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:inline-block"
+              >
                 Crear cuenta
-              </Button>
-            </Link>
-          </div>
-        </Container>
-      </div>
+              </Link>
+            </div>
+          </Container>
+        </header>
 
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 -z-10"
-          style={{
-            background:
-              "linear-gradient(160deg, #8b9e8a 0%, #516351 55%, #2d312e 100%)",
-          }}
-          aria-hidden="true"
-        />
-        <div
-          className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-white/10 blur-2xl"
-          aria-hidden="true"
-        />
-        <div
-          className="absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-white/10 blur-2xl"
-          aria-hidden="true"
-        />
+        {/* ── Hero ─────────────────────────────────────────────────────── */}
+        <section className="relative overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10"
+            style={{
+              background:
+                "linear-gradient(150deg, #2d312e 0%, #435243 45%, #516351 100%)",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="absolute -right-24 -top-24 -z-10 h-80 w-80 rounded-full bg-primary-mid/25 blur-3xl"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute -bottom-32 -left-24 -z-10 h-80 w-80 rounded-full bg-primary/30 blur-3xl"
+          />
+          <Container size="lg" className="py-20 sm:py-24 lg:py-32">
+            <LandingHero />
+          </Container>
+        </section>
 
-        <Container size="lg" className="py-16 sm:py-24 lg:py-32">
-          <div className="grid items-center gap-12 lg:grid-cols-2">
-            {/* Copy */}
-            <div className="text-center lg:text-left">
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white">
-                Proyecto de grado · 2026
-              </span>
-
-              <div className="mt-6 flex items-center justify-center gap-3 lg:justify-start">
-                <Logo size={48} />
-                <Wordmark tone="inverse" className="text-4xl sm:text-5xl" />
-              </div>
-
-              <h1 className="mt-4 font-display text-4xl leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-                Tu armario digital con IA
-              </h1>
-
-              <p className="mt-5 max-w-xl text-base leading-relaxed text-white/90 sm:text-lg lg:mx-0 mx-auto">
-                Genera outfits con la ropa que ya tienes, descubre prendas
-                olvidadas y compra de forma más inteligente.
+        {/* ── Cómo funciona ────────────────────────────────────────────── */}
+        <section id="como-funciona" className="scroll-mt-20 bg-bg">
+          <Container size="lg" className="py-20 sm:py-28">
+            <Reveal className="mx-auto max-w-2xl text-center">
+              <h2 className="font-display text-3xl tracking-tight text-text text-balance sm:text-4xl lg:text-5xl">
+                Tres pasos. Cero &ldquo;no tengo qué ponerme&rdquo;.
+              </h2>
+              <p className="mx-auto mt-4 max-w-md text-base text-text-muted">
+                De un armario lleno a un outfit decidido en menos de lo que
+                tardas en desayunar.
               </p>
+            </Reveal>
 
-              <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
-                <Link href="/register" className="w-full sm:w-auto">
-                  <Button
-                    size="lg"
-                    fullWidth
-                    className="!bg-white !text-primary hover:!bg-white hover:!shadow-lg"
-                  >
-                    Crear cuenta
-                  </Button>
-                </Link>
-                <Link href="/login" className="w-full sm:w-auto">
-                  <Button
-                    size="lg"
-                    variant="ghost"
-                    fullWidth
-                    className="!border-white/40 !text-white hover:!bg-white/10 hover:!text-white"
-                  >
-                    Iniciar sesión
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Tarjeta decorativa de preview */}
-            <div className="hidden lg:block">
-              <div className="relative mx-auto w-full max-w-md">
-                <div className="rounded-3xl border border-white/30 bg-white/15 p-6 shadow-2xl backdrop-blur-md">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider text-white/70">
-                        Outfit sugerido hoy
-                      </p>
-                      <p className="mt-1 font-display text-2xl text-white">
-                        Casual universitario
-                      </p>
-                    </div>
-                    <span
-                      aria-hidden="true"
-                      className="flex h-12 w-12 items-center justify-center rounded-full bg-white/25 text-white"
-                    >
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 4a2 2 0 1 1 2 2c-.9.4-1.4 1-1.4 1.8v.4" />
-                        <path d="m12 9-7.5 5.2a1 1 0 0 0 .6 1.8h13.8a1 1 0 0 0 .6-1.8L12 9Z" />
-                      </svg>
+            <div className="mt-16 flex flex-col gap-16 sm:gap-24">
+              {pasos.map((paso, i) => (
+                <Reveal
+                  key={paso.n}
+                  className={`grid items-center gap-8 lg:grid-cols-2 lg:gap-14 ${
+                    i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
+                  }`}
+                >
+                  {/* Foto */}
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface-2 sm:aspect-[16/10] lg:aspect-[4/3]">
+                    <Image
+                      src={paso.src}
+                      alt={paso.alt}
+                      fill
+                      loading="lazy"
+                      sizes="(max-width: 1024px) 90vw, 45vw"
+                      className="object-cover"
+                    />
+                  </div>
+                  {/* Texto */}
+                  <div className="lg:px-4">
+                    <span className="font-display text-5xl text-primary-mid sm:text-6xl">
+                      {paso.n}
                     </span>
+                    <h3 className="mt-3 font-display text-2xl text-text sm:text-3xl">
+                      {paso.titulo}
+                    </h3>
+                    <p className="mt-3 max-w-md text-base leading-relaxed text-text-muted">
+                      {paso.descripcion}
+                    </p>
                   </div>
-
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-                    {[
-                      "linear-gradient(135deg,#1e3a8a,#3b82f6)",
-                      "linear-gradient(135deg,#1c1917,#44403c)",
-                      "linear-gradient(135deg,#f5f5f4,#d6d3d1)",
-                      "linear-gradient(135deg,#78350f,#d97706)",
-                    ].map((bg, i) => (
-                      <div
-                        key={i}
-                        className="aspect-[3/4] rounded-xl"
-                        style={{ background: bg }}
-                        aria-hidden="true"
-                      />
-                    ))}
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between rounded-xl bg-white/15 px-4 py-3 text-sm text-white">
-                    <span className="font-medium">4 prendas combinadas</span>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-primary">
-                      Generado con IA
-                    </span>
-                  </div>
-                </div>
-              </div>
+                </Reveal>
+              ))}
             </div>
-          </div>
-        </Container>
-      </section>
+          </Container>
+        </section>
 
-      {/* ── QUÉ HACÉS CON STRANDIA ─────────────────────────────────────────── */}
-      <section className="border-t border-divider bg-surface">
-        <Container size="lg" className="py-16 sm:py-20">
-          <div className="text-center">
-            <h2 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
-              Tu armario, ahora inteligente
-            </h2>
-            <p className="mx-auto mt-3 max-w-xl text-base text-text-muted">
-              Tres herramientas para dejar de pensar &quot;no tengo qué
-              ponerme&quot; aunque tengas el armario lleno.
-            </p>
-          </div>
+        {/* ── Banda editorial full-bleed ───────────────────────────────── */}
+        <section className="relative isolate overflow-hidden">
+          <Image
+            src={img("photo-1556905055-8f358a7a47b2", 1600)}
+            alt="Flat-lay de un outfit: gorro tejido, suéter gris, jeans y tulipanes sobre sábanas claras"
+            fill
+            loading="lazy"
+            sizes="100vw"
+            className="-z-10 object-cover"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-gradient-to-r from-ink/80 via-ink/45 to-transparent"
+          />
+          <Container size="lg" className="py-28 sm:py-36 lg:py-44">
+            <Reveal className="max-w-xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+                Outfit del día
+              </p>
+              <h2 className="mt-4 font-display text-3xl leading-tight tracking-tight text-white text-balance sm:text-4xl lg:text-5xl">
+                Un look nuevo cada mañana, hecho con la ropa que ya está en tu
+                clóset.
+              </h2>
+              <p className="mt-5 max-w-md text-base leading-relaxed text-white/85">
+                Nada de vitrinas infinitas ni compras por impulso. StrandIA
+                mira tu armario real y te propone algo que de verdad puedes
+                ponerte hoy.
+              </p>
+            </Reveal>
+          </Container>
+        </section>
 
-          <div className="mx-auto mt-14 grid max-w-4xl gap-10 text-center sm:grid-cols-3 sm:gap-8">
-            {features.map((f) => (
-              <div key={f.titulo} className="flex flex-col items-center">
+        {/* ── Por qué StrandIA ─────────────────────────────────────────── */}
+        <section className="bg-surface-offset">
+          <Container size="lg" className="py-20 sm:py-24">
+            <div className="grid gap-12 sm:grid-cols-2 sm:gap-16">
+              <Reveal>
                 <span
                   aria-hidden="true"
-                  className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-primary"
                 >
-                  {f.icono}
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 21v-8" />
+                    <path d="M12 13c0-3.5-2.5-6-6-6H4c0 3.5 2.5 6 6 6h2Z" />
+                    <path d="M12 11c0-2.8 2-4.8 4.8-4.8H20c0 2.8-2 4.8-4.8 4.8H12Z" />
+                  </svg>
                 </span>
-                <h3 className="mt-4 font-display text-xl text-text">
-                  {f.titulo}
+                <h3 className="mt-5 font-display text-2xl text-text">
+                  Menos consumo, más estilo
                 </h3>
-                <p className="mt-2 max-w-[28ch] text-sm leading-relaxed text-text-muted">
-                  {f.descripcion}
+                <p className="mt-3 max-w-sm text-base leading-relaxed text-text-muted">
+                  Aprovechar lo que ya tienes es la forma más sostenible —y más
+                  económica— de vestir bien. StrandIA te ayuda a comprar solo lo
+                  que de verdad te suma.
                 </p>
+              </Reveal>
+              <Reveal delay={120}>
+                <span
+                  aria-hidden="true"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-primary"
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
+                  </svg>
+                </span>
+                <h3 className="mt-5 font-display text-2xl text-text">
+                  Tu estilo, no un algoritmo genérico
+                </h3>
+                <p className="mt-3 max-w-sm text-base leading-relaxed text-text-muted">
+                  Las combinaciones salen de tus prendas y tus ocasiones. Entre
+                  más lo usas, mejor entiende cómo te gusta vestir.
+                </p>
+              </Reveal>
+            </div>
+          </Container>
+        </section>
+
+        {/* ── CTA final (bookend oscuro) ───────────────────────────────── */}
+        <section className="relative overflow-hidden bg-ink">
+          <div
+            aria-hidden="true"
+            className="absolute -bottom-32 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-primary/30 blur-3xl"
+          />
+          <Container size="md" className="py-24 text-center sm:py-32">
+            <Reveal>
+              <h2 className="mx-auto max-w-2xl font-display text-4xl leading-tight tracking-tight text-white text-balance sm:text-5xl">
+                ¿Vemos qué esconde tu armario?
+              </h2>
+              <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-white/80">
+                Crea tu cuenta gratis y arma tu primer outfit con IA en unos
+                minutos.
+              </p>
+              <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                <Link
+                  href="/register"
+                  className="inline-flex h-13 w-full items-center justify-center rounded-full bg-white px-8 text-base font-semibold text-ink shadow-sm transition-all duration-200 ease-out hover:-translate-y-px hover:shadow-lg active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
+                >
+                  Crear cuenta gratis
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex h-13 w-full items-center justify-center rounded-full border border-white/40 px-7 text-base font-semibold text-white transition-colors duration-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
+                >
+                  Ya tengo cuenta
+                </Link>
               </div>
-            ))}
-          </div>
-        </Container>
-      </section>
+            </Reveal>
+          </Container>
+        </section>
 
-      {/* ── CTA FINAL ────────────────────────────────────────────────────── */}
-      <section className="border-t border-divider bg-surface">
-        <Container size="md" className="py-16 sm:py-20 text-center">
-          <h2 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
-            ¿Listo para conocer tu armario?
-          </h2>
-          <p className="mx-auto mt-4 max-w-md text-base text-text-muted">
-            Empieza hoy y descubre todo lo que puedes armar con lo que ya tienes.
-          </p>
-          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-            <Link href="/register" className="w-full sm:w-auto">
-              <Button size="lg" fullWidth>
-                Crear cuenta gratis
-              </Button>
-            </Link>
-            <Link href="/login" className="w-full sm:w-auto">
-              <Button size="lg" variant="ghost" fullWidth>
-                Ya tengo cuenta
-              </Button>
-            </Link>
-          </div>
-        </Container>
-      </section>
-
-      {/* ── FOOTER ───────────────────────────────────────────────────────── */}
-      <footer className="border-t border-divider bg-bg">
-        <Container
-          size="lg"
-          className="py-8 text-center text-xs text-text-muted"
-        >
-          StrandIA — Proyecto de grado · Juan Pablo · Universidad Sergio Arboleda
-        </Container>
-      </footer>
-    </main>
+        {/* ── Footer ───────────────────────────────────────────────────── */}
+        <footer className="bg-bg">
+          <Container
+            size="lg"
+            className="flex flex-col items-center justify-between gap-3 py-8 text-center sm:flex-row sm:text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Logo size={24} />
+              <Wordmark className="text-base" />
+            </div>
+            <p className="text-xs text-text-muted">
+              Tu armario digital con IA · {new Date().getFullYear()}
+            </p>
+          </Container>
+        </footer>
+      </main>
+    </SmoothScroll>
   );
 }
