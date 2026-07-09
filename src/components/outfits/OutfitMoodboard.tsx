@@ -71,7 +71,9 @@ export default function OutfitMoodboard({ items, index = 0 }: Props) {
 
   return (
     <div
-      className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl"
+      // Cuadrado en mobile para que tarjeta + descripción quepan en una
+      // pantalla sin deslizar; editorial 4/5 desde sm.
+      className="relative aspect-square w-full overflow-hidden rounded-2xl sm:aspect-[4/5]"
       style={{ backgroundColor: bg }}
     >
       {/* Luz superior sutil para dar profundidad sin dejar de ser fondo sólido */}
