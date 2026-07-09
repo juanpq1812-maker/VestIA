@@ -8,6 +8,7 @@
 import Link from "next/link";
 import type { ClothingCategory, ClothingItem } from "@/types/database";
 import LazyImage from "@/components/ui/LazyImage";
+import DeleteItemButton from "@/components/wardrobe/DeleteItemButton";
 
 import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 const CATEGORY_LABELS: Record<ClothingCategory, string> = {
@@ -71,6 +72,12 @@ export default function ClothingCard({ item }: Props) {
             Sin cat.
           </span>
         ) : null}
+
+        <DeleteItemButton
+          itemId={item.id}
+          imagePath={item.image_path}
+          itemName={titulo}
+        />
       </div>
 
       <div className="pt-2.5">
