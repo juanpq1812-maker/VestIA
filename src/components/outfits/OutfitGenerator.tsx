@@ -478,6 +478,26 @@ function ResultsGrid({
     setTimeout(restore, 700); // fallback por si scrollend no dispara
   }
 
+  // Gutters simétricos: padding horizontal = (ancho visible - tarjeta) / 2.
+  // Con snap-center esto centra la tarjeta activa en cualquier viewport y
+  // hace alcanzable el centro de la primera y la última (con ellos, la
+  // posición de snap i es exactamente i*(tarjeta+gap)).
+  useEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const setGutters = () => {
+      const card = el.firstElementChild as HTMLElement | null;
+      if (!card) return;
+      const gutter = Math.max(16, (el.clientWidth - card.offsetWidth) / 2);
+      el.style.paddingLeft = `${gutter}px`;
+      el.style.paddingRight = `${gutter}px`;
+    };
+    setGutters();
+    const ro = new ResizeObserver(setGutters);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [outfits.length]);
+
   // Hint de primer render: micro-scroll de 20px y de vuelta, para comunicar
   // que hay más outfits a la derecha. Nunca con reduced-motion. El snap se
   // apaga durante toda la coreografía (20px no es un snap point).
@@ -519,10 +539,9 @@ function ResultsGrid({
     const card = el.firstElementChild as HTMLElement | null;
     if (!card) return;
     const maxScroll = el.scrollWidth - el.clientWidth;
-    const target =
-      idx === outfits.length - 1
-        ? maxScroll
-        : Math.min(idx * (card.offsetWidth + CAROUSEL_GAP), maxScroll);
+    // Con gutters simétricos y snap-center, la posición de la tarjeta i es
+    // exactamente i*(ancho+gap); el clamp cubre redondeos de subpíxel.
+    const target = Math.min(idx * (card.offsetWidth + CAROUSEL_GAP), maxScroll);
     snapSafeScrollTo(
       el,
       target,
@@ -559,19 +578,17 @@ function ResultsGrid({
         onScroll={onScroll}
         // Sin `scroll-smooth`: en Chrome, scroll-behavior:smooth + snap-mandatory
         // cancela los scrolls programáticos (los dots dan smooth vía scrollTo).
-        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0 sm:px-0"
+        // El padding horizontal (gutters) lo fija el efecto de centrado.
+        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mx-0"
       >
         {outfits.map((o, idx) => (
           <div
             key={`${o.name}-${idx}`}
-            className={[
-              "w-[88vw] max-w-[360px] shrink-0 transition-transform duration-150 active:scale-[0.99]",
-              // La última tarjeta ancla por su borde derecho: si el contenedor
-              // es más ancho que una tarjeta (desktop), el snap-start de la
-              // última queda fuera del rango de scroll y el snap-mandatory la
-              // rebotaría al inicio. snap-end siempre es alcanzable.
-              idx === outfits.length - 1 ? "snap-end" : "snap-start",
-            ].join(" ")}
+            // snap-center + gutters simétricos (medidos en el efecto de abajo):
+            // la tarjeta activa queda centrada en el viewport con las vecinas
+            // asomando a ambos lados, y el centro de la primera/última siempre
+            // es alcanzable — sin casos especiales de snap-start/end.
+            className="w-[68vw] max-w-[300px] shrink-0 snap-center transition-transform duration-150 active:scale-[0.99]"
           >
             <OutfitCard
               outfit={o}
@@ -614,7 +631,7 @@ function ResultsGrid({
       {shown && (shown.explanation || shown.matchPercentage !== null) && (
         <div
           aria-live="polite"
-          className="mx-auto flex min-h-[7.5rem] w-full max-w-[360px] flex-col gap-3 rounded-xl bg-surface-2/60 px-4 py-4 transition-opacity duration-150 sm:max-w-xl"
+          className="mx-auto flex min-h-[7.5rem] w-[68vw] max-w-[300px] flex-col gap-3 rounded-xl bg-surface-2/60 px-4 py-4 transition-opacity duration-150 sm:w-full sm:max-w-xl"
           style={{ opacity: descVisible ? 1 : 0 }}
         >
           <p className="font-display text-lg text-text">{shown.name}</p>
