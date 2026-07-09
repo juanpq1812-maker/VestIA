@@ -3,6 +3,8 @@ import { Hanken_Grotesk, Libre_Caslon_Text } from "next/font/google";
 import "./globals.css";
 import IOSInstallBanner from "@/components/pwa/IOSInstallBanner";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
+import SplashScreen from "@/components/pwa/SplashScreen";
+import AppleSplashLinks from "@/components/pwa/AppleSplashLinks";
 
 const hanken = Hanken_Grotesk({
   variable: "--font-hanken",
@@ -59,7 +61,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#8B9E8A",
+  themeColor: "#1A1A1A",
 };
 
 export default function RootLayout({
@@ -71,9 +73,14 @@ export default function RootLayout({
     <html
       lang="es"
       className={`${hanken.variable} ${caslon.variable} h-full`}
+      // Crema base pintada antes de que cargue el CSS: mata el negro por
+      // defecto del arranque/hydrate. Es el mismo valor que el token --color-bg
+      // (#fcf9f6) que aplica el `bg-bg` del <body>, así no hay salto de tono.
+      style={{ backgroundColor: "#fcf9f6" }}
     >
       <head>
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <AppleSplashLinks />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0"
@@ -81,6 +88,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-bg text-text">
         {children}
+        <SplashScreen />
         <IOSInstallBanner />
         <ServiceWorkerRegistration />
       </body>
