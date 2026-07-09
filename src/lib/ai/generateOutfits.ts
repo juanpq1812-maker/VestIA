@@ -59,8 +59,13 @@ export class GenerateOutfitsError extends Error {
 export type GeneratedOutfit = {
   /** Nombre que la IA le puso al outfit. */
   name: string;
-  /** Texto corto explicando por que combina. */
+  /** Justificación (2-3 frases) de por qué este outfit responde a lo que pidió el usuario. */
   explanation: string;
+  /**
+   * Qué tan bien cumple la solicitud del usuario, 0-100. Es `null` en modo
+   * "sorpréndeme" (no hay solicitud explícita que medir).
+   */
+  matchPercentage: number | null;
   /** Prendas en el orden en que la IA las propuso. */
   items: ClothingItem[];
 };
@@ -162,9 +167,14 @@ export async function generateOutfits(
   }
   const signedUrls = await createSignedUrlMap(supabase, [...usedPaths]);
 
+  // En modo sorpresa no hay solicitud que medir: forzamos el % a null aunque
+  // el modelo lo haya devuelto.
+  const isSurprise = input.mode === "surprise";
+
   return validOutfits.map((o) => ({
     name: o.name,
     explanation: o.explanation,
+    matchPercentage: isSurprise ? null : o.match_percentage,
     items: o.clothing_item_ids
       .map((id) => itemsById.get(id))
       .filter((it): it is ClothingItem => Boolean(it))
@@ -217,15 +227,29 @@ function buildPrompt(args: {
       : "sin preferencia declarada";
 
   let instruccionDeOcasion = "";
+  let solicitudTexto = "";
   if (mode === "occasion" && occasion) {
+    solicitudTexto = `la ocasión "${occasion}"`;
     instruccionDeOcasion = `El usuario quiere outfits para la ocasión: "${occasion}". Prioriza prendas cuya lista de ocasiones incluya algo similar.`;
   } else if (mode === "description" && description) {
     // Cortamos a 200 chars en backend también por seguridad.
     const trimmed = description.slice(0, 200);
+    solicitudTexto = `lo que pidió: "${trimmed}"`;
     instruccionDeOcasion = `El usuario describe lo que necesita asi: "${trimmed}". Interpreta el tono y elige prendas coherentes.`;
   } else {
     instruccionDeOcasion = `Modo "sorprendeme": elige libremente. Combina prendas de forma creativa pero usable, mezclando colores que armonicen.`;
   }
+
+  const esSorpresa = mode === "surprise";
+
+  // Instrucciones para la justificación y el % de match, distintas según haya
+  // o no una solicitud explícita que medir.
+  const reglaJustificacion = esSorpresa
+    ? `- "explanation": 2-3 frases explicando por qué esta combinación funciona (paleta, ocasión, vibe), mencionando prendas concretas del outfit.`
+    : `- "explanation": 2-3 frases explicando por qué ESTE outfit responde a ${solicitudTexto}, mencionando prendas concretas del outfit.`;
+  const reglaPorcentaje = esSorpresa
+    ? `- "match_percentage": usa null (en modo sorpresa no hay solicitud que medir).`
+    : `- "match_percentage": entero 0-100 que refleje HONESTAMENTE qué tan bien el outfit cumple ${solicitudTexto}. No lo infles: si tu armario no tiene la prenda ideal para el pedido, baja el número en consecuencia.`;
 
   const reglaLockedItem = lockedItemId
     ? `REGLA OBLIGATORIA: CADA outfit generado DEBE incluir la prenda con id="${lockedItemId}". Esta regla no es negociable ni opcional; es un requisito estricto.`
@@ -253,18 +277,24 @@ function buildPrompt(args: {
     `Armario disponible:`,
     inventario,
     ``,
+    `Contenido de cada outfit:`,
+    reglaJustificacion,
+    reglaPorcentaje,
+    ``,
     `Responde EXCLUSIVAMENTE con un JSON válido (sin markdown, sin texto extra) con esta estructura exacta:`,
     `{`,
     `  "outfits": [`,
     `    {`,
     `      "name": "Nombre corto del outfit, ej: Casual relajado",`,
     `      "clothing_item_ids": ["uuid1", "uuid2", "uuid3", "uuid4"],`,
-    `      "explanation": "1-2 frases explicando por que esta combinacion funciona."`,
+    `      "explanation": "2-3 frases justificando el outfit.",`,
+    `      "match_percentage": ${esSorpresa ? "null" : "87"}`,
     `    },`,
     `    {`,
     `      "name": "...",`,
     `      "clothing_item_ids": ["..."],`,
-    `      "explanation": "..."`,
+    `      "explanation": "...",`,
+    `      "match_percentage": ${esSorpresa ? "null" : "72"}`,
     `    }`,
     `  ]`,
     `}`,
@@ -288,7 +318,7 @@ async function callAiModel(prompt: string): Promise<string> {
       const text = await callAnthropicApi({
         systemPrompt: SYSTEM_PROMPT,
         userPrompt: prompt,
-        maxTokens: 1024,
+        maxTokens: 1536,
         temperature: 0.85,
       });
 
@@ -356,7 +386,16 @@ type ParsedOutfit = {
   name: string;
   clothing_item_ids: string[];
   explanation: string;
+  /** 0-100 ya saneado, o null si la IA no lo dio o no aplica. */
+  match_percentage: number | null;
 };
+
+/** Sanea el match_percentage: acepta número 0-100, redondea y clampa; si no, null. */
+function parseMatchPercentage(raw: unknown): number | null {
+  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
 
 function parseOutfitsJson(raw: string): ParsedOutfit[] {
   // Estrategias en orden:
@@ -391,8 +430,9 @@ function parseOutfitsJson(raw: string): ParsedOutfit[] {
           : [];
         const explanation =
           typeof oo.explanation === "string" ? oo.explanation : "";
+        const match_percentage = parseMatchPercentage(oo.match_percentage);
         if (ids.length === 0) continue;
-        valid.push({ name, clothing_item_ids: ids, explanation });
+        valid.push({ name, clothing_item_ids: ids, explanation, match_percentage });
       }
       if (valid.length > 0) return valid;
     } catch {
