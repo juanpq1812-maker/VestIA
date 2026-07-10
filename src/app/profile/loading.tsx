@@ -42,6 +42,17 @@ export default function Loading() {
             </div>
           </div>
 
+          {/* Calendario */}
+          <div className="mt-10">
+            <div className="h-7 w-36 animate-pulse rounded bg-surface-2" />
+            <div className="mt-2 h-4 w-64 animate-pulse rounded bg-surface-2" />
+            <div className="mt-4 rounded-xl bg-surface p-5 shadow-sm">
+              <div className="h-4 w-48 animate-pulse rounded bg-surface-2" />
+              <div className="mt-3 h-12 w-full animate-pulse rounded-md bg-surface-2" />
+              <div className="mt-4 h-12 w-full animate-pulse rounded-full bg-surface-2" />
+            </div>
+          </div>
+
           {/* Configuración */}
           <div className="mt-10">
             <div className="h-7 w-40 animate-pulse rounded bg-surface-2" />

@@ -186,6 +186,78 @@ export type OutfitUseInsert = {
 
 export type OutfitUseUpdate = Partial<OutfitUseInsert>;
 
+// ── Calendario sincronizado por ICS (migración 0009) ────────────────────────
+
+export type CalendarFeed = {
+  id: string;
+  user_id: string;
+  url: string;
+  provider: string | null; // 'google' | 'apple' | 'otro' (cosmético)
+  last_synced_at: string | null;
+  sync_error: string | null;
+  created_at: string;
+};
+
+export type CalendarFeedInsert = {
+  id?: string;
+  user_id: string;
+  url: string;
+  provider?: string | null;
+  last_synced_at?: string | null;
+  sync_error?: string | null;
+  created_at?: string;
+};
+
+export type CalendarEvent = {
+  id: string;
+  user_id: string;
+  feed_id: string;
+  external_uid: string;
+  title: string;
+  starts_at: string; // timestamptz ISO
+  ends_at: string | null;
+  all_day: boolean;
+  location: string | null;
+  created_at: string;
+};
+
+export type CalendarEventInsert = {
+  id?: string;
+  user_id: string;
+  feed_id: string;
+  external_uid: string;
+  title: string;
+  starts_at: string;
+  ends_at?: string | null;
+  all_day?: boolean;
+  location?: string | null;
+  created_at?: string;
+};
+
+export type EventOutfitSuggestion = {
+  id: string;
+  user_id: string;
+  event_id: string;
+  occasion_inferred: string;
+  name: string;
+  explanation: string;
+  match_percentage: number | null;
+  clothing_item_ids: string[];
+  created_at: string;
+};
+
+export type EventOutfitSuggestionInsert = {
+  id?: string;
+  user_id: string;
+  event_id: string;
+  occasion_inferred: string;
+  name: string;
+  explanation: string;
+  match_percentage?: number | null;
+  clothing_item_ids: string[];
+  created_at?: string;
+};
+
 // ---------------------------------------------------------------------------
 // Tipo "Database" estilo Supabase, util si en algun momento creamos el cliente
 // tipado con `createClient<Database>(...)`.
@@ -218,6 +290,21 @@ export type Database = {
         Row: OutfitUse;
         Insert: OutfitUseInsert;
         Update: OutfitUseUpdate;
+      };
+      calendar_feeds: {
+        Row: CalendarFeed;
+        Insert: CalendarFeedInsert;
+        Update: Partial<CalendarFeedInsert>;
+      };
+      calendar_events: {
+        Row: CalendarEvent;
+        Insert: CalendarEventInsert;
+        Update: Partial<CalendarEventInsert>;
+      };
+      event_outfit_suggestions: {
+        Row: EventOutfitSuggestion;
+        Insert: EventOutfitSuggestionInsert;
+        Update: Partial<EventOutfitSuggestionInsert>;
       };
     };
     Views: Record<string, never>;

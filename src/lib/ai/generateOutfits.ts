@@ -32,6 +32,8 @@ export type GenerateOutfitsInput = {
   description?: string;
   /** ID de la prenda que DEBE aparecer en todos los outfits generados. */
   lockedItemId?: string;
+  /** Cuántos outfits pedir (2 por defecto; 1 para sugerencias por evento). */
+  count?: 1 | 2;
 };
 
 /** Codigos de error que la UI puede traducir a mensajes amigables. */
@@ -130,6 +132,7 @@ export async function generateOutfits(
     occasion: input.occasion,
     description: input.description,
     lockedItemId: input.lockedItemId,
+    count: input.count ?? 2,
   });
 
   const rawJson = await callAiModel(prompt);
@@ -198,8 +201,9 @@ function buildPrompt(args: {
   occasion?: string;
   description?: string;
   lockedItemId?: string;
+  count: 1 | 2;
 }): string {
-  const { items, prefs, mode, occasion, description, lockedItemId } = args;
+  const { items, prefs, mode, occasion, description, lockedItemId, count } = args;
 
   // Listamos las prendas en formato compacto: ID + categoria/subcategoria +
   // color + ocasiones. Suficiente para que la IA combine sin pasarnos del
@@ -271,7 +275,9 @@ function buildPrompt(args: {
       ];
 
   return [
-    `Eres un estilista personal. Tu tarea es proponer EXACTAMENTE 2 outfits distintos combinando SOLO prendas del armario del usuario que se lista más abajo.`,
+    count === 1
+      ? `Eres un estilista personal. Tu tarea es proponer EXACTAMENTE 1 outfit combinando SOLO prendas del armario del usuario que se lista más abajo.`
+      : `Eres un estilista personal. Tu tarea es proponer EXACTAMENTE 2 outfits distintos combinando SOLO prendas del armario del usuario que se lista más abajo.`,
     ...(reglaLockedItem ? [reglaLockedItem, ``] : []),
     ``,
     `Reglas de composición (importantes):`,
@@ -280,7 +286,9 @@ function buildPrompt(args: {
     `- Si el armario lo permite, enriquece el outfit con prendas opcionales: outerwear (chaqueta, abrigo, blazer), accesorios (bolso, cinturón, gafas, bufanda, joyería), gorra o sombrero (hat/cap).`,
     `- Adapta la cantidad al armario real: si hay accesorios, gorras u outerwear disponibles y tienen sentido estético, úsalos. No fuerces prendas que no combinen.`,
     `- No repitas IDs dentro del mismo outfit.`,
-    `- Los 2 outfits deben ser claramente distintos entre sí (diferente vibe o paleta).`,
+    ...(count === 2
+      ? [`- Los 2 outfits deben ser claramente distintos entre sí (diferente vibe o paleta).`]
+      : []),
     `- Solo puedes usar IDs que aparecen en el armario. NO inventes IDs nuevos.`,
     ``,
     `Preferencias del usuario (recomendación, no obligación):`,
@@ -305,13 +313,17 @@ function buildPrompt(args: {
     `      "clothing_item_ids": ["uuid1", "uuid2", "uuid3", "uuid4"],`,
     `      "explanation": "2-3 frases justificando el outfit.",`,
     `      "match_percentage": ${esSorpresa ? "null" : "87"}`,
-    `    },`,
-    `    {`,
-    `      "name": "...",`,
-    `      "clothing_item_ids": ["..."],`,
-    `      "explanation": "...",`,
-    `      "match_percentage": ${esSorpresa ? "null" : "72"}`,
-    `    }`,
+    ...(count === 2
+      ? [
+          `    },`,
+          `    {`,
+          `      "name": "...",`,
+          `      "clothing_item_ids": ["..."],`,
+          `      "explanation": "...",`,
+          `      "match_percentage": ${esSorpresa ? "null" : "72"}`,
+          `    }`,
+        ]
+      : [`    }`]),
     `  ]`,
     `}`,
   ].join("\n");
