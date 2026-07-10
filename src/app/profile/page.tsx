@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import LogoutButton from "@/components/auth/LogoutButton";
+import CalendarFeedForm from "@/components/profile/CalendarFeedForm";
 
 export const metadata = {
   title: "Perfil — StrandIA",
@@ -33,7 +34,7 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [profileRes, itemsRes, outfitsRes, usesRes] = await Promise.all([
+  const [profileRes, itemsRes, outfitsRes, usesRes, feedRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("display_name, created_at")
@@ -42,7 +43,21 @@ export default async function ProfilePage() {
     supabase.from("clothing_items").select("id", { count: "exact", head: true }),
     supabase.from("outfits").select("id", { count: "exact", head: true }),
     supabase.from("outfit_uses").select("used_date"),
+    supabase
+      .from("calendar_feeds")
+      .select("url, provider, last_synced_at, sync_error")
+      .maybeSingle(),
   ]);
+
+  // La URL ICS es un secreto: al cliente solo va enmascarada.
+  const feed = feedRes.data
+    ? {
+        provider: feedRes.data.provider,
+        maskedUrl: maskFeedUrl(feedRes.data.url),
+        lastSyncedAt: feedRes.data.last_synced_at,
+        syncError: feedRes.data.sync_error,
+      }
+    : null;
 
   const displayName =
     profileRes.data?.display_name?.trim() || user?.email?.split("@")[0] || "Tu perfil";
@@ -121,6 +136,9 @@ export default async function ProfilePage() {
             </div>
           </section>
 
+          {/* ── Calendario ────────────────────────────────────────────── */}
+          <CalendarFeedForm feed={feed} />
+
           {/* ── Configuración ─────────────────────────────────────────── */}
           <section className="mt-10">
             <h2 className="font-display text-2xl text-text">Configuración</h2>
@@ -150,6 +168,16 @@ export default async function ProfilePage() {
       </main>
     </div>
   );
+}
+
+function maskFeedUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    const tail = u.pathname.split("/").pop() ?? "";
+    return `${u.hostname}/…/${tail}`;
+  } catch {
+    return "•••";
+  }
 }
 
 function Stat({ valor, etiqueta }: { valor: number; etiqueta: string }) {

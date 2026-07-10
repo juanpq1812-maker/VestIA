@@ -30,6 +30,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // node-ical (parser del calendario) no sobrevive el bundling de Turbopack
+  // ("BigInt is not a function" al recolectar page data). Server-only: se
+  // resuelve desde node_modules en runtime.
+  serverExternalPackages: ["node-ical"],
   images: {
     // Fotografía editorial de la landing servida desde Unsplash.
     remotePatterns: [

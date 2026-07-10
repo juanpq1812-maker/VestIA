@@ -15,6 +15,11 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import LazyImage from "@/components/ui/LazyImage";
+import AgendaCard, { type AgendaEvent } from "@/components/dashboard/AgendaCard";
+import EventOutfitSection, {
+  type EventOutfitData,
+} from "@/components/dashboard/EventOutfitSection";
+import ConnectCalendarCard from "@/components/dashboard/ConnectCalendarCard";
 import type { ClothingCategory } from "@/types/database";
 
 import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
@@ -47,6 +52,13 @@ type PrendaOlvidada = {
   diasOlvidada: number;
 } | null;
 
+type EventOutfitProps = {
+  eventId: string;
+  eventTitle: string;
+  eventTime: string;
+  cached: EventOutfitData | null;
+} | null;
+
 type Props = {
   displayName: string;
   weekUses: number;
@@ -54,6 +66,9 @@ type Props = {
   recentItems: RecentItem[];
   prendaEstrella: PrendaEstrella;
   prendaOlvidada: PrendaOlvidada;
+  hasCalendarFeed: boolean;
+  agendaEvents: AgendaEvent[];
+  eventOutfit: EventOutfitProps;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -91,9 +106,13 @@ export default function DashboardView({
   recentItems,
   prendaEstrella,
   prendaOlvidada,
+  hasCalendarFeed,
+  agendaEvents,
+  eventOutfit,
 }: Props) {
   const fecha = fechaHoyEspanol();
   const esUsuarioNuevo = totalItems === 0;
+  const eventosHoy = agendaEvents.length;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -106,7 +125,12 @@ export default function DashboardView({
             <h1 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
               Hola, {displayName}
             </h1>
-            <p className="mt-2 text-sm text-text-muted">{fecha}</p>
+            <p className="mt-2 text-sm text-text-muted">
+              {fecha}
+              {eventosHoy > 0
+                ? ` · Tienes ${eventosHoy} ${eventosHoy === 1 ? "evento" : "eventos"} hoy.`
+                : ""}
+            </p>
           </div>
 
           {esUsuarioNuevo ? (
@@ -118,6 +142,9 @@ export default function DashboardView({
               recentItems={recentItems}
               prendaEstrella={prendaEstrella}
               prendaOlvidada={prendaOlvidada}
+              hasCalendarFeed={hasCalendarFeed}
+              agendaEvents={agendaEvents}
+              eventOutfit={eventOutfit}
             />
           )}
         </Container>
@@ -173,6 +200,9 @@ type DashboardConDatosProps = {
   recentItems: RecentItem[];
   prendaEstrella: PrendaEstrella;
   prendaOlvidada: PrendaOlvidada;
+  hasCalendarFeed: boolean;
+  agendaEvents: AgendaEvent[];
+  eventOutfit: EventOutfitProps;
 };
 
 function DashboardConDatos({
@@ -181,9 +211,24 @@ function DashboardConDatos({
   recentItems,
   prendaEstrella,
   prendaOlvidada,
+  hasCalendarFeed,
+  agendaEvents,
+  eventOutfit,
 }: DashboardConDatosProps) {
   return (
     <div className="flex flex-col gap-8">
+      {/* ── Calendario: la IA viste tu agenda ─────────────────────────── */}
+      {eventOutfit && (
+        <EventOutfitSection
+          eventId={eventOutfit.eventId}
+          eventTitle={eventOutfit.eventTitle}
+          eventTime={eventOutfit.eventTime}
+          cached={eventOutfit.cached}
+        />
+      )}
+      {agendaEvents.length > 0 && <AgendaCard events={agendaEvents} />}
+      {!hasCalendarFeed && <ConnectCalendarCard />}
+
       <OutfitDelDiaHero
         weekUses={weekUses}
         prendaEstrella={prendaEstrella}

@@ -19,6 +19,8 @@ import {
 } from "@/lib/ai/generateOutfits";
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
 import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
+import { suggestOutfitForEvent } from "@/lib/ai/eventOutfit";
+import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 export type GenerateActionInput = {
   mode: GenerateMode;
   occasion?: string;
@@ -77,6 +79,122 @@ export async function generateOutfitsAction(
         "Algo salio mal generando el outfit. Intenta de nuevo en unos segundos.",
     };
   }
+}
+
+// ── Outfit por evento del calendario (dashboard) ─────────────────────────────
+
+export type EventOutfitActionResult =
+  | {
+      ok: true;
+      suggestion: {
+        name: string;
+        explanation: string;
+        matchPercentage: number | null;
+        occasion: string;
+        items: Array<{
+          id: string;
+          nombre: string;
+          image_url: string | null;
+          primary_color: string | null;
+        }>;
+      };
+    }
+  | { ok: false; error: string; code: string };
+
+/**
+ * Genera la sugerencia de outfit para un evento (con caché por evento).
+ * Solo consume rate limit cuando NO hay caché.
+ */
+export async function generateEventOutfitAction(
+  eventId: string
+): Promise<EventOutfitActionResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, code: "UNAUTHENTICATED", error: "Inicia sesion para generar outfits." };
+  }
+
+  // El evento debe ser del usuario (RLS ya lo garantiza; el filtro es explícito).
+  const { data: event } = await supabase
+    .from("calendar_events")
+    .select("id, title, starts_at, location")
+    .eq("id", eventId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!event) {
+    return { ok: false, code: "NOT_FOUND", error: "Ese evento ya no está en tu calendario." };
+  }
+
+  // ¿Caché del día? Devolver sin gastar IA.
+  const { data: cached } = await supabase
+    .from("event_outfit_suggestions")
+    .select("name, explanation, match_percentage, occasion_inferred, clothing_item_ids")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  let name: string, explanation: string, occasion: string;
+  let matchPercentage: number | null;
+  let itemIds: string[];
+
+  if (cached) {
+    ({ name, explanation } = cached);
+    matchPercentage = cached.match_percentage;
+    occasion = cached.occasion_inferred;
+    itemIds = cached.clothing_item_ids ?? [];
+  } else {
+    const limit = await checkAndConsumeAiUse(user.id, supabase);
+    if (!limit.allowed) {
+      return {
+        ok: false,
+        code: "RATE_LIMITED",
+        error: `Alcanzaste el límite de consultas de IA. Intenta en ${limit.resetInMinutes} minuto${limit.resetInMinutes === 1 ? "" : "s"}.`,
+      };
+    }
+    const res = await suggestOutfitForEvent(supabase, user.id, event);
+    if (!res.ok) {
+      return { ok: false, code: "GENERATION_FAILED", error: res.error };
+    }
+    name = res.suggestion.name;
+    explanation = res.suggestion.explanation;
+    matchPercentage = res.suggestion.match_percentage;
+    occasion = res.suggestion.occasion_inferred;
+    itemIds = res.suggestion.clothing_item_ids;
+  }
+
+  // Hidratar prendas con URLs firmadas para el dashboard.
+  const items: Array<{
+    id: string;
+    nombre: string;
+    image_url: string | null;
+    primary_color: string | null;
+  }> = [];
+  if (itemIds.length > 0) {
+    const { data: itemsRaw } = await supabase
+      .from("clothing_items")
+      .select("id, name, subcategory, category, primary_color, image_path")
+      .in("id", itemIds);
+    const paths = (itemsRaw ?? [])
+      .map((i) => i.image_path)
+      .filter((p): p is string => Boolean(p));
+    const signed = await createSignedUrlMap(supabase, paths);
+    for (const id of itemIds) {
+      const it = (itemsRaw ?? []).find((i) => i.id === id);
+      if (!it) continue;
+      items.push({
+        id: it.id,
+        nombre: it.name?.trim() || it.subcategory?.trim() || it.category,
+        image_url: it.image_path ? signed.get(it.image_path) ?? null : null,
+        primary_color: it.primary_color,
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    suggestion: { name, explanation, matchPercentage, occasion, items },
+  };
 }
 
 export type SaveOutfitInput = {

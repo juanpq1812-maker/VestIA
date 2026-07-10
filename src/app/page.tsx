@@ -10,6 +10,9 @@ import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import DashboardView from "@/components/dashboard/DashboardView";
 import LandingContent from "@/components/landing/LandingContent";
+import { feedNecesitaSync, syncCalendarFeed } from "@/lib/calendar/sync";
+import type { AgendaEvent } from "@/components/dashboard/AgendaCard";
+import type { EventOutfitData } from "@/components/dashboard/EventOutfitSection";
 
 export const metadata: Metadata = {
   title: "StrandIA — Tu armario digital con IA",
@@ -152,6 +155,87 @@ export default async function RootPage() {
   candidatas.sort((a, b) => b.diasOlvidada - a.diasOlvidada);
   const prendaOlvidada = candidatas[0] ?? null;
 
+  // ── Calendario: sync si está stale + eventos de hoy (Bogotá) ─────────────
+  const { data: feed } = await supabase
+    .from("calendar_feeds")
+    .select("id, user_id, url, last_synced_at")
+    .maybeSingle();
+
+  let agendaEvents: AgendaEvent[] = [];
+  let nextEvent: AgendaEvent | null = null;
+  let cachedEventOutfit: EventOutfitData | null = null;
+
+  if (feed) {
+    if (feedNecesitaSync(feed)) {
+      // syncCalendarFeed ya captura sus errores; el cinturón extra garantiza
+      // que un feed roto jamás tumbe el dashboard.
+      try {
+        await syncCalendarFeed(supabase, feed);
+      } catch {
+        /* registrado en calendar_feeds.sync_error */
+      }
+    }
+
+    // "Hoy" en la zona del piloto (Bogotá, UTC-5 sin DST).
+    const bogotaDia = today.toLocaleDateString("en-CA", {
+      timeZone: "America/Bogota",
+    });
+    const diaInicio = new Date(`${bogotaDia}T00:00:00-05:00`);
+    const diaFin = new Date(diaInicio.getTime() + 24 * 60 * 60 * 1000);
+
+    const { data: eventsData } = await supabase
+      .from("calendar_events")
+      .select("id, title, starts_at, all_day")
+      .gte("starts_at", diaInicio.toISOString())
+      .lt("starts_at", diaFin.toISOString())
+      .order("starts_at", { ascending: true });
+    agendaEvents = (eventsData ?? []) as AgendaEvent[];
+
+    // Próximo evento con hora que aún no empieza — el que recibe outfit.
+    const ahora = new Date();
+    nextEvent =
+      agendaEvents.find((e) => !e.all_day && new Date(e.starts_at) > ahora) ??
+      null;
+
+    // ¿Sugerencia cacheada? Se hidrata acá para llegar server-rendered.
+    if (nextEvent) {
+      const { data: sug } = await supabase
+        .from("event_outfit_suggestions")
+        .select("name, explanation, match_percentage, occasion_inferred, clothing_item_ids")
+        .eq("event_id", nextEvent.id)
+        .maybeSingle();
+      if (sug) {
+        const ids: string[] = sug.clothing_item_ids ?? [];
+        const { data: sugItems } = ids.length
+          ? await supabase
+              .from("clothing_items")
+              .select("id, name, subcategory, category, primary_color, image_path")
+              .in("id", ids)
+          : { data: [] };
+        const { createSignedUrlMap: sign } = await import("@/lib/storage/clothingImages");
+        const sugPaths = (sugItems ?? [])
+          .map((i) => i.image_path)
+          .filter((p): p is string => Boolean(p));
+        const sugUrls = await sign(supabase, sugPaths);
+        cachedEventOutfit = {
+          name: sug.name,
+          explanation: sug.explanation,
+          matchPercentage: sug.match_percentage,
+          occasion: sug.occasion_inferred,
+          items: ids
+            .map((id) => (sugItems ?? []).find((i) => i.id === id))
+            .filter((i): i is NonNullable<typeof i> => Boolean(i))
+            .map((i) => ({
+              id: i.id,
+              nombre: i.name?.trim() || i.subcategory?.trim() || i.category,
+              image_url: i.image_path ? sugUrls.get(i.image_path) ?? null : null,
+              primary_color: i.primary_color,
+            })),
+        };
+      }
+    }
+  }
+
   // ── Firmar URLs para imágenes que vamos a mostrar ────────────────────────
   const { createSignedUrlMap } = await import("@/lib/storage/clothingImages");
   const recentItems = allItems.slice(0, 4);
@@ -177,6 +261,16 @@ export default async function RootPage() {
       signedUrls.get(prendaOlvidada.image_path) ?? null;
   }
 
+  // Hora local del próximo evento, pre-formateada para el banner.
+  const nextEventTime = nextEvent
+    ? new Date(nextEvent.starts_at).toLocaleTimeString("es-CO", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: "America/Bogota",
+      })
+    : null;
+
   return (
     <DashboardView
       displayName={displayName}
@@ -185,6 +279,18 @@ export default async function RootPage() {
       recentItems={recentItemsConUrl as Parameters<typeof DashboardView>[0]["recentItems"]}
       prendaEstrella={prendaEstrella as Parameters<typeof DashboardView>[0]["prendaEstrella"]}
       prendaOlvidada={prendaOlvidada as Parameters<typeof DashboardView>[0]["prendaOlvidada"]}
+      hasCalendarFeed={Boolean(feed)}
+      agendaEvents={agendaEvents}
+      eventOutfit={
+        nextEvent && nextEventTime
+          ? {
+              eventId: nextEvent.id,
+              eventTitle: nextEvent.title,
+              eventTime: nextEventTime,
+              cached: cachedEventOutfit,
+            }
+          : null
+      }
     />
   );
 }
