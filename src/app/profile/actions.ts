@@ -12,7 +12,7 @@ import {
 import { syncCalendarFeed } from "@/lib/calendar/sync";
 
 export type SaveFeedResult =
-  | { ok: true; provider: string; eventCount: number }
+  | { ok: true; feedId: string; provider: string; eventCount: number }
   | { ok: false; error: string };
 
 export async function saveCalendarFeedAction(rawUrl: string): Promise<SaveFeedResult> {
@@ -41,17 +41,18 @@ export async function saveCalendarFeedAction(rawUrl: string): Promise<SaveFeedRe
 
   const provider = guessProvider(url);
 
-  // MVP: un feed por usuario (unique user_id) → upsert reemplaza el anterior.
+  // Multi-feed: cada calendario nuevo se inserta; unique(user_id, url) evita
+  // conectar el mismo dos veces.
   const { data: feed, error } = await supabase
     .from("calendar_feeds")
-    .upsert(
-      { user_id: user.id, url, provider, last_synced_at: null, sync_error: null },
-      { onConflict: "user_id" }
-    )
+    .insert({ user_id: user.id, url, provider })
     .select("id, user_id, url")
     .single();
 
   if (error || !feed) {
+    if (error?.code === "23505") {
+      return { ok: false, error: "Ese calendario ya está conectado." };
+    }
     console.error("[saveCalendarFeed]", error);
     return { ok: false, error: "No pudimos guardar el calendario. Intenta de nuevo." };
   }
@@ -65,22 +66,24 @@ export async function saveCalendarFeedAction(rawUrl: string): Promise<SaveFeedRe
 
   revalidatePath("/");
   revalidatePath("/profile");
-  return { ok: true, provider, eventCount: count ?? 0 };
+  return { ok: true, feedId: feed.id, provider, eventCount: count ?? 0 };
 }
 
 export type DeleteFeedResult = { ok: true } | { ok: false; error: string };
 
-export async function deleteCalendarFeedAction(): Promise<DeleteFeedResult> {
+export async function deleteCalendarFeedAction(feedId: string): Promise<DeleteFeedResult> {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Tu sesión expiró. Vuelve a iniciar sesión." };
 
-  // Eventos y sugerencias caen por CASCADE.
+  // Eventos y sugerencias caen por CASCADE. RLS ya limita al dueño; el filtro
+  // explícito por user_id es defensa en profundidad.
   const { error } = await supabase
     .from("calendar_feeds")
     .delete()
+    .eq("id", feedId)
     .eq("user_id", user.id);
 
   if (error) {

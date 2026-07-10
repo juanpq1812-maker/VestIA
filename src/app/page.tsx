@@ -156,21 +156,24 @@ export default async function RootPage() {
   const prendaOlvidada = candidatas[0] ?? null;
 
   // ── Calendario: sync si está stale + eventos de hoy (Bogotá) ─────────────
-  const { data: feed } = await supabase
+  // Multi-feed: el usuario puede tener Google Y Apple conectados a la vez.
+  const { data: feedsData } = await supabase
     .from("calendar_feeds")
-    .select("id, user_id, url, last_synced_at")
-    .maybeSingle();
+    .select("id, user_id, url, last_synced_at");
+  const feeds = feedsData ?? [];
+  const hayFeed = feeds.length > 0;
 
   let agendaEvents: AgendaEvent[] = [];
   let nextEvent: AgendaEvent | null = null;
   let cachedEventOutfit: EventOutfitData | null = null;
 
-  if (feed) {
-    if (feedNecesitaSync(feed)) {
+  if (hayFeed) {
+    const stale = feeds.filter((f) => feedNecesitaSync(f));
+    if (stale.length > 0) {
       // syncCalendarFeed ya captura sus errores; el cinturón extra garantiza
       // que un feed roto jamás tumbe el dashboard.
       try {
-        await syncCalendarFeed(supabase, feed);
+        await Promise.all(stale.map((f) => syncCalendarFeed(supabase, f)));
       } catch {
         /* registrado en calendar_feeds.sync_error */
       }
@@ -261,6 +264,13 @@ export default async function RootPage() {
       signedUrls.get(prendaOlvidada.image_path) ?? null;
   }
 
+  // Clima para el estado vacío de la agenda (feed conectado, día sin eventos).
+  // No se pide cuando hay eventos: ahí el protagonista es el outfit.
+  const weather =
+    hayFeed && agendaEvents.length === 0
+      ? await (await import("@/lib/weather/openMeteo")).getCurrentWeather()
+      : null;
+
   // Hora local del próximo evento, pre-formateada para el banner.
   const nextEventTime = nextEvent
     ? new Date(nextEvent.starts_at).toLocaleTimeString("es-CO", {
@@ -279,8 +289,9 @@ export default async function RootPage() {
       recentItems={recentItemsConUrl as Parameters<typeof DashboardView>[0]["recentItems"]}
       prendaEstrella={prendaEstrella as Parameters<typeof DashboardView>[0]["prendaEstrella"]}
       prendaOlvidada={prendaOlvidada as Parameters<typeof DashboardView>[0]["prendaOlvidada"]}
-      hasCalendarFeed={Boolean(feed)}
+      hasCalendarFeed={hayFeed}
       agendaEvents={agendaEvents}
+      weather={weather}
       eventOutfit={
         nextEvent && nextEventTime
           ? {

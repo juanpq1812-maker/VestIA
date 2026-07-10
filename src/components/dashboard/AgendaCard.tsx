@@ -1,8 +1,14 @@
 // Card AGENDA del dashboard: los eventos de hoy del calendario conectado,
 // con hora local y la ocasión inferida. Server Component (los eventos ya
 // vienen cacheados de la DB).
+//
+// Con calendario conectado pero sin eventos hoy, muestra un estado vacío con
+// el clima actual — confirmación visible de que el calendario está activo
+// (sin esto, conectar el calendario un día sin eventos parece que "no hizo
+// nada").
 
 import { clasificarOcasion } from "@/lib/ai/eventOutfit";
+import type { CurrentWeather } from "@/lib/weather/openMeteo";
 
 export type AgendaEvent = {
   id: string;
@@ -20,9 +26,14 @@ function horaBogota(iso: string): string {
   });
 }
 
-export default function AgendaCard({ events }: { events: AgendaEvent[] }) {
-  if (events.length === 0) return null;
-
+export default function AgendaCard({
+  events,
+  weather,
+}: {
+  events: AgendaEvent[];
+  /** Clima actual — se muestra en el estado vacío (sin eventos hoy). */
+  weather?: CurrentWeather | null;
+}) {
   return (
     <section
       aria-label="Agenda de hoy"
@@ -38,6 +49,43 @@ export default function AgendaCard({ events }: { events: AgendaEvent[] }) {
         </h2>
       </div>
 
+      {events.length === 0 ? (
+        <div className="mt-4">
+          <p className="text-sm text-text-muted">
+            Sin eventos en tu calendario hoy. Cuando agendes uno, la IA te
+            preparará el look.
+          </p>
+          {weather ? (
+            <div className="mt-4 flex gap-3">
+              <div className="flex-1 rounded-lg bg-surface-2 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-faint">
+                  Bogotá ahora
+                </p>
+                <p className="mt-1 font-display text-2xl text-text">
+                  {weather.tempC}°C
+                </p>
+                <p className="mt-0.5 text-xs text-text-muted">{weather.descripcion}</p>
+              </div>
+              <div className="flex-1 rounded-lg bg-surface-2 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-faint">
+                  Viento
+                </p>
+                <p className="mt-1 font-display text-2xl text-text">
+                  {weather.windKmh}
+                  <span className="text-sm text-text-muted"> km/h</span>
+                </p>
+                <p className="mt-0.5 text-xs text-text-muted">
+                  {weather.tempC <= 14
+                    ? "Día para capas y abrigo."
+                    : weather.tempC >= 24
+                      ? "Día para telas frescas."
+                      : "Clima templado, juega libre."}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
       <ul className="mt-4 divide-y divide-divider">
         {events.map((ev) => (
           <li key={ev.id} className="flex items-baseline gap-4 py-3 first:pt-0 last:pb-0">
@@ -55,6 +103,7 @@ export default function AgendaCard({ events }: { events: AgendaEvent[] }) {
           </li>
         ))}
       </ul>
+      )}
     </section>
   );
 }

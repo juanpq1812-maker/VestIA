@@ -20,6 +20,7 @@ import EventOutfitSection, {
   type EventOutfitData,
 } from "@/components/dashboard/EventOutfitSection";
 import ConnectCalendarCard from "@/components/dashboard/ConnectCalendarCard";
+import type { CurrentWeather } from "@/lib/weather/openMeteo";
 import type { ClothingCategory } from "@/types/database";
 
 import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
@@ -69,6 +70,7 @@ type Props = {
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
   eventOutfit: EventOutfitProps;
+  weather: CurrentWeather | null;
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -109,6 +111,7 @@ export default function DashboardView({
   hasCalendarFeed,
   agendaEvents,
   eventOutfit,
+  weather,
 }: Props) {
   const fecha = fechaHoyEspanol();
   const esUsuarioNuevo = totalItems === 0;
@@ -145,6 +148,7 @@ export default function DashboardView({
               hasCalendarFeed={hasCalendarFeed}
               agendaEvents={agendaEvents}
               eventOutfit={eventOutfit}
+              weather={weather}
             />
           )}
         </Container>
@@ -203,6 +207,7 @@ type DashboardConDatosProps = {
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
   eventOutfit: EventOutfitProps;
+  weather: CurrentWeather | null;
 };
 
 function DashboardConDatos({
@@ -214,6 +219,7 @@ function DashboardConDatos({
   hasCalendarFeed,
   agendaEvents,
   eventOutfit,
+  weather,
 }: DashboardConDatosProps) {
   return (
     <div className="flex flex-col gap-8">
@@ -226,7 +232,7 @@ function DashboardConDatos({
           cached={eventOutfit.cached}
         />
       )}
-      {agendaEvents.length > 0 && <AgendaCard events={agendaEvents} />}
+      {hasCalendarFeed && <AgendaCard events={agendaEvents} weather={weather} />}
       {!hasCalendarFeed && <ConnectCalendarCard />}
 
       <OutfitDelDiaHero

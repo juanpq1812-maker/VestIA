@@ -45,19 +45,17 @@ export default async function ProfilePage() {
     supabase.from("outfit_uses").select("used_date"),
     supabase
       .from("calendar_feeds")
-      .select("url, provider, last_synced_at, sync_error")
-      .maybeSingle(),
+      .select("id, url, provider, sync_error")
+      .order("created_at", { ascending: true }),
   ]);
 
-  // La URL ICS es un secreto: al cliente solo va enmascarada.
-  const feed = feedRes.data
-    ? {
-        provider: feedRes.data.provider,
-        maskedUrl: maskFeedUrl(feedRes.data.url),
-        lastSyncedAt: feedRes.data.last_synced_at,
-        syncError: feedRes.data.sync_error,
-      }
-    : null;
+  // Las URLs ICS son secretas: al cliente solo van enmascaradas.
+  const feeds = (feedRes.data ?? []).map((f) => ({
+    id: f.id,
+    provider: f.provider,
+    maskedUrl: maskFeedUrl(f.url),
+    syncError: f.sync_error,
+  }));
 
   const displayName =
     profileRes.data?.display_name?.trim() || user?.email?.split("@")[0] || "Tu perfil";
@@ -137,7 +135,7 @@ export default async function ProfilePage() {
           </section>
 
           {/* ── Calendario ────────────────────────────────────────────── */}
-          <CalendarFeedForm feed={feed} />
+          <CalendarFeedForm feeds={feeds} />
 
           {/* ── Configuración ─────────────────────────────────────────── */}
           <section className="mt-10">
