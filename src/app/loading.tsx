@@ -3,17 +3,12 @@
 // rediseñado (saludo serif + hero "Outfit del día" + grid de 2 cards +
 // banner de inspiración) para evitar layout shift al cargar.
 
+import HeaderSkeleton from "@/components/layout/HeaderSkeleton";
+
 export default function Loading() {
   return (
     <div className="flex flex-1 flex-col">
-      {/* Header skeleton — logo centrado (mobile) / izquierda (desktop) + perfil */}
-      <div className="border-b border-divider bg-surface">
-        <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="absolute left-1/2 h-10 w-24 -translate-x-1/2 animate-pulse rounded bg-surface-2 md:static md:h-12 md:translate-x-0" />
-          <span className="h-10 w-10 md:hidden" aria-hidden="true" />
-          <div className="h-10 w-10 animate-pulse rounded-full bg-surface-2" />
-        </div>
-      </div>
+      <HeaderSkeleton />
 
       <main className="flex-1 pb-24 pt-8 sm:pb-14 sm:pt-12">
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8">
