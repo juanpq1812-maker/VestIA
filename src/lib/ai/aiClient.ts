@@ -93,6 +93,64 @@ export async function callAnthropicApi(args: {
   return data.content?.[0]?.text ?? "";
 }
 
+export type ChatTurn = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+/**
+ * Llama a la API de Anthropic con una conversación multi-turno (chat).
+ * Igual que `callAnthropicApi` pero acepta el historial completo de mensajes,
+ * para flujos conversacionales como el asistente de soporte.
+ */
+export async function callAnthropicChatApi(args: {
+  systemPrompt: string;
+  messages: ChatTurn[];
+  maxTokens?: number;
+  temperature?: number;
+}): Promise<string> {
+  const apiKey = getAnthropicApiKey();
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    cache: "no-store",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: getAiModelName(),
+      max_tokens: args.maxTokens ?? 1024,
+      system: args.systemPrompt,
+      messages: args.messages,
+      ...(args.temperature !== undefined ? { temperature: args.temperature } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const rawErrorText = await response.text().catch(() => "");
+    let errBody: AnthropicApiResponse = {} as AnthropicApiResponse;
+    try {
+      errBody = JSON.parse(rawErrorText);
+    } catch {
+      // body no es JSON válido — lo logueamos igual
+    }
+    console.error(
+      `[callAnthropicChatApi] HTTP ${response.status} desde Anthropic API`,
+      { status: response.status, body: rawErrorText }
+    );
+    const httpError = new Error(
+      errBody?.error?.message ?? `HTTP ${response.status}`
+    );
+    (httpError as Error & { status: number }).status = response.status;
+    throw httpError;
+  }
+
+  const data = (await response.json()) as AnthropicApiResponse;
+  return data.content?.[0]?.text ?? "";
+}
+
 /**
  * Llama a la API de Anthropic con una imagen (vision) y un texto de usuario.
  * Solo se debe usar desde Server Components o Server Actions.
