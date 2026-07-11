@@ -25,7 +25,7 @@ const PLAN_FREE_FEATURES = [
 const CONFIG_ITEMS = [
   { label: "Notificaciones", icon: IconBell, href: null },
   { label: "Estilo preferido", icon: IconShirt, href: "/profile/style" },
-  { label: "Privacidad", icon: IconLock, href: null },
+  { label: "Privacidad", icon: IconLock, href: "/profile/privacy" },
   { label: "Ayuda y soporte", icon: IconHelp, href: "/profile/help" },
 ];
 
