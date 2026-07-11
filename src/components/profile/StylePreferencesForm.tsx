@@ -1,14 +1,15 @@
 // Formulario de /profile/style: editar estilos, ocasiones, tallas y medidas
 // guardados en `user_preferences`. Reutiliza los chips del onboarding pero en
-// una sola pantalla editable, con guardado explícito y toast de confirmación.
+// una sola pantalla editable, con guardado explícito; al guardar con éxito
+// redirige de vuelta a /profile.
 
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
-import Toast from "@/components/ui/Toast";
 import Chip from "@/components/onboarding/Chip";
 import {
   STYLE_TAGS,
@@ -47,6 +48,7 @@ function numToInput(n: number | null): string {
 }
 
 export default function StylePreferencesForm({ initial }: Props) {
+  const router = useRouter();
   const [estilos, setEstilos] = useState<string[]>(initial.styleTags);
   const [ocasiones, setOcasiones] = useState<string[]>(initial.favoriteOccasions);
   const [topSize, setTopSize] = useState(initial.topSize ?? "");
@@ -56,12 +58,10 @@ export default function StylePreferencesForm({ initial }: Props) {
   const [waistCm, setWaistCm] = useState(numToInput(initial.waistCm));
   const [hipCm, setHipCm] = useState(numToInput(initial.hipCm));
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function guardar() {
     setError(null);
-    setToast(null);
     if (estilos.length === 0) {
       setError("Elige al menos un estilo.");
       return;
@@ -86,7 +86,10 @@ export default function StylePreferencesForm({ initial }: Props) {
         setError(result.error);
         return;
       }
-      setToast("Preferencias guardadas.");
+      // Vuelve al perfil; refresh para que el Server Component lea los
+      // datos recién guardados.
+      router.push("/profile");
+      router.refresh();
     });
   }
 
@@ -203,10 +206,6 @@ export default function StylePreferencesForm({ initial }: Props) {
       >
         Guardar cambios
       </Button>
-
-      {toast ? (
-        <Toast message={toast} kind="success" onDismiss={() => setToast(null)} />
-      ) : null}
     </div>
   );
 }
