@@ -131,6 +131,24 @@ export default function LoginPage() {
           Regístrate
         </Link>
       </p>
+
+      <p className="mt-3 text-center text-xs text-text-faint">
+        Al continuar aceptas los{" "}
+        <Link
+          href="/terms"
+          className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
+        >
+          Términos
+        </Link>{" "}
+        y la{" "}
+        <Link
+          href="/privacy-policy"
+          className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
+        >
+          Política de Privacidad
+        </Link>
+        .
+      </p>
     </AuthShell>
   );
 }
