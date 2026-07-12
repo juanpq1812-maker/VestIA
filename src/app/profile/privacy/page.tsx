@@ -91,7 +91,22 @@ export default async function PrivacyPage() {
             </ul>
             <p className="mt-3 text-xs text-text-faint">
               No vendemos tus datos ni los compartimos con terceros. Las fotos
-              se envían a la IA solo para analizarlas al subirlas.
+              se envían a la IA solo para analizarlas al subirlas. Los detalles
+              completos están en la{" "}
+              <Link
+                href="/privacy-policy"
+                className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
+              >
+                Política de Privacidad
+              </Link>{" "}
+              y los{" "}
+              <Link
+                href="/terms"
+                className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
+              >
+                Términos y Condiciones
+              </Link>
+              .
             </p>
           </section>
 
