@@ -1,11 +1,10 @@
-// Hebri: elige el SVG del estado de ánimo actual, hace crossfade cuando el
-// estado cambia (mismo patrón de fade que LazyImage.tsx), y superpone el
-// overlay de "sucia" si corresponde.
+// Hebri: elige la ilustración del estado de ánimo actual, hace crossfade
+// cuando el estado cambia (mismo patrón de fade que LazyImage.tsx), y
+// superpone el overlay de "sucia" si corresponde.
 //
-// Reemplazo de assets: cuando lleguen los SVG finales del diseñador, solo
-// hay que pisar los archivos en /public/hebri/estados/ y
-// /public/hebri/overlay/ — este componente no cambia (ver rutas en
-// src/lib/pet/constants.ts).
+// Assets en /public/hebri/estados/ y /public/hebri/overlay/ (rutas en
+// src/lib/pet/constants.ts) — para actualizar el arte alcanza con pisar
+// esos archivos, este componente no cambia.
 
 "use client";
 

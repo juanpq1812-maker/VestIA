@@ -1,5 +1,6 @@
 // Pantalla completa de Hebri (/pet): sprite grande, mensaje contextual,
-// health_score, y un espacio reservado (bloqueado) para accesorios futuros.
+// nivel de cariño (health_score internamente, nunca mostrado como tal en
+// la UI), y un espacio reservado (bloqueado) para accesorios futuros.
 
 import Card from "@/components/ui/Card";
 import HebriSprite from "@/components/pet/HebriSprite";
@@ -16,30 +17,42 @@ export default function HebriFull({ score, mood, isDirty }: PetState) {
       <p className="text-xs font-bold uppercase tracking-widest text-primary">Tu compañera</p>
       <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">Hebri</h1>
 
-      <div className="mt-6 flex flex-col items-center text-center">
-        <HebriSprite mood={mood} isDirty={isDirty} size={200} className="mb-4" />
+      <div className="relative mt-6 flex flex-col items-center text-center">
+        {/* Halo suave — el mismo gesto que el hero del Home, para que Hebri
+            se sienta "viva" también acá. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute left-1/2 top-6 h-80 w-80 -translate-x-1/2 rounded-full bg-primary-light/70 blur-3xl"
+        />
 
-        <p className="max-w-xs text-sm leading-relaxed text-text">
-          {PET_MOOD_LONG_MESSAGE[mood]}
-        </p>
+        <div className="relative flex flex-col items-center">
+          <HebriSprite mood={mood} isDirty={isDirty} size={280} className="mb-4" />
 
-        <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
-          {PET_MOOD_LABEL[mood]}
-        </span>
+          <p className="max-w-xs text-sm leading-relaxed text-text">
+            {PET_MOOD_LONG_MESSAGE[mood]}
+          </p>
 
-        {isDirty ? (
-          <span className="mt-2 text-[11.5px] font-semibold text-danger">
-            {PET_DIRTY_MESSAGE}
+          <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+            {PET_MOOD_LABEL[mood]}
           </span>
-        ) : null}
+
+          {isDirty ? (
+            <span className="mt-2 text-[11.5px] font-semibold text-danger">
+              {PET_DIRTY_MESSAGE}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <Card padding="sm" className="mt-6">
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="font-display text-2xl font-bold text-text">{score} / 100</span>
-          <span className="text-xs text-text-muted">health_score</span>
+        <p className="text-[11px] font-bold uppercase tracking-widest text-text-faint">
+          Nivel de cariño
+        </p>
+        <div className="mt-1.5 flex items-baseline gap-1.5 whitespace-nowrap">
+          <span className="font-sans text-3xl font-bold tabular-nums text-text">{score}</span>
+          <span className="text-sm font-medium text-text-muted">/ 100</span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2">
           <div
             className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
             style={{ width: `${score}%` }}
