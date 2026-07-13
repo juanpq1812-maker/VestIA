@@ -17,7 +17,7 @@ export default function HebriFull({ score, mood, isDirty }: PetState) {
       <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">Hebri</h1>
 
       <div className="mt-6 flex flex-col items-center text-center">
-        <HebriSprite mood={mood} isDirty={isDirty} size={200} className="mb-4" />
+        <HebriSprite mood={mood} isDirty={isDirty} size={280} className="mb-4" />
 
         <p className="max-w-xs text-sm leading-relaxed text-text">
           {PET_MOOD_LONG_MESSAGE[mood]}

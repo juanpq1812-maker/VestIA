@@ -232,7 +232,7 @@ function HebriHero({ petState }: { petState: PetState }) {
           la mascota "vive"; el resto de las cards son estáticas. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-8 h-64 w-64 -translate-x-1/2 rounded-full bg-primary-light/70 blur-3xl sm:top-6"
+        className="pointer-events-none absolute left-1/2 top-8 h-80 w-80 -translate-x-1/2 rounded-full bg-primary-light/70 blur-3xl sm:top-6"
       />
 
       <div className="relative flex flex-col items-center gap-4 text-center">
@@ -248,7 +248,7 @@ function HebriHero({ petState }: { petState: PetState }) {
           </span>
         </div>
 
-        <HebriSprite mood={mood} isDirty={isDirty} size={152} />
+        <HebriSprite mood={mood} isDirty={isDirty} size={230} />
 
         <div className="flex flex-col gap-3 sm:mx-auto sm:w-full sm:max-w-xs">
           <p className="text-sm leading-relaxed text-text-muted">
