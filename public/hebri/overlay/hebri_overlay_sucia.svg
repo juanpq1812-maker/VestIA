@@ -1,8 +1,0 @@
-<!-- PLACEHOLDER — reemplazar por el overlay final del diseñador cuando esté listo.
-     Se monta encima de cualquiera de los 5 estados de /estados/, mismo viewBox. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 110">
-  <path d="M14 40 q5 -4 8 1 q-5 3 -8 -1Z" fill="#93968f" />
-  <path d="M84 28 q4 -4 7 0 q-4 3 -7 0Z" fill="#93968f" />
-  <path d="M18 84 q4 -3 7 1 q-4 2 -7 -1Z" fill="#93968f" />
-  <path d="M10 60 q10 -2 4 6" fill="none" stroke="#93968f" stroke-width="1.5" />
-</svg>

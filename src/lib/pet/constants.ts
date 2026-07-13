@@ -30,16 +30,17 @@ export const PET_SCORE_DAILY_DECAY = 8;
 // Días sin abrir la app a partir de los cuales se activa la capa "sucia".
 export const PET_DIRTY_THRESHOLD_DAYS = 3;
 
-// Nombre de archivo SVG por estado, dentro de /public/hebri/estados/.
+// Nombre de archivo por estado, dentro de /public/hebri/estados/.
+// Ilustraciones finales del diseñador (PNG con transparencia, 480px máx).
 export const PET_MOOD_ASSET: Record<PetMood, string> = {
-  feliz: "/hebri/estados/hebri_feliz.svg",
-  aburrida: "/hebri/estados/hebri_aburrida.svg",
-  sassy: "/hebri/estados/hebri_sassy.svg",
-  triste: "/hebri/estados/hebri_triste.svg",
-  hibernando: "/hebri/estados/hebri_hibernando.svg",
+  feliz: "/hebri/estados/hebri_feliz.png",
+  aburrida: "/hebri/estados/hebri_aburrida.png",
+  sassy: "/hebri/estados/hebri_sassy.png",
+  triste: "/hebri/estados/hebri_triste.png",
+  hibernando: "/hebri/estados/hebri_hibernando.png",
 };
 
-export const PET_DIRTY_OVERLAY_ASSET = "/hebri/overlay/hebri_overlay_sucia.svg";
+export const PET_DIRTY_OVERLAY_ASSET = "/hebri/overlay/hebri_overlay_sucia.png";
 
 // Score → estado de ánimo. Umbrales inclusivos por abajo (>=).
 export function moodFromScore(score: number): PetMood {
