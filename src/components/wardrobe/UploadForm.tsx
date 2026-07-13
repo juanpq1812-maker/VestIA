@@ -25,6 +25,7 @@ import Input from "@/components/ui/Input";
 import Chip from "@/components/onboarding/Chip";
 import CameraTipsModal from "@/components/wardrobe/CameraTipsModal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
+import { recordPetAction } from "@/lib/pet/actions";
 import {
   CLOTHING_IMAGES_BUCKET,
   buildClothingImagePath,
@@ -641,6 +642,8 @@ export default function UploadForm() {
         setGeneralError(`No pudimos guardar la prenda: ${insertError.message}.`);
         return;
       }
+
+      recordPetAction("garment_uploaded").catch(() => {});
 
       router.push("/wardrobe?uploaded=1");
       router.refresh();
