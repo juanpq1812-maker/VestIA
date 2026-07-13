@@ -1,8 +1,12 @@
 // Pantalla completa de Hebri (/pet): sprite grande, mensaje contextual,
 // nivel de cariño (health_score internamente, nunca mostrado como tal en
 // la UI), y un espacio reservado (bloqueado) para accesorios futuros.
+//
+// Nota de diseño: el título ya se presenta solo (sin eyebrow arriba) y el
+// nivel de cariño vive suelto en el flujo, no metido en otra card blanca —
+// la única card real de la pantalla es la sección de Hebri; duplicar el
+// mismo contenedor para el puntaje se sentía repetitivo.
 
-import Card from "@/components/ui/Card";
 import HebriSprite from "@/components/pet/HebriSprite";
 import {
   PET_DIRTY_MESSAGE,
@@ -14,8 +18,7 @@ import type { PetState } from "@/lib/pet/compute";
 export default function HebriFull({ score, mood, isDirty }: PetState) {
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-widest text-primary">Tu compañera</p>
-      <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">Hebri</h1>
+      <h1 className="font-display text-3xl font-bold text-text sm:text-4xl">Hebri</h1>
 
       <div className="relative mt-6 flex flex-col items-center text-center">
         {/* Halo suave — el mismo gesto que el hero del Home, para que Hebri
@@ -28,13 +31,13 @@ export default function HebriFull({ score, mood, isDirty }: PetState) {
         <div className="relative flex flex-col items-center">
           <HebriSprite mood={mood} isDirty={isDirty} size={280} className="mb-4" />
 
-          <p className="max-w-xs text-sm leading-relaxed text-text">
-            {PET_MOOD_LONG_MESSAGE[mood]}
-          </p>
-
-          <span className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-text shadow-sm">
             {PET_MOOD_LABEL[mood]}
           </span>
+
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-text">
+            {PET_MOOD_LONG_MESSAGE[mood]}
+          </p>
 
           {isDirty ? (
             <span className="mt-2 text-[11.5px] font-semibold text-danger">
@@ -44,21 +47,18 @@ export default function HebriFull({ score, mood, isDirty }: PetState) {
         </div>
       </div>
 
-      <Card padding="sm" className="mt-6">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-text-faint">
-          Nivel de cariño
-        </p>
-        <div className="mt-1.5 flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className="font-sans text-3xl font-bold tabular-nums text-text">{score}</span>
-          <span className="text-sm font-medium text-text-muted">/ 100</span>
-        </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-2">
+      <div className="mt-8 flex items-center gap-3">
+        <span className="shrink-0 text-sm text-text-muted">Nivel de cariño</span>
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
           <div
             className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
             style={{ width: `${score}%` }}
           />
         </div>
-      </Card>
+        <span className="shrink-0 whitespace-nowrap font-sans text-sm font-bold tabular-nums text-text">
+          {score}/100
+        </span>
+      </div>
 
       <section className="mt-8">
         <h2 className="text-xs font-bold uppercase tracking-widest text-text-faint">
