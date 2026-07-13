@@ -7,10 +7,13 @@
 // la sesión aquí mismo.
 
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import DashboardView from "@/components/dashboard/DashboardView";
 import LandingContent from "@/components/landing/LandingContent";
 import { feedNecesitaSync, syncCalendarFeed } from "@/lib/calendar/sync";
+import { recordPetAction } from "@/lib/pet/actions";
+import { computePetState } from "@/lib/pet/compute";
 import type { AgendaEvent } from "@/components/dashboard/AgendaCard";
 import type { EventOutfitData } from "@/components/dashboard/EventOutfitSection";
 
@@ -32,29 +35,31 @@ export default async function RootPage() {
 
   // ── Queries del dashboard (todas en paralelo) ─────────────────────────────
   const today = new Date();
-  const sevenDaysAgoStr = offsetDate(today, -7);
   const fifteenDaysAgoStr = offsetDate(today, -15);
   // Ventana de análisis: los cálculos de prenda estrella/olvidada solo miran
   // los últimos 90 días — evita que el payload de usos crezca sin límite con
   // el historial del usuario.
   const ninetyDaysAgoStr = offsetDate(today, -90);
 
+  // "Abrir la app": alimenta a Hebri (mascota de gamificación) y resetea su
+  // contador de suciedad. Es un no-op si ya se registró hoy — ver
+  // supabase/migrations/0012_pet_score.sql. Con `after()` corre una vez
+  // enviada la respuesta: no bloquea el render del dashboard y, a diferencia
+  // de un fire-and-forget suelto, Next garantiza que se ejecute hasta el
+  // final aunque el request ya haya terminado.
+  after(() => recordPetAction("app_opened").catch(() => {}));
+
   const [
     profileRes,
-    weekUsesRes,
     allUsesRes,
     allOutfitsRes,
     allItemsRes,
   ] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, pet_score_base, pet_score_updated_at, pet_last_opened_at")
       .eq("id", user.id)
       .maybeSingle(),
-    supabase
-      .from("outfit_uses")
-      .select("id", { count: "exact", head: true })
-      .gte("used_date", sevenDaysAgoStr),
     supabase
       .from("outfit_uses")
       .select("outfit_id, used_date")
@@ -72,39 +77,22 @@ export default async function RootPage() {
     profileRes.data?.display_name?.trim() ||
     user.email?.split("@")[0] ||
     "vos";
-  const weekUses = weekUsesRes.count ?? 0;
   const allUses = allUsesRes.data ?? [];
   const allOutfits = allOutfitsRes.data ?? [];
   const allItems = allItemsRes.data ?? [];
+
+  const petState = profileRes.data
+    ? computePetState({
+        scoreBase: profileRes.data.pet_score_base,
+        scoreUpdatedAt: profileRes.data.pet_score_updated_at,
+        lastOpenedAt: profileRes.data.pet_last_opened_at,
+      })
+    : { score: 100, mood: "feliz" as const, isDirty: false };
 
   // ── Mapa outfit_id → clothing_item_ids[] ────────────────────────────────
   const outfitMap = new Map<string, string[]>();
   for (const outfit of allOutfits) {
     outfitMap.set(outfit.id, outfit.clothing_item_ids ?? []);
-  }
-
-  // ── Prenda estrella: prenda con más apariciones en outfit_uses ───────────
-  const itemUseCounts = new Map<string, number>();
-  for (const use of allUses) {
-    for (const itemId of outfitMap.get(use.outfit_id) ?? []) {
-      itemUseCounts.set(itemId, (itemUseCounts.get(itemId) ?? 0) + 1);
-    }
-  }
-  let prendaEstrella: { id: string; nombre: string; image_path: string | null; primary_color: string | null; usos: number } | null = null;
-  if (itemUseCounts.size > 0) {
-    const [topId, topCount] = [...itemUseCounts.entries()].sort(
-      (a, b) => b[1] - a[1]
-    )[0];
-    const topItem = allItems.find((i) => i.id === topId);
-    if (topItem) {
-      prendaEstrella = {
-        id: topItem.id,
-        nombre: topItem.name?.trim() || topItem.subcategory?.trim() || topItem.category,
-        image_path: topItem.image_path,
-        primary_color: topItem.primary_color,
-        usos: topCount,
-      };
-    }
   }
 
   // ── Prenda olvidada: sin uso en outfit_uses en los últimos 15 días ───────
@@ -241,24 +229,13 @@ export default async function RootPage() {
 
   // ── Firmar URLs para imágenes que vamos a mostrar ────────────────────────
   const { createSignedUrlMap } = await import("@/lib/storage/clothingImages");
-  const recentItems = allItems.slice(0, 4);
-  const pathsToSign = [
-    ...recentItems.map((i) => i.image_path),
-    prendaEstrella?.image_path,
-    prendaOlvidada?.image_path,
-  ].filter((p): p is string => Boolean(p));
+  const pathsToSign = [prendaOlvidada?.image_path].filter(
+    (p): p is string => Boolean(p)
+  );
 
   const signedUrls = await createSignedUrlMap(supabase, pathsToSign);
 
-  // Inyectar URLs firmadas en los objetos
-  const recentItemsConUrl = recentItems.map((i) => ({
-    ...i,
-    image_url: i.image_path ? signedUrls.get(i.image_path) ?? null : null,
-  }));
-  if (prendaEstrella?.image_path) {
-    (prendaEstrella as { image_url?: string | null }).image_url =
-      signedUrls.get(prendaEstrella.image_path) ?? null;
-  }
+  // Inyectar URL firmada en el objeto
   if (prendaOlvidada?.image_path) {
     (prendaOlvidada as { image_url?: string | null }).image_url =
       signedUrls.get(prendaOlvidada.image_path) ?? null;
@@ -284,10 +261,8 @@ export default async function RootPage() {
   return (
     <DashboardView
       displayName={displayName}
-      weekUses={weekUses}
       totalItems={allItems.length}
-      recentItems={recentItemsConUrl as Parameters<typeof DashboardView>[0]["recentItems"]}
-      prendaEstrella={prendaEstrella as Parameters<typeof DashboardView>[0]["prendaEstrella"]}
+      petState={petState}
       prendaOlvidada={prendaOlvidada as Parameters<typeof DashboardView>[0]["prendaOlvidada"]}
       hasCalendarFeed={hayFeed}
       agendaEvents={agendaEvents}

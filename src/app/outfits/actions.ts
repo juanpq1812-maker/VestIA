@@ -10,6 +10,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import {
   generateOutfits,
@@ -18,6 +19,7 @@ import {
   type GenerateMode,
 } from "@/lib/ai/generateOutfits";
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
+import { recordPetAction } from "@/lib/pet/actions";
 import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
 import { suggestOutfitForEvent } from "@/lib/ai/eventOutfit";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
@@ -66,6 +68,9 @@ export async function generateOutfitsAction(
       description: input.description,
       lockedItemId: input.lockedItemId,
     });
+    // Corre tras enviar la respuesta — Hebri es gamificación, no debe sumar
+    // latencia ni poder tumbar la generación real de outfits.
+    after(() => recordPetAction("outfit_generated").catch(() => {}));
     return { ok: true, outfits };
   } catch (err) {
     if (err instanceof GenerateOutfitsError) {

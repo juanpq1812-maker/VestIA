@@ -5,8 +5,8 @@
 //
 // Estructura editorial (Design STRANDIA — strandia_home):
 //   1. Saludo personal en serif + fecha.
-//   2. Hero "Outfit del día" sobre superficie linen — prenda estrella o la
-//      más reciente + CTA. Sin datos → empty state para subir la primera prenda.
+//   2. Hero de Hebri (mascota de gamificación) — estado de ánimo, mensaje y
+//      CTA a /pet. Reemplaza el hero previo de "Outfit del día".
 //   3. Grid secundario: Tus más usados (prenda olvidada real) + Comunidad.
 //   4. Banner de inspiración → AI Studio.
 
@@ -20,29 +20,17 @@ import EventOutfitSection, {
   type EventOutfitData,
 } from "@/components/dashboard/EventOutfitSection";
 import ConnectCalendarCard from "@/components/dashboard/ConnectCalendarCard";
+import HebriSprite from "@/components/pet/HebriSprite";
+import {
+  PET_DIRTY_MESSAGE,
+  PET_MOOD_LABEL,
+  PET_MOOD_SHORT_MESSAGE,
+} from "@/components/pet/moodMessages";
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
-import type { ClothingCategory } from "@/types/database";
+import type { PetState } from "@/lib/pet/compute";
 
 import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 // ── Tipos ────────────────────────────────────────────────────────────────────
-
-type RecentItem = {
-  id: string;
-  name: string | null;
-  subcategory: string | null;
-  category: ClothingCategory;
-  primary_color: string | null;
-  image_url: string | null;
-};
-
-type PrendaEstrella = {
-  id: string;
-  nombre: string;
-  image_path: string | null;
-  image_url?: string | null;
-  primary_color: string | null;
-  usos: number;
-} | null;
 
 type PrendaOlvidada = {
   id: string;
@@ -62,10 +50,8 @@ type EventOutfitProps = {
 
 type Props = {
   displayName: string;
-  weekUses: number;
   totalItems: number;
-  recentItems: RecentItem[];
-  prendaEstrella: PrendaEstrella;
+  petState: PetState;
   prendaOlvidada: PrendaOlvidada;
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
@@ -89,24 +75,12 @@ function fechaHoyEspanol(): string {
   return fecha.charAt(0).toUpperCase() + fecha.slice(1);
 }
 
-const CATEGORY_LABELS: Record<ClothingCategory, string> = {
-  top: "Top",
-  bottom: "Bottom",
-  dress: "Vestido",
-  outerwear: "Abrigo",
-  footwear: "Calzado",
-  accessory: "Accesorio",
-  body: "Body",
-};
-
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function DashboardView({
   displayName,
-  weekUses,
   totalItems,
-  recentItems,
-  prendaEstrella,
+  petState,
   prendaOlvidada,
   hasCalendarFeed,
   agendaEvents,
@@ -140,10 +114,8 @@ export default function DashboardView({
             <NuevoUsuario />
           ) : (
             <DashboardConDatos
-              weekUses={weekUses}
               totalItems={totalItems}
-              recentItems={recentItems}
-              prendaEstrella={prendaEstrella}
+              petState={petState}
               prendaOlvidada={prendaOlvidada}
               hasCalendarFeed={hasCalendarFeed}
               agendaEvents={agendaEvents}
@@ -199,10 +171,8 @@ function NuevoUsuario() {
 // ── Dashboard con datos ───────────────────────────────────────────────────────
 
 type DashboardConDatosProps = {
-  weekUses: number;
   totalItems: number;
-  recentItems: RecentItem[];
-  prendaEstrella: PrendaEstrella;
+  petState: PetState;
   prendaOlvidada: PrendaOlvidada;
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
@@ -211,10 +181,8 @@ type DashboardConDatosProps = {
 };
 
 function DashboardConDatos({
-  weekUses,
   totalItems,
-  recentItems,
-  prendaEstrella,
+  petState,
   prendaOlvidada,
   hasCalendarFeed,
   agendaEvents,
@@ -235,11 +203,7 @@ function DashboardConDatos({
       {hasCalendarFeed && <AgendaCard events={agendaEvents} weather={weather} />}
       {!hasCalendarFeed && <ConnectCalendarCard />}
 
-      <OutfitDelDiaHero
-        weekUses={weekUses}
-        prendaEstrella={prendaEstrella}
-        primerItem={recentItems[0] ?? null}
-      />
+      <HebriHero petState={petState} />
 
       {/* ── Grid secundario: más usados / comunidad ───────────────────────
           Grid de 2 items fijos — en desktop se limita el ancho en vez de
@@ -254,81 +218,59 @@ function DashboardConDatos({
   );
 }
 
-// ── Hero: Outfit del día ───────────────────────────────────────────────────
+// ── Hero: Hebri ──────────────────────────────────────────────────────────────
+// Reemplaza el hero previo de "Outfit del día". Es la card principal del
+// Home: el estado de ánimo de Hebri (mascota de gamificación) refleja qué
+// tan activo estuvo el usuario, e invita a volver a visitarla en /pet.
 
-function OutfitDelDiaHero({
-  weekUses,
-  prendaEstrella,
-  primerItem,
-}: {
-  weekUses: number;
-  prendaEstrella: PrendaEstrella;
-  primerItem: RecentItem | null;
-}) {
-  const prenda = prendaEstrella
-    ? {
-        id: prendaEstrella.id,
-        nombre: prendaEstrella.nombre,
-        image_url: prendaEstrella.image_url ?? null,
-        primary_color: prendaEstrella.primary_color,
-      }
-    : primerItem
-      ? {
-          id: primerItem.id,
-          nombre:
-            primerItem.name?.trim() ||
-            primerItem.subcategory?.trim() ||
-            CATEGORY_LABELS[primerItem.category],
-          image_url: primerItem.image_url,
-          primary_color: primerItem.primary_color,
-        }
-      : null;
-
-  if (!prenda) return null;
-
-  const descripcion = prendaEstrella
-    ? `${prenda.nombre} es tu prenda de mayor rotación (${prendaEstrella.usos} ${prendaEstrella.usos === 1 ? "uso" : "usos"}). Deja que la IA arme un look nuevo con ella hoy.`
-    : `Ya tienes prendas en tu armario. Deja que la IA combine ${prenda.nombre} con el resto y arme tu primer outfit.`;
+function HebriHero({ petState }: { petState: PetState }) {
+  const { score, mood, isDirty } = petState;
 
   return (
-    <section className="overflow-hidden rounded-xl bg-surface-offset">
-      <div className="flex flex-col gap-4 p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
+    <section className="relative overflow-hidden rounded-xl bg-surface-offset p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-6">
+      {/* Halo suave detrás de Hebri — el único momento del dashboard donde
+          la mascota "vive"; el resto de las cards son estáticas. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-1/2 top-8 h-64 w-64 -translate-x-1/2 rounded-full bg-primary-light/70 blur-3xl sm:top-6"
+      />
+
+      <div className="relative flex flex-col items-center gap-4 text-center">
+        <div className="flex w-full items-start justify-between gap-3 text-left">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-              Recomendación de hoy
+              Tu compañera
             </p>
-            <h2 className="font-display text-2xl text-text sm:text-3xl">
-              Outfit del día
-            </h2>
+            <h2 className="font-display text-2xl text-text sm:text-3xl">Hebri</h2>
           </div>
-          {weekUses > 0 && (
-            <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-text shadow-sm">
-              {weekUses} {weekUses === 1 ? "outfit esta semana" : "outfits esta semana"}
-            </span>
+          <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-text shadow-sm">
+            {PET_MOOD_LABEL[mood]}
+          </span>
+        </div>
+
+        <HebriSprite mood={mood} isDirty={isDirty} size={152} />
+
+        <div className="flex flex-col gap-3 sm:mx-auto sm:w-full sm:max-w-xs">
+          <p className="text-sm leading-relaxed text-text-muted">
+            {PET_MOOD_SHORT_MESSAGE[mood]}
+          </p>
+
+          {isDirty && (
+            <p className="text-xs font-semibold text-danger">{PET_DIRTY_MESSAGE}</p>
           )}
-        </div>
 
-        <div
-          className="aspect-[4/5] w-full overflow-hidden rounded-lg bg-surface sm:mx-auto sm:max-w-md"
-          style={{ backgroundColor: prenda.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
-        >
-          {prenda.image_url ? (
-            <LazyImage
-              src={prenda.image_url}
-              alt={prenda.nombre}
-              className="h-full w-full object-cover"
-            />
-          ) : null}
-        </div>
+          <div>
+            <div className="h-1.5 overflow-hidden rounded-full bg-surface">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
+                style={{ width: `${score}%` }}
+              />
+            </div>
+          </div>
 
-        <div className="flex flex-col gap-4 sm:mx-auto sm:w-full sm:max-w-md">
-          <p className="text-sm leading-relaxed text-text-muted">{descripcion}</p>
-          <Link
-            href={`/outfits?prenda=${prenda.id}&nombre=${encodeURIComponent(prenda.nombre)}`}
-          >
+          <Link href="/pet">
             <Button size="lg" fullWidth>
-              Generar outfit de hoy
+              Ver a Hebri
             </Button>
           </Link>
         </div>

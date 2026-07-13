@@ -138,6 +138,30 @@ body {
   to   { opacity: 1; transform: scale(1); }
 }
 
+/* ── Hebri (mascota) ───────────────────────────────────────────────────────
+   El SVG final es el personaje completo por estado (sin capas separables de
+   ojos/cola), así que las animaciones se aplican al elemento entero:
+   respiración (escala), balanceo (rotación, intensidad por estado) y un
+   "parpadeo" aproximado como una pequeña compresión vertical. Se anidan tres
+   wrappers para que cada transform componga sin pisar a los otros. */
+@keyframes petBreathe {
+  0%, 100% { transform: scale(1, 1); }
+  50%      { transform: scale(1.02, 0.985); }
+}
+@keyframes petSway {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(var(--pet-sway-deg, 2deg)); }
+}
+@keyframes petBlink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  94%, 97%      { transform: scaleY(0.94); }
+}
+.pet-breathe { animation: petBreathe 3.8s ease-in-out infinite; transform-origin: 50% 60%; }
+.pet-sway { animation: petSway 2.6s ease-in-out infinite; transform-origin: 50% 90%; }
+.pet-sway-slow { animation-duration: 5.5s; }
+.pet-sway-still { animation: none; }
+.pet-blink { animation: petBlink 4.4s infinite; transform-origin: center; }
+
 /* ── Landing: scroll suave (Lenis) ─────────────────────────────────────────── */
 html.lenis,
 html.lenis body {
