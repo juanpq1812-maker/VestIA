@@ -68,10 +68,13 @@ export default function HebriFull({ score, mood, isDirty }: PetState) {
           {[0, 1, 2, 3].map((i) => (
             <div
               key={i}
-              className="flex aspect-square items-center justify-center rounded-xl border-[1.5px] border-dashed border-border bg-surface-2 text-lg text-text-faint"
+              className="flex aspect-square items-center justify-center rounded-xl border-[1.5px] border-dashed border-border bg-surface-2 text-text-faint"
               aria-hidden="true"
             >
-              🔒
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="11" width="14" height="10" rx="2" />
+                <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+              </svg>
             </div>
           ))}
         </div>

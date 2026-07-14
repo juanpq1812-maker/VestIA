@@ -208,9 +208,7 @@ function Stat({ valor, etiqueta }: { valor: number; etiqueta: string }) {
   return (
     <div className="flex flex-col items-center gap-1 px-2 text-center">
       <span className="font-display text-3xl text-text tabular-nums">{valor}</span>
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-        {etiqueta}
-      </span>
+      <span className="text-xs text-text-muted">{etiqueta}</span>
     </div>
   );
 }

@@ -102,10 +102,7 @@ export default async function ComunidadPage() {
           {/* ── Marcas aliadas y beneficios ───────────────────────────── */}
           <section className="mt-10">
             <SectionTitle>Marcas aliadas y beneficios</SectionTitle>
-            <p className="mt-2 text-[11px] font-semibold uppercase tracking-widest text-text-muted">
-              Beneficios exclusivos
-            </p>
-            <ul className="mt-3 divide-y divide-divider overflow-hidden rounded-xl bg-surface shadow-sm">
+            <ul className="mt-4 divide-y divide-divider overflow-hidden rounded-xl bg-surface shadow-sm">
               {BENEFICIOS.map((b) => (
                 <li key={b.marca} className="flex items-center gap-4 px-4 py-4">
                   <span
