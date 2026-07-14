@@ -12,7 +12,8 @@ export type PetActionType =
   | "outfit_shared"
   | "user_followed"
   | "garment_uploaded"
-  | "app_opened";
+  | "app_opened"
+  | "quest_completed";
 
 export const PET_ACTION_POINTS: Record<PetActionType, number> = {
   outfit_generated: 25,
@@ -20,6 +21,7 @@ export const PET_ACTION_POINTS: Record<PetActionType, number> = {
   user_followed: 12,
   garment_uploaded: 12,
   app_opened: 3,
+  quest_completed: 20,
 };
 
 export type PetMood = "feliz" | "aburrida" | "sassy" | "triste" | "hibernando";

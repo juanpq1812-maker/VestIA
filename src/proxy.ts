@@ -24,6 +24,7 @@ const RUTAS_PRIVADAS = [
   "/comunidad",
   "/pricing",
   "/pet",
+  "/admin",
 ];
 
 // Rutas que solo deben verse cuando NO hay sesion (si ya entraste, te llevamos

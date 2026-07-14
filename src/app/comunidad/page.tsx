@@ -8,6 +8,9 @@
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
+import QuestCard from "@/components/community/QuestCard";
+import { getQuestsWithProgress, getCommunityPoints } from "@/lib/community/query";
+import { levelFromPoints } from "@/lib/community/constants";
 
 export const metadata = {
   title: "Comunidad — StrandIA",
@@ -25,54 +28,51 @@ export default async function ComunidadPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const [quests, points] = user
+    ? await Promise.all([
+        getQuestsWithProgress(supabase, user.id),
+        getCommunityPoints(supabase, user.id),
+      ])
+    : [[], 0];
+  const nivel = levelFromPoints(points);
+
   return (
     <div className="flex flex-1 flex-col">
       <Header email={user?.email} />
 
       <main className="flex-1 pb-24 pt-8 sm:pb-14 sm:pt-12">
         <Container size="lg">
-          <h1 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
-            Comunidad
-          </h1>
-          <p className="mt-2 max-w-xl text-base text-text-muted">
-            Challenges, outfits de otros usuarios y beneficios de marcas
-            aliadas. Estamos construyendo esta sección.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
+                Comunidad
+              </h1>
+              <p className="mt-2 max-w-xl text-base text-text-muted">
+                Challenges, outfits de otros usuarios y beneficios de marcas
+                aliadas. Estamos construyendo esta sección.
+              </p>
+            </div>
+            <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface px-4 py-2 text-sm font-semibold text-text shadow-sm">
+              {nivel} · {points} pts
+            </span>
+          </div>
 
           {/* ── Challenges de uso ─────────────────────────────────────── */}
           <section className="mt-10">
             <SectionTitle>Challenges de uso</SectionTitle>
-            <div className="mt-4 rounded-xl bg-surface p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="font-semibold text-text">Minimalismo de Otoño</h3>
-                  <p className="mt-1 text-sm text-text-muted">
-                    Crea 5 outfits usando solo prendas neutras
-                  </p>
-                </div>
-                <ProximamenteBadge />
+            {quests.length === 0 ? (
+              <div className="mt-4 rounded-xl bg-surface p-5 shadow-sm">
+                <p className="text-sm text-text-muted">
+                  No hay challenges activos ahora mismo — volvé pronto.
+                </p>
               </div>
-              <div className="mt-4">
-                <div className="flex items-center justify-between text-xs text-text-muted">
-                  <span>Tu progreso</span>
-                  <span>0/5 outfits</span>
-                </div>
-                <div
-                  role="progressbar"
-                  aria-valuenow={0}
-                  aria-valuemin={0}
-                  aria-valuemax={5}
-                  aria-label="Progreso del challenge"
-                  className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2"
-                >
-                  <div className="h-full w-0 rounded-full bg-primary" />
-                </div>
+            ) : (
+              <div className="mt-4 flex flex-col gap-4">
+                {quests.map((quest) => (
+                  <QuestCard key={quest.id} quest={quest} />
+                ))}
               </div>
-              <p className="mt-4 text-xs text-text-muted">
-                Los challenges con ranking y puntos llegarán pronto — mientras
-                tanto, cada outfit que uses ya cuenta en tus estadísticas.
-              </p>
-            </div>
+            )}
           </section>
 
           {/* ── Outfits de la comunidad ───────────────────────────────── */}
