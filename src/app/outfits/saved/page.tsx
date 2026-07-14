@@ -170,9 +170,11 @@ function EmptyState() {
   return (
     <div className="mt-10 rounded-xl border-2 border-dashed border-border bg-surface-2 p-10 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
-        <span aria-hidden="true" className="text-2xl">
-          💾
-        </span>
+        <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 3h10l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+          <path d="M9 3v6h7V3" />
+          <path d="M8 13h8v8H8z" />
+        </svg>
       </div>
       <h3 className="mt-4 font-display text-xl font-semibold text-text">
         Aún no has guardado outfits

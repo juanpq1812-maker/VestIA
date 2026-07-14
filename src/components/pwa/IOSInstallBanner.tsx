@@ -47,8 +47,15 @@ export default function IOSInstallBanner() {
       className="fixed bottom-0 left-0 right-0 z-50 m-3 rounded-2xl border border-border bg-surface shadow-lg"
     >
       <div className="flex items-start gap-3 px-4 py-3">
-        <span aria-hidden="true" className="mt-0.5 text-2xl shrink-0">
-          📲
+        <span
+          aria-hidden="true"
+          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-light text-primary"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="6" y="2" width="12" height="20" rx="2" />
+            <path d="M11 18h2" />
+            <path d="M12 8v5m-2.5-2.5L12 13l2.5-2.5" />
+          </svg>
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-text">

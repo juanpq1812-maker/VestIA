@@ -65,8 +65,14 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
       className="mt-8 rounded-2xl border border-primary-mid/40 bg-primary-light/40 p-5"
     >
       <header className="mb-3">
-        <h2 className="font-display text-lg font-semibold text-primary">
-          🔁 ¿Repetiste outfit?
+        <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-primary">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17 2.1 21 6l-4 3.9" />
+            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+            <path d="M7 21.9 3 18l4-3.9" />
+            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+          </svg>
+          ¿Repetiste outfit?
         </h2>
         <p className="text-xs text-text-muted">
           Marca rápida si volviste a usar uno de los recientes.
@@ -108,8 +114,11 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
                     />
                   ) : null}
                   {yaHoy && (
-                    <span className="absolute right-2 top-2 rounded-full bg-success px-2 py-0.5 text-[10px] font-bold text-white shadow">
-                      ✓ Hoy
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-success px-2 py-0.5 text-[10px] font-bold text-white shadow">
+                      <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m5 13 4 4 10-10" />
+                      </svg>
+                      Hoy
                     </span>
                   )}
                 </div>

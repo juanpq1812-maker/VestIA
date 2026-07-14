@@ -30,8 +30,7 @@ export default function WaitlistPage() {
         </div>
 
         <h1 className="mt-6 font-display text-3xl font-bold text-text sm:text-4xl">
-          Estás en la lista{" "}
-          <span aria-hidden="true">✨</span>
+          Estás en la lista
         </h1>
 
         <p className="mt-4 text-base text-text-muted">
