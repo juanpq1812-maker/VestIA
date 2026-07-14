@@ -7,15 +7,7 @@ import {
   type DetectedGarment,
 } from "@/app/outfits/actions";
 import { getTiendasParaCategoria, buildStoreUrl } from "@/lib/outfits/tiendas";
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  top: "👕",
-  bottom: "👖",
-  dress: "👗",
-  outerwear: "🧥",
-  footwear: "👟",
-  accessory: "🧢",
-};
+import { CategoryIcon, StoreLogoIcon } from "@/components/outfits/CategoryIcon";
 
 const ALLOWED_MIME_TYPES = [
   "image/jpeg",
@@ -111,8 +103,13 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
   return (
     <section className="rounded-xl border border-border bg-surface p-6 shadow-sm sm:p-8">
       <div className="mb-6">
-        <h2 className="font-display text-xl font-bold text-text">
-          📸 Inspírate
+        <h2 className="flex items-center gap-2 font-display text-xl font-bold text-text">
+          <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+            <rect x="3" y="6" width="18" height="14" rx="2" />
+            <path d="M8 6l1.5-2.5h5L16 6" />
+            <circle cx="12" cy="13" r="3.5" />
+          </svg>
+          Inspírate
         </h2>
         <p className="mt-1 text-sm text-text-muted">
           Sube una foto de un look que te guste y te recomendamos dónde
@@ -136,9 +133,11 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
             onClick={() => fileInputRef.current?.click()}
             className="flex w-full flex-col items-center gap-3 rounded-xl border-2 border-dashed border-border bg-surface-2 p-8 text-center transition-colors hover:border-primary hover:bg-primary-light focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <span aria-hidden="true" className="text-4xl">
-              📷
-            </span>
+            <svg aria-hidden="true" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-muted">
+              <rect x="3" y="6" width="18" height="14" rx="2" />
+              <path d="M8 6l1.5-2.5h5L16 6" />
+              <circle cx="12" cy="13" r="3.5" />
+            </svg>
             <span className="font-semibold text-text">
               Subir foto de inspiración
             </span>
@@ -199,11 +198,11 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
                     prenda.genero,
                     estilo
                   );
-                  const emoji = CATEGORY_EMOJI[prenda.categoria] ?? "👔";
                   return (
                     <div key={i}>
-                      <p className="mb-2 text-sm font-semibold text-text">
-                        {emoji} {prenda.tipo}
+                      <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-text">
+                        <CategoryIcon category={prenda.categoria} />
+                        {prenda.tipo}
                         {prenda.descripcion && (
                           <span className="ml-1 font-normal text-text-muted">
                             — {prenda.descripcion}
@@ -222,7 +221,8 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-3 py-1.5 text-xs font-medium text-text transition-colors hover:bg-primary-light hover:text-primary"
                           >
-                            {tienda.logo} {tienda.nombre}
+                            <StoreLogoIcon type={tienda.logo} />
+                            {tienda.nombre}
                           </a>
                         ))}
                       </div>
@@ -232,7 +232,7 @@ export default function InspirationSection({ onApplyInspiration }: Props) {
               </div>
 
               <Button variant="primary" onClick={handleGenerarSimilar}>
-                ✨ Generar outfit similar con mi armario
+                Generar outfit similar con mi armario
               </Button>
             </div>
           )}

@@ -5,74 +5,75 @@ export type WardrobeSummary = Partial<Record<ClothingCategory, number>>;
 export type Tienda = {
   nombre: string;
   url: string;
-  logo: string;
+  /** Icono genérico a mostrar junto al nombre — ver <StoreLogoIcon>. */
+  logo: "bag" | "shoe";
 };
 
 export const TIENDAS: Record<string, Tienda> = {
   Zara: {
     nombre: "Zara",
     url: "https://www.zara.com/co/es/search?searchTerm=",
-    logo: "🛍️",
+    logo: "bag",
   },
   "H&M": {
     nombre: "H&M",
     url: "https://www2.hm.com/es_co/resultados.html?q=",
-    logo: "🛍️",
+    logo: "bag",
   },
   SHEIN: {
     nombre: "SHEIN",
     url: "https://es.shein.com/pdsearch/",
-    logo: "🛍️",
+    logo: "bag",
   },
   Stradivarius: {
     nombre: "Stradivarius",
     url: "https://www.stradivarius.com/co/es/search?searchTerm=",
-    logo: "🛍️",
+    logo: "bag",
   },
   Falabella: {
     nombre: "Falabella",
     url: "https://www.falabella.com.co/falabella-co/search?Ntt=",
-    logo: "🛍️",
+    logo: "bag",
   },
   "Studio F": {
     nombre: "Studio F",
     url: "https://www.studiof.com.co/search?q=",
-    logo: "🛍️",
+    logo: "bag",
   },
   "Arturo Calle": {
     nombre: "Arturo Calle",
     url: "https://www.arturocalle.com/search?q=",
-    logo: "🛍️",
+    logo: "bag",
   },
   Undergold: {
     nombre: "Undergold",
     url: "https://undergoldapparel.com/search?q=",
-    logo: "🛍️",
+    logo: "bag",
   },
   Monoic: {
     nombre: "Monoic",
     url: "https://monoicstudios.com/search?q=",
-    logo: "🛍️",
+    logo: "bag",
   },
   True: {
     nombre: "True",
     url: "https://trueshop.co/search?q=",
-    logo: "🛍️",
+    logo: "bag",
   },
   Nike: {
     nombre: "Nike",
     url: "https://www.nike.com/co/search?q=",
-    logo: "👟",
+    logo: "shoe",
   },
   Adidas: {
     nombre: "Adidas",
     url: "https://www.adidas.co/search?q=",
-    logo: "👟",
+    logo: "shoe",
   },
   "New Balance": {
     nombre: "New Balance",
     url: "https://www.newbalance.com.co/search?q=",
-    logo: "👟",
+    logo: "shoe",
   },
 };
 
