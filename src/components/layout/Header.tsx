@@ -10,6 +10,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import BottomNav from "@/components/layout/BottomNav";
 import { esRutaActiva } from "@/lib/nav/activeRoute";
+import { useIsAdmin } from "@/lib/admin/useIsAdmin";
 
 type LinkNav = {
   href: string;
@@ -23,6 +24,8 @@ const NAV: LinkNav[] = [
   { href: "/comunidad", label: "Comunidad" },
 ];
 
+const NAV_ADMIN: LinkNav = { href: "/admin/quests", label: "Admin" };
+
 type Props = {
   email?: string | null;
   displayName?: string | null;
@@ -31,6 +34,8 @@ type Props = {
 
 export default function Header({ hideNav = false }: Props) {
   const pathname = usePathname();
+  const isAdmin = useIsAdmin();
+  const nav = isAdmin ? [...NAV, NAV_ADMIN] : NAV;
 
   return (
     <>
@@ -61,7 +66,7 @@ export default function Header({ hideNav = false }: Props) {
               aria-label="Navegación principal"
               className="hidden md:flex items-center gap-1"
             >
-              {NAV.map((item) => {
+              {nav.map((item) => {
                 const activo = esRutaActiva(item.href, pathname);
                 return (
                   <Link
