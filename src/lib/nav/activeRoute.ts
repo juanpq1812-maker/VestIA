@@ -23,5 +23,11 @@ export function esRutaActiva(href: string, pathname: string | null): boolean {
       !enOutfitsGuardados
     );
   }
+  // El nav global solo tiene un ítem "Admin" (-> /admin/quests), pero la
+  // sección de admin también incluye /admin/reports (ver AdminTabs) — el
+  // ítem del nav global debe marcarse activo en toda la sección.
+  if (href === "/admin/quests") {
+    return pathname === href || pathname.startsWith("/admin/");
+  }
   return pathname === href || pathname.startsWith(`${href}/`);
 }

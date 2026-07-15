@@ -48,12 +48,35 @@ export default async function SavedOutfitsPage() {
 
   const uses = (usesData ?? []) as OutfitUse[];
 
+  // outfit_use_ids ya compartidos con la comunidad, por outfit — para no
+  // volver a ofrecer el prompt de compartir en un uso ya publicado.
+  const { data: sharesData } = user
+    ? await supabase
+        .from("community_shares")
+        .select("outfit_id, outfit_use_id")
+        .eq("user_id", user.id)
+    : { data: null };
+
+  const sharedUseIdsByOutfit = new Map<string, string[]>();
+  for (const s of sharesData ?? []) {
+    const arr = sharedUseIdsByOutfit.get(s.outfit_id) ?? [];
+    arr.push(s.outfit_use_id);
+    sharedUseIdsByOutfit.set(s.outfit_id, arr);
+  }
+
   // Mapa outfitId -> array de fechas (ordenadas asc para que .at(-1) sea la mas reciente).
   const usesByOutfit = new Map<string, string[]>();
+  // Mismo agrupamiento pero con el id de cada outfit_use — la card lo
+  // necesita para saber a qué uso asociar un share (botón "Comparte este outfit").
+  const useRecordsByOutfit = new Map<string, Array<{ id: string; usedDate: string }>>();
   for (const u of uses) {
     const arr = usesByOutfit.get(u.outfit_id) ?? [];
     arr.push(u.used_date);
     usesByOutfit.set(u.outfit_id, arr);
+
+    const records = useRecordsByOutfit.get(u.outfit_id) ?? [];
+    records.push({ id: u.id, usedDate: u.used_date });
+    useRecordsByOutfit.set(u.outfit_id, records);
   }
   // El query las trae desc; las invertimos para que el orden lexicografico
   // funcione en `lastUsedIso = arr.sort().at(-1)` desde la card.
@@ -154,7 +177,8 @@ export default async function SavedOutfitsPage() {
                     items={o.clothing_item_ids
                       .map((id) => itemsById.get(id))
                       .filter((it): it is ClothingItem => Boolean(it))}
-                    usedDates={usesByOutfit.get(o.id) ?? []}
+                    uses={useRecordsByOutfit.get(o.id) ?? []}
+                    sharedOutfitUseIds={sharedUseIdsByOutfit.get(o.id) ?? []}
                   />
                 ))}
               </div>

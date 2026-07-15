@@ -169,3 +169,62 @@ Esperado: 4 filas (`insert_own`, `select_own`, `update_own`, `delete_own`).
 - **Borrado**: por ahora la app solo crea prendas. Si más adelante
   agregamos un botón "Eliminar prenda", también hay que borrar el
   archivo de Storage (la policy de DELETE ya está lista).
+
+---
+
+## 5. Bucket `community-shares` (fotos compartidas con la comunidad)
+
+Para que `/comunidad` pueda mostrar las fotos reales que los usuarios
+comparten al marcar "Lo usé hoy"/"otro día" sobre un outfit guardado.
+A diferencia de `clothing-images`, este bucket permite que **cualquier
+usuario autenticado lea cualquier foto** (es un feed público entre
+usuarios logueados) — pero sigue sin ser público a internet.
+
+1. En **Storage**, crea un nuevo bucket:
+
+   | Campo                              | Valor                                                |
+   | ---------------------------------- | ---------------------------------------------------- |
+   | **Name**                           | `community-shares`                                    |
+   | **Public bucket**                  | **OFF** (privado, pero legible por cualquier usuario logueado vía policy) |
+   | **Allowed MIME types** (opcional)  | `image/jpeg, image/png, image/webp`                  |
+   | **File size limit** (opcional)     | `5 MB`                                                |
+
+2. En el **SQL Editor**, corre:
+
+```sql
+drop policy if exists "community_shares_insert_own" on storage.objects;
+drop policy if exists "community_shares_select_authenticated" on storage.objects;
+
+-- INSERT: solo subes a tu propia carpeta {userId}/...
+create policy "community_shares_insert_own"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'community-shares'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+-- SELECT: cualquier usuario autenticado puede leer cualquier archivo del
+-- bucket — esto es lo que permite que la foto de un share se vea en el
+-- feed de otros usuarios.
+create policy "community_shares_select_authenticated"
+  on storage.objects for select
+  to authenticated
+  using (bucket_id = 'community-shares');
+```
+
+3. Verifica con:
+
+```sql
+select id, name, public from storage.buckets where id = 'community-shares';
+
+select policyname, cmd
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+  and policyname like 'community_shares_%'
+order by policyname;
+```
+
+Esperado: bucket con `public = false` y las 2 policies (`insert_own`,
+`select_authenticated`).

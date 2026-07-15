@@ -2,15 +2,19 @@
 //
 // Muestra:
 //   - Botones para registrar uso: "Lo use hoy" y "Lo use otro dia".
+//   - Boton independiente "Comparte este outfit": abre directo la camara/
+//     selector de foto (ShareOutfitModal). Si el outfit no tiene uso
+//     registrado hoy, lo registra en silencio antes de abrir el modal — el
+//     usuario nunca tiene que pasar primero por "Lo use hoy" para compartir.
 //   - Estado: nunca usado / usado hoy / usado otro dia (con animacion entre estados).
 //   - Total de usos y "Ultima vez: hace X dias".
 //   - Boton de eliminar.
 //
 // La pagina padre (`/outfits/saved`) hace todas las queries y nos pasa
-// `usedDates` y `lastUsedIso` ya calculados — asi mantenemos la card "tonta".
-// Despues de cualquier cambio (nuevo uso, eliminar) actualizamos el estado
-// local de forma optimista y dejamos que `revalidatePath` refresque al
-// proximo render del servidor.
+// `uses` (id + fecha de cada outfit_use) ya calculado — asi mantenemos la
+// card "tonta". Despues de cualquier cambio (nuevo uso, eliminar)
+// actualizamos el estado local de forma optimista y dejamos que
+// `revalidatePath` refresque al proximo render del servidor.
 
 "use client";
 
@@ -21,6 +25,7 @@ import {
 } from "@/app/outfits/actions";
 import Toast from "@/components/ui/Toast";
 import OutfitUseDateModal from "@/components/outfits/OutfitUseDateModal";
+import ShareOutfitModal from "@/components/outfits/ShareOutfitModal";
 import {
   formatHumanDate,
   lastUsedLabel,
@@ -29,6 +34,9 @@ import {
 import type { ClothingItem } from "@/types/database";
 
 import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
+
+type UseRecord = { id: string; usedDate: string };
+
 type Props = {
   outfitId: string;
   name: string | null;
@@ -36,8 +44,10 @@ type Props = {
   notes: string | null;
   createdAt: string;
   items: ClothingItem[];
-  /** Lista de fechas YYYY-MM-DD en las que ya hay uso registrado para este outfit. */
-  usedDates: string[];
+  /** Usos registrados (id + fecha YYYY-MM-DD) de este outfit. */
+  uses: UseRecord[];
+  /** IDs de outfit_uses de ESTE outfit que ya se compartieron con la comunidad. */
+  sharedOutfitUseIds?: string[];
 };
 
 export default function SavedOutfitCard({
@@ -47,29 +57,41 @@ export default function SavedOutfitCard({
   notes,
   createdAt,
   items,
-  usedDates,
+  uses,
+  sharedOutfitUseIds = [],
 }: Props) {
   const [isDeleting, startDelete] = useTransition();
   const [removed, setRemoved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado optimista: arrancamos del array que llega del server y lo
-  // mutamos al registrar/atrapar duplicados.
-  const [dates, setDates] = useState<string[]>(usedDates);
+  // Estado optimista: arrancamos de lo que llega del server y lo mutamos al
+  // registrar/atrapar duplicados.
+  const [useRecords, setUseRecords] = useState<UseRecord[]>(uses);
   const [marcandoHoy, setMarcandoHoy] = useState(false);
+  const [preparandoShare, setPreparandoShare] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [toast, setToast] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
+  const [sharedUseIds, setSharedUseIds] = useState<Set<string>>(new Set(sharedOutfitUseIds));
+  const [pendingShareUseId, setPendingShareUseId] = useState<string | null>(null);
 
   if (removed) return null;
 
   const today = todayIso();
+  const dates = useRecords.map((u) => u.usedDate);
   const usadoHoy = dates.includes(today);
   const totalUsos = dates.length;
   // La fecha mas reciente (orden lexicografico funciona porque YYYY-MM-DD).
   const lastUsedIso = dates.length > 0 ? [...dates].sort().at(-1) ?? null : null;
+  const todayUseId = useRecords.find((u) => u.usedDate === today)?.id ?? null;
+  const yaCompartidoHoy = todayUseId != null && sharedUseIds.has(todayUseId);
 
   function onEliminar() {
-    if (!confirm("¿Eliminar este outfit guardado?")) return;
+    if (
+      !confirm(
+        "¿Eliminar este outfit guardado? Si compartiste una foto de este look con la comunidad, también se eliminará."
+      )
+    )
+      return;
     setError(null);
     startDelete(async () => {
       const res = await deleteOutfitAction(outfitId);
@@ -85,11 +107,10 @@ export default function SavedOutfitCard({
     const res = await registerOutfitUseAction({ outfitId, daysAgo: 0 });
     setMarcandoHoy(false);
     if (res.ok) {
-      setDates((prev) => [...prev, today]);
+      setUseRecords((prev) => [...prev, { id: res.useId, usedDate: today }]);
       setToast({ msg: "¡Registrado! Lo usaste hoy", kind: "success" });
     } else if (res.code === "ALREADY_REGISTERED") {
       // Por si la card estaba desincronizada con server.
-      setDates((prev) => (prev.includes(today) ? prev : [...prev, today]));
       setToast({ msg: "Ya habías registrado este outfit hoy", kind: "success" });
     } else {
       setError(res.error);
@@ -97,15 +118,47 @@ export default function SavedOutfitCard({
     }
   }
 
-  function onModalConfirmed(info: { usedDate: string; daysAgo: number }) {
-    setDates((prev) =>
-      prev.includes(info.usedDate) ? prev : [...prev, info.usedDate]
+  function onModalConfirmed(info: { usedDate: string; daysAgo: number; useId: string }) {
+    setUseRecords((prev) =>
+      prev.some((u) => u.id === info.useId) ? prev : [...prev, { id: info.useId, usedDate: info.usedDate }]
     );
     setModalAbierto(false);
     setToast({
       msg: `¡Registrado! Lo usaste el ${formatHumanDate(info.usedDate)}`,
       kind: "success",
     });
+  }
+
+  async function onCompartir() {
+    if (preparandoShare || yaCompartidoHoy) return;
+
+    if (todayUseId) {
+      setPendingShareUseId(todayUseId);
+      return;
+    }
+
+    // Todavia no hay uso registrado hoy: lo registramos en silencio para
+    // poder asociar el share, sin pedirle al usuario que pase primero por
+    // "Lo use hoy".
+    setPreparandoShare(true);
+    setError(null);
+    const res = await registerOutfitUseAction({ outfitId, daysAgo: 0 });
+    setPreparandoShare(false);
+    if (res.ok) {
+      setUseRecords((prev) => [...prev, { id: res.useId, usedDate: today }]);
+      setPendingShareUseId(res.useId);
+    } else {
+      setError(res.error);
+      setToast({ msg: res.error, kind: "error" });
+    }
+  }
+
+  function onShared() {
+    if (pendingShareUseId) {
+      setSharedUseIds((prev) => new Set(prev).add(pendingShareUseId));
+    }
+    setPendingShareUseId(null);
+    setToast({ msg: "¡Compartido con la comunidad!", kind: "success" });
   }
 
   const titulo = name?.trim() || "Outfit sin nombre";
@@ -230,6 +283,39 @@ export default function SavedOutfitCard({
             </svg>
             Lo usé otro día
           </button>
+
+          <button
+            type="button"
+            onClick={onCompartir}
+            disabled={preparandoShare || yaCompartidoHoy}
+            className={[
+              "inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-sm font-semibold transition-all",
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+              yaCompartidoHoy
+                ? "border-success/30 bg-success-light text-success"
+                : "border-primary-mid bg-primary-light text-primary hover:bg-primary hover:text-white",
+              "disabled:cursor-not-allowed",
+            ].join(" ")}
+          >
+            {preparandoShare ? (
+              "Preparando..."
+            ) : yaCompartidoHoy ? (
+              <>
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m5 13 4 4 10-10" />
+                </svg>
+                Compartido hoy
+              </>
+            ) : (
+              <>
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 8a2 2 0 0 1 2-2h1l1.5-2h7L17 6h1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+                  <circle cx="12" cy="13" r="3.2" />
+                </svg>
+                Comparte este outfit
+              </>
+            )}
+          </button>
         </div>
 
         {/* Estadisticas */}
@@ -261,6 +347,15 @@ export default function SavedOutfitCard({
           usedDates={new Set(dates)}
           onConfirmed={onModalConfirmed}
           onClose={() => setModalAbierto(false)}
+        />
+      )}
+
+      {pendingShareUseId && (
+        <ShareOutfitModal
+          outfitId={outfitId}
+          outfitUseId={pendingShareUseId}
+          onShared={onShared}
+          onClose={() => setPendingShareUseId(null)}
         />
       )}
 
