@@ -9,6 +9,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { esRutaActiva } from "@/lib/nav/activeRoute";
+import { useIsAdmin } from "@/lib/admin/useIsAdmin";
 
 type NavItem = {
   href: string;
@@ -23,15 +24,23 @@ const ITEMS: NavItem[] = [
   { href: "/comunidad", label: "Comunidad", icon: (a) => <IconCommunity active={a} /> },
 ];
 
+const ITEM_ADMIN: NavItem = {
+  href: "/admin/quests",
+  label: "Admin",
+  icon: (a) => <IconAdmin active={a} />,
+};
+
 export default function BottomNav() {
   const pathname = usePathname();
+  const isAdmin = useIsAdmin();
+  const items = isAdmin ? [...ITEMS, ITEM_ADMIN] : ITEMS;
 
   return (
     <nav
       aria-label="Navegación inferior"
       className="fixed inset-x-0 bottom-0 z-30 flex items-center justify-around border-t border-divider bg-surface/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur supports-[backdrop-filter]:bg-surface/85 md:hidden"
     >
-      {ITEMS.map((item) => {
+      {items.map((item) => {
         const activo = esRutaActiva(item.href, pathname);
         return (
           <Link
@@ -103,6 +112,15 @@ function IconCommunity({ active }: { active: boolean }) {
       <path d="M3.5 20c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
       <circle cx="17" cy="9" r="2.4" />
       <path d="M16.5 15.2c2.6.3 4.5 2.1 4.5 4.8" />
+    </svg>
+  );
+}
+
+function IconAdmin({ active }: { active: boolean }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3.5c1.4 1.3 3.2 2 5.2 2 .3 1 .5 2 .5 3 0 4.5-2.4 8.2-5.7 9.5-3.3-1.3-5.7-5-5.7-9.5 0-1 .2-2 .5-3 2 0 3.8-.7 5.2-2Z" />
+      <path d="M9.3 12.2l1.9 1.9 3.5-3.9" fill={active ? "currentColor" : "none"} />
     </svg>
   );
 }
