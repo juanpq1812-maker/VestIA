@@ -5,6 +5,8 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QuestType } from "./constants";
+import { createCommunityShareSignedUrlMap } from "@/lib/storage/communityShares";
+import type { CommunityShare } from "@/types/database";
 
 export type Quest = {
   id: string;
@@ -149,4 +151,83 @@ export async function isAdmin(supabase: SupabaseClient, userId: string): Promise
     .eq("id", userId)
     .maybeSingle();
   return data?.is_admin ?? false;
+}
+
+// =============================================================================
+// COMPARTIR OUTFITS CON LA COMUNIDAD (community_shares, migración 0015)
+// =============================================================================
+
+const FEED_PAGE_SIZE = 24; // sin paginación en v1 — feed simple, más reciente primero.
+
+export type CommunityShareFeedItem = CommunityShare & {
+  photoUrl: string | null; // null si la firma falló -> la card muestra placeholder
+  likedByMe: boolean;
+  isFollowingAuthor: boolean;
+  isOwnShare: boolean;
+};
+
+/**
+ * ¿Ya existe un share para este uso de outfit? Se usa para no ofrecer
+ * compartir dos veces el mismo `outfit_use` (hay un unique en la tabla, esto
+ * solo evita mostrar el prompt de nuevo en la UI).
+ */
+export async function hasSharedOutfitUse(
+  supabase: SupabaseClient,
+  outfitUseId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("community_shares")
+    .select("id")
+    .eq("outfit_use_id", outfitUseId)
+    .maybeSingle();
+  return Boolean(data);
+}
+
+export async function getCommunityFeed(
+  supabase: SupabaseClient,
+  currentUserId: string
+): Promise<CommunityShareFeedItem[]> {
+  const { data: sharesData } = await supabase
+    .from("community_shares")
+    .select(
+      "id, user_id, outfit_id, outfit_use_id, author_display_name, photo_path, caption, like_count, created_at"
+    )
+    .order("created_at", { ascending: false })
+    .limit(FEED_PAGE_SIZE);
+
+  const shares = (sharesData ?? []) as CommunityShare[];
+  if (shares.length === 0) return [];
+
+  const shareIds = shares.map((s) => s.id);
+  const authorIds = Array.from(new Set(shares.map((s) => s.user_id)));
+
+  const [{ data: likesData }, { data: followsData }, photoUrlMap] = await Promise.all([
+    supabase
+      .from("community_likes")
+      .select("share_id")
+      .eq("user_id", currentUserId)
+      .in("share_id", shareIds),
+    supabase
+      .from("community_follows")
+      .select("followed_id")
+      .eq("follower_id", currentUserId)
+      .in("followed_id", authorIds),
+    createCommunityShareSignedUrlMap(
+      supabase,
+      shares.map((s) => s.photo_path)
+    ),
+  ]);
+
+  const likedShareIds = new Set((likesData ?? []).map((l: { share_id: string }) => l.share_id));
+  const followedAuthorIds = new Set(
+    (followsData ?? []).map((f: { followed_id: string }) => f.followed_id)
+  );
+
+  return shares.map((share) => ({
+    ...share,
+    photoUrl: photoUrlMap.get(share.photo_path) ?? null,
+    likedByMe: likedShareIds.has(share.id),
+    isFollowingAuthor: followedAuthorIds.has(share.user_id),
+    isOwnShare: share.user_id === currentUserId,
+  }));
 }

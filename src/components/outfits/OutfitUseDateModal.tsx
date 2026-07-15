@@ -26,7 +26,7 @@ import {
 type Props = {
   outfitId: string;
   usedDates: ReadonlySet<string>;
-  onConfirmed: (info: { usedDate: string; daysAgo: number }) => void;
+  onConfirmed: (info: { usedDate: string; daysAgo: number; useId: string }) => void;
   onClose: () => void;
 };
 
@@ -79,7 +79,7 @@ export default function OutfitUseDateModal({
       setError(res.error);
       return;
     }
-    onConfirmed({ usedDate: res.usedDate, daysAgo: seleccion });
+    onConfirmed({ usedDate: res.usedDate, daysAgo: seleccion, useId: res.useId });
   }
 
   return (

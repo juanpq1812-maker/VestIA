@@ -9,6 +9,7 @@ import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
+import AdminTabs from "@/components/admin/AdminTabs";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { QUEST_TYPE_LABEL, type QuestType } from "@/lib/community/constants";
 import { toggleQuestPublishedAction } from "./actions";
@@ -58,6 +59,10 @@ export default async function AdminQuestsPage() {
             Catálogo administrado — el progreso de cada usuario se verifica
             con sus datos reales al reclamar (ver `complete_quest` en Supabase).
           </p>
+
+          <div className="mt-6">
+            <AdminTabs active="quests" />
+          </div>
 
           <div className="mt-8 overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
             {(quests ?? []).length === 0 ? (

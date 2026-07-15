@@ -186,6 +186,90 @@ export type OutfitUseInsert = {
 
 export type OutfitUseUpdate = Partial<OutfitUseInsert>;
 
+// ── Comunidad: compartir outfits (migración 0015) ───────────────────────────
+
+export type CommunityShare = {
+  id: string;
+  user_id: string;
+  outfit_id: string;
+  outfit_use_id: string;
+  author_display_name: string | null;
+  photo_path: string;
+  caption: string | null;
+  like_count: number;
+  created_at: string;
+};
+
+export type CommunityShareInsert = {
+  id?: string;
+  user_id: string;
+  outfit_id: string;
+  outfit_use_id: string;
+  author_display_name?: string | null;
+  photo_path: string;
+  caption?: string | null;
+  like_count?: number;
+  created_at?: string;
+};
+
+export type CommunityShareUpdate = Partial<CommunityShareInsert>;
+
+export type CommunityLike = {
+  id: string;
+  user_id: string;
+  share_id: string;
+  created_at: string;
+};
+
+export type CommunityLikeInsert = {
+  id?: string;
+  user_id: string;
+  share_id: string;
+  created_at?: string;
+};
+
+export type CommunityFollow = {
+  id: string;
+  follower_id: string;
+  followed_id: string;
+  created_at: string;
+};
+
+export type CommunityFollowInsert = {
+  id?: string;
+  follower_id: string;
+  followed_id: string;
+  created_at?: string;
+};
+
+export type CommunityShareReportStatus = "pending" | "dismissed" | "removed";
+
+export type CommunityShareReport = {
+  id: string;
+  share_id: string;
+  reporter_id: string;
+  reporter_display_name: string | null;
+  reason: string | null;
+  status: CommunityShareReportStatus;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+};
+
+export type CommunityShareReportInsert = {
+  id?: string;
+  share_id: string;
+  reporter_id: string;
+  reporter_display_name?: string | null;
+  reason?: string | null;
+  status?: CommunityShareReportStatus;
+  created_at?: string;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
+};
+
+export type CommunityShareReportUpdate = Partial<CommunityShareReportInsert>;
+
 // ── Calendario sincronizado por ICS (migración 0009) ────────────────────────
 
 export type CalendarFeed = {
@@ -290,6 +374,26 @@ export type Database = {
         Row: OutfitUse;
         Insert: OutfitUseInsert;
         Update: OutfitUseUpdate;
+      };
+      community_shares: {
+        Row: CommunityShare;
+        Insert: CommunityShareInsert;
+        Update: CommunityShareUpdate;
+      };
+      community_likes: {
+        Row: CommunityLike;
+        Insert: CommunityLikeInsert;
+        Update: Partial<CommunityLikeInsert>;
+      };
+      community_follows: {
+        Row: CommunityFollow;
+        Insert: CommunityFollowInsert;
+        Update: Partial<CommunityFollowInsert>;
+      };
+      community_share_reports: {
+        Row: CommunityShareReport;
+        Insert: CommunityShareReportInsert;
+        Update: CommunityShareReportUpdate;
       };
       calendar_feeds: {
         Row: CalendarFeed;

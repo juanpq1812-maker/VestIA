@@ -9,7 +9,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import QuestCard from "@/components/community/QuestCard";
-import { getQuestsWithProgress, getCommunityPoints } from "@/lib/community/query";
+import CommunityShareCard from "@/components/community/CommunityShareCard";
+import {
+  getQuestsWithProgress,
+  getCommunityPoints,
+  getCommunityFeed,
+} from "@/lib/community/query";
 import { levelFromPoints } from "@/lib/community/constants";
 
 export const metadata = {
@@ -28,12 +33,13 @@ export default async function ComunidadPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [quests, points] = user
+  const [quests, points, feed] = user
     ? await Promise.all([
         getQuestsWithProgress(supabase, user.id),
         getCommunityPoints(supabase, user.id),
+        getCommunityFeed(supabase, user.id),
       ])
-    : [[], 0];
+    : [[], 0, []];
   const nivel = levelFromPoints(points);
 
   return (
@@ -78,25 +84,21 @@ export default async function ComunidadPage() {
           {/* ── Outfits de la comunidad ───────────────────────────────── */}
           <section className="mt-10">
             <SectionTitle>Outfits de la comunidad</SectionTitle>
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              {[0, 1].map((i) => (
-                <div
-                  key={i}
-                  className="flex aspect-[3/4] flex-col items-center justify-center gap-3 rounded-xl bg-surface-2 p-4 text-center"
-                >
-                  <svg aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-text-faint">
-                    <circle cx="9" cy="8" r="3" />
-                    <path d="M3.5 20c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
-                    <circle cx="17" cy="9" r="2.4" />
-                    <path d="M16.5 15.2c2.6.3 4.5 2.1 4.5 4.8" />
-                  </svg>
-                  <p className="text-xs text-text-muted">
-                    Aquí verás los looks que comparta la comunidad
-                  </p>
-                  <ProximamenteBadge />
-                </div>
-              ))}
-            </div>
+            {feed.length === 0 ? (
+              <div className="mt-4 rounded-xl bg-surface p-5 shadow-sm">
+                <p className="text-sm text-text-muted">
+                  Todavía nadie compartió un look. Marca &ldquo;Lo usé
+                  hoy&rdquo; en un outfit guardado y sé la primera persona en
+                  compartirlo con la comunidad.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                {feed.map((share) => (
+                  <CommunityShareCard key={share.id} share={share} />
+                ))}
+              </div>
+            )}
           </section>
 
           {/* ── Marcas aliadas y beneficios ───────────────────────────── */}
