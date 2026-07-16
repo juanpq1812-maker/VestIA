@@ -15,7 +15,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { callAnthropicApi } from "@/lib/ai/aiClient";
-import type { ClothingItem, UserPreferences } from "@/types/database";
+import type { ClothingItem, Gender, UserPreferences } from "@/types/database";
 
 // ---------------------------------------------------------------------------
 // Tipos publicos.
@@ -113,21 +113,30 @@ export async function generateOutfits(
   }
 
   // 2. Leer preferencias (es opcional: si no existen, usamos defaults).
-  const { data: prefsData } = await supabase
-    .from("user_preferences")
-    .select("style_tags, favorite_occasions")
-    .eq("user_id", input.userId)
-    .maybeSingle();
+  const [{ data: prefsData }, { data: profileData }] = await Promise.all([
+    supabase
+      .from("user_preferences")
+      .select("style_tags, favorite_occasions")
+      .eq("user_id", input.userId)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("gender")
+      .eq("id", input.userId)
+      .maybeSingle(),
+  ]);
 
   const prefs = (prefsData ?? null) as Pick<
     UserPreferences,
     "style_tags" | "favorite_occasions"
   > | null;
+  const gender = profileData?.gender ?? null;
 
   // 3. Construir prompt y llamar al modelo via Anthropic.
   const prompt = buildPrompt({
     items,
     prefs,
+    gender,
     mode: input.mode,
     occasion: input.occasion,
     description: input.description,
@@ -197,13 +206,14 @@ export async function generateOutfits(
 function buildPrompt(args: {
   items: ClothingItem[];
   prefs: Pick<UserPreferences, "style_tags" | "favorite_occasions"> | null;
+  gender: Gender | null;
   mode: GenerateMode;
   occasion?: string;
   description?: string;
   lockedItemId?: string;
   count: 1 | 2;
 }): string {
-  const { items, prefs, mode, occasion, description, lockedItemId, count } = args;
+  const { items, prefs, gender, mode, occasion, description, lockedItemId, count } = args;
 
   // Listamos las prendas en formato compacto: ID + categoria/subcategoria +
   // color + ocasiones. Suficiente para que la IA combine sin pasarnos del
@@ -229,6 +239,8 @@ function buildPrompt(args: {
     prefs?.favorite_occasions && prefs.favorite_occasions.length > 0
       ? prefs.favorite_occasions.join(", ")
       : "sin preferencia declarada";
+  const genderPrefs =
+    gender && gender !== "prefiero_no_decir" ? gender : "no declarado";
 
   let instruccionDeOcasion = "";
   let solicitudTexto = "";
@@ -291,9 +303,10 @@ function buildPrompt(args: {
       : []),
     `- Solo puedes usar IDs que aparecen en el armario. NO inventes IDs nuevos.`,
     ``,
-    `Preferencias del usuario (recomendación, no obligación):`,
-    `- Estilos favoritos: ${stylePrefs}`,
-    `- Ocasiones favoritas: ${occasionPrefs}`,
+    `Preferencias del usuario — aplícalas activamente al elegir combinaciones y estilo (no son decorativas):`,
+    `- Estilos favoritos: ${stylePrefs}. Prioriza prendas y combinaciones que encajen con estos estilos por encima de otras igualmente válidas.`,
+    `- Ocasiones favoritas: ${occasionPrefs}. Si el usuario no pidió una ocasión puntual (modo sorpresa o descripción libre), inclina la elección hacia estas.`,
+    `- Género declarado: ${genderPrefs}.`,
     ``,
     instruccionDeOcasion,
     ``,

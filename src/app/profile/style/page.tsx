@@ -20,13 +20,20 @@ export default async function StylePreferencesPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: prefs } = await supabase
-    .from("user_preferences")
-    .select(
-      "style_tags, favorite_occasions, top_size, bottom_size, shoe_size, chest_cm, waist_cm, hip_cm"
-    )
-    .eq("user_id", user?.id ?? "")
-    .maybeSingle();
+  const [{ data: prefs }, { data: profile }] = await Promise.all([
+    supabase
+      .from("user_preferences")
+      .select(
+        "style_tags, favorite_occasions, top_size, bottom_size, shoe_size, chest_cm, waist_cm, hip_cm"
+      )
+      .eq("user_id", user?.id ?? "")
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("gender")
+      .eq("id", user?.id ?? "")
+      .maybeSingle(),
+  ]);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -64,6 +71,7 @@ export default async function StylePreferencesPage() {
 
           <StylePreferencesForm
             initial={{
+              gender: profile?.gender ?? null,
               styleTags: prefs?.style_tags ?? [],
               favoriteOccasions: prefs?.favorite_occasions ?? [],
               topSize: prefs?.top_size ?? null,

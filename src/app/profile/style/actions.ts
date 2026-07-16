@@ -14,9 +14,13 @@ import {
   OCCASION_TAGS,
   TOP_SIZES,
   BOTTOM_SIZES,
+  type Gender,
 } from "@/types/database";
 
+const VALID_GENDERS: Gender[] = ["hombre", "mujer", "prefiero_no_decir"];
+
 export type StylePreferencesPayload = {
+  gender: Gender;
   styleTags: string[];
   favoriteOccasions: string[];
   topSize: string | null;
@@ -69,6 +73,9 @@ export async function saveStylePreferences(
   if (favoriteOccasions.length === 0) {
     return { ok: false, error: "Elige al menos una ocasión." };
   }
+  if (!VALID_GENDERS.includes(payload.gender)) {
+    return { ok: false, error: "Elige una opción de género válida." };
+  }
 
   const topSize =
     payload.topSize && (TOP_SIZES as readonly string[]).includes(payload.topSize)
@@ -113,6 +120,18 @@ export async function saveStylePreferences(
     return {
       ok: false,
       error: `No pudimos guardar tus preferencias: ${error.message}`,
+    };
+  }
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ gender: payload.gender })
+    .eq("id", user.id);
+
+  if (profileError) {
+    return {
+      ok: false,
+      error: `No pudimos guardar tu género: ${profileError.message}`,
     };
   }
 

@@ -11,15 +11,20 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Chip from "@/components/onboarding/Chip";
+import StyleCard from "@/components/onboarding/StyleCard";
 import {
   STYLE_TAGS,
+  getStyleTagImage,
   OCCASION_TAGS,
   TOP_SIZES,
   BOTTOM_SIZES,
+  GENDER_OPTIONS,
+  type Gender,
 } from "@/types/database";
 import { saveStylePreferences } from "@/app/profile/style/actions";
 
 export type StylePreferencesInitial = {
+  gender: Gender | null;
   styleTags: string[];
   favoriteOccasions: string[];
   topSize: string | null;
@@ -49,6 +54,7 @@ function numToInput(n: number | null): string {
 
 export default function StylePreferencesForm({ initial }: Props) {
   const router = useRouter();
+  const [genero, setGenero] = useState<Gender | "">(initial.gender ?? "");
   const [estilos, setEstilos] = useState<string[]>(initial.styleTags);
   const [ocasiones, setOcasiones] = useState<string[]>(initial.favoriteOccasions);
   const [topSize, setTopSize] = useState(initial.topSize ?? "");
@@ -62,6 +68,10 @@ export default function StylePreferencesForm({ initial }: Props) {
 
   function guardar() {
     setError(null);
+    if (!genero) {
+      setError("Elige una opción de género.");
+      return;
+    }
     if (estilos.length === 0) {
       setError("Elige al menos un estilo.");
       return;
@@ -73,6 +83,7 @@ export default function StylePreferencesForm({ initial }: Props) {
 
     startTransition(async () => {
       const result = await saveStylePreferences({
+        gender: genero,
         styleTags: estilos,
         favoriteOccasions: ocasiones,
         topSize: topSize || null,
@@ -95,6 +106,27 @@ export default function StylePreferencesForm({ initial }: Props) {
 
   return (
     <div className="mt-8 flex flex-col gap-6">
+      {/* ── Género ──────────────────────────────────────────────────── */}
+      <Card>
+        <h2 className="font-display text-xl font-semibold text-text">
+          Género
+        </h2>
+        <p className="mt-1 text-sm text-text-muted">
+          Nos ayuda a tratarte correctamente en toda la app.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-2">
+          {GENDER_OPTIONS.map((opt) => (
+            <Chip
+              key={opt.value}
+              active={genero === opt.value}
+              onClick={() => setGenero(opt.value)}
+            >
+              {opt.label}
+            </Chip>
+          ))}
+        </div>
+      </Card>
+
       {/* ── Estilos ─────────────────────────────────────────────────── */}
       <Card>
         <h2 className="font-display text-xl font-semibold text-text">
@@ -103,15 +135,15 @@ export default function StylePreferencesForm({ initial }: Props) {
         <p className="mt-1 text-sm text-text-muted">
           La IA usa esto para sugerirte combinaciones que de verdad te gusten.
         </p>
-        <div className="mt-5 flex flex-wrap gap-2">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {STYLE_TAGS.map((tag) => (
-            <Chip
+            <StyleCard
               key={tag}
+              label={tag}
+              imageSrc={getStyleTagImage(tag, genero || null)}
               active={estilos.includes(tag)}
               onClick={() => setEstilos((arr) => toggle(arr, tag))}
-            >
-              <span className="capitalize">{tag}</span>
-            </Chip>
+            />
           ))}
         </div>
       </Card>

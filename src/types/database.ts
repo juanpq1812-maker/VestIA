@@ -18,16 +18,22 @@ export type ClothingCategory =
   | "accessory"
   | "body";
 
-// Etiquetas que ofrecemos en el onboarding (chips multi-select).
+// Etiquetas que ofrecemos en el onboarding (tarjetas visuales multi-select).
+// Orden = orden de aparicion en la UI (de mas a menos mainstream para el
+// publico objetivo, 20-45 anos, segun investigacion de mercado 2026).
 export type StyleTag =
   | "casual"
+  | "streetwear"
+  | "old money"
+  | "elegante"
   | "formal"
   | "deportivo"
-  | "urbano"
-  | "bohemio"
-  | "elegante"
   | "minimalista"
-  | "streetwear";
+  | "urbano"
+  | "bohemio";
+
+// Genero declarado en el onboarding — ver migracion 0017_profile_gender.sql.
+export type Gender = "hombre" | "mujer" | "prefiero_no_decir";
 
 export type OccasionTag =
   | "trabajo"
@@ -56,6 +62,8 @@ export type Json =
 export type Profile = {
   id: string;
   display_name: string | null;
+  /** Genero declarado en el onboarding. NULL = no declarado (cuentas viejas). */
+  gender: Gender | null;
   onboarding_completed: boolean;
   /** Lista de espera: false = ve /waitlist. Se aprueba manualmente en Supabase. */
   approved: boolean;
@@ -70,6 +78,7 @@ export type Profile = {
 export type ProfileInsert = {
   id: string;
   display_name?: string | null;
+  gender?: Gender | null;
   onboarding_completed?: boolean;
   approved?: boolean;
   ai_uses?: number;
@@ -425,14 +434,54 @@ export type Database = {
 
 export const STYLE_TAGS: readonly StyleTag[] = [
   "casual",
+  "streetwear",
+  "old money",
+  "elegante",
   "formal",
   "deportivo",
+  "minimalista",
   "urbano",
   "bohemio",
-  "elegante",
-  "minimalista",
-  "streetwear",
 ] as const;
+
+// Slug de archivo por estilo (sin espacios/tildes), usado para armar el path
+// de imagen de referencia.
+const STYLE_TAG_SLUG: Record<StyleTag, string> = {
+  casual: "casual",
+  streetwear: "streetwear",
+  "old money": "old-money",
+  elegante: "elegante",
+  formal: "formal",
+  deportivo: "deportivo",
+  minimalista: "minimalista",
+  urbano: "urbano",
+  bohemio: "bohemio",
+};
+
+/**
+ * Path de la imagen de referencia de un estilo, segun el genero declarado por
+ * el usuario — no tiene sentido mostrarle a una mujer una foto de un modelo
+ * hombre (o viceversa). "prefiero_no_decir" (o sin declarar todavia, ej. en
+ * el paso de Estilo del onboarding antes de que el usuario confirme) cae en
+ * el set neutro.
+ *
+ * El usuario sube 27 archivos a `public/onboarding/estilos/`
+ * (`{slug}-hombre.jpg`, `{slug}-mujer.jpg`, `{slug}-neutro.jpg`) — mientras
+ * no existan, StyleCard cae a un placeholder de color (ver componente).
+ */
+export function getStyleTagImage(
+  tag: StyleTag,
+  gender: Gender | null | undefined
+): string {
+  const variant = gender === "hombre" || gender === "mujer" ? gender : "neutro";
+  return `/onboarding/estilos/${STYLE_TAG_SLUG[tag]}-${variant}.jpg`;
+}
+
+export const GENDER_OPTIONS: readonly { value: Gender; label: string }[] = [
+  { value: "hombre", label: "Hombre" },
+  { value: "mujer", label: "Mujer" },
+  { value: "prefiero_no_decir", label: "Prefiero no decir" },
+];
 
 export const OCCASION_TAGS: readonly OccasionTag[] = [
   "trabajo",
