@@ -1,13 +1,14 @@
 // Flujo de onboarding multi-paso (Client Component).
 //
-// Cinco pantallas, una a la vez, con una transicion suave entre pasos:
+// Seis pantallas, una a la vez, con una transicion suave entre pasos:
 //   1. Bienvenida + nombre del usuario (obligatorio)
-//   2. Estilo (chips multi-select, minimo 1)
-//   3. Ocasiones favoritas (chips multi-select, minimo 1)
-//   4. Tallas (top, bottom, calzado)
-//   5. Medidas opcionales (con boton "Saltar")
+//   2. Genero (obligatorio) — corrige el trato de genero en el resto de la app
+//   3. Estilo (tarjetas visuales multi-select, minimo 1)
+//   4. Ocasiones favoritas (chips multi-select, minimo 1)
+//   5. Tallas (top, bottom, calzado)
+//   6. Medidas opcionales (con boton "Saltar")
 //
-// El estado vive en este componente; al final del paso 5 llama a la Server
+// El estado vive en este componente; al final del paso 6 llama a la Server
 // Action `saveOnboarding` y, si todo sale bien, redirige a /wardrobe.
 
 "use client";
@@ -19,15 +20,19 @@ import Card from "@/components/ui/Card";
 import Container from "@/components/ui/Container";
 import Input from "@/components/ui/Input";
 import Chip from "./Chip";
+import StyleCard from "./StyleCard";
 import {
   STYLE_TAGS,
+  getStyleTagImage,
   OCCASION_TAGS,
   TOP_SIZES,
   BOTTOM_SIZES,
+  GENDER_OPTIONS,
+  type Gender,
 } from "@/types/database";
 import { saveOnboarding } from "@/app/onboarding/actions";
 
-const TOTAL_PASOS = 5;
+const TOTAL_PASOS = 6;
 
 type Medidas = {
   chestCm: string;
@@ -67,6 +72,7 @@ export default function OnboardingFlow() {
   const router = useRouter();
   const [paso, setPaso] = useState(1);
   const [nombre, setNombre] = useState("");
+  const [genero, setGenero] = useState<Gender | "">("");
   const [estilos, setEstilos] = useState<string[]>([]);
   const [ocasiones, setOcasiones] = useState<string[]>([]);
   const [topSize, setTopSize] = useState<string>("");
@@ -89,11 +95,15 @@ export default function OnboardingFlow() {
         return;
       }
     }
-    if (paso === 2 && estilos.length === 0) {
+    if (paso === 2 && !genero) {
+      setError("Elige una opción para continuar.");
+      return;
+    }
+    if (paso === 3 && estilos.length === 0) {
       setError("Elige al menos un estilo.");
       return;
     }
-    if (paso === 3 && ocasiones.length === 0) {
+    if (paso === 4 && ocasiones.length === 0) {
       setError("Elige al menos una ocasión.");
       return;
     }
@@ -115,8 +125,14 @@ export default function OnboardingFlow() {
       setPaso(1);
       return;
     }
+    if (!genero) {
+      setError("Elige una opción de género.");
+      setPaso(2);
+      return;
+    }
     const payload = {
       displayName: nombre.trim(),
+      gender: genero,
       styleTags: estilos,
       favoriteOccasions: ocasiones,
       topSize: topSize || null,
@@ -161,15 +177,16 @@ export default function OnboardingFlow() {
               />
             )}
             {paso === 2 && (
-              <PasoChips
-                titulo="¿Qué estilos te representan?"
-                subtitulo="Selecciona todos los que apliquen. Esto le ayuda a la IA a sugerirte combinaciones que de verdad te gusten."
-                opciones={[...STYLE_TAGS]}
+              <PasoGenero genero={genero} onChange={setGenero} />
+            )}
+            {paso === 3 && (
+              <PasoEstilo
+                genero={genero || null}
                 seleccionadas={estilos}
                 onToggle={(v) => setEstilos((arr) => toggle(arr, v))}
               />
             )}
-            {paso === 3 && (
+            {paso === 4 && (
               <PasoChips
                 titulo="¿Para qué ocasiones te vestís más seguido?"
                 subtitulo="Esto define qué outfits te vamos a generar primero."
@@ -178,7 +195,7 @@ export default function OnboardingFlow() {
                 onToggle={(v) => setOcasiones((arr) => toggle(arr, v))}
               />
             )}
-            {paso === 4 && (
+            {paso === 5 && (
               <PasoTallas
                 topSize={topSize}
                 bottomSize={bottomSize}
@@ -188,7 +205,7 @@ export default function OnboardingFlow() {
                 onShoeChange={setShoeSize}
               />
             )}
-            {paso === 5 && (
+            {paso === 6 && (
               <PasoMedidas medidas={medidas} onChange={setMedidas} />
             )}
           </div>
@@ -331,6 +348,70 @@ function PasoBienvenida({ nombre, onNombreChange }: PasoBienvenidaProps) {
           hint="Lo usaremos para saludarte dentro de la app."
         />
       </div>
+    </div>
+  );
+}
+
+type PasoGeneroProps = {
+  genero: Gender | "";
+  onChange: (v: Gender) => void;
+};
+
+function PasoGenero({ genero, onChange }: PasoGeneroProps) {
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-bold text-text sm:text-3xl">
+        ¿Con qué género te identificas?
+      </h2>
+      <p className="mt-2 text-sm text-text-muted">
+        Nos ayuda a tratarte correctamente en toda la app y a darle más contexto a la IA.
+      </p>
+      <div className="mt-6 flex flex-wrap gap-2">
+        {GENDER_OPTIONS.map((opt) => (
+          <Chip
+            key={opt.value}
+            active={genero === opt.value}
+            onClick={() => onChange(opt.value)}
+          >
+            {opt.label}
+          </Chip>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type PasoEstiloProps = {
+  genero: Gender | null;
+  seleccionadas: string[];
+  onToggle: (value: string) => void;
+};
+
+function PasoEstilo({ genero, seleccionadas, onToggle }: PasoEstiloProps) {
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-bold text-text sm:text-3xl">
+        ¿Qué estilos te representan?
+      </h2>
+      <p className="mt-2 text-sm text-text-muted">
+        Selecciona todos los que apliquen. Esto le ayuda a la IA a sugerirte
+        combinaciones que de verdad te gusten.
+      </p>
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {STYLE_TAGS.map((tag) => (
+          <StyleCard
+            key={tag}
+            label={tag}
+            imageSrc={getStyleTagImage(tag, genero)}
+            active={seleccionadas.includes(tag)}
+            onClick={() => onToggle(tag)}
+          />
+        ))}
+      </div>
+      <p className="mt-4 text-xs text-text-muted">
+        Seleccionadas:{" "}
+        <span className="font-medium text-text">{seleccionadas.length}</span>
+      </p>
     </div>
   );
 }

@@ -23,7 +23,7 @@ export const PET_MOOD_SHORT_MESSAGE: Record<PetMood, string> = {
 
 // Mensaje largo — /pet (pantalla completa).
 export const PET_MOOD_LONG_MESSAGE: Record<PetMood, string> = {
-  feliz: "Hebri está feliz porque estuviste activa en StrandIA. Su cola no para de moverse.",
+  feliz: "Hebri está feliz porque hoy usaste StrandIA. Su cola no para de moverse.",
   aburrida: "Ya pasaron algunos días. Todavía está ahí, pero empieza a decaer un poco.",
   sassy: "“Ah, ya te apareciste.” Te ignora con estilo — nada grave, solo actitud.",
   triste: "Hace rato que no la visitás. Se nota que te extraña de verdad.",

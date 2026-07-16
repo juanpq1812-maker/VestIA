@@ -15,9 +15,13 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
+import type { Gender } from "@/types/database";
+
+const VALID_GENDERS: Gender[] = ["hombre", "mujer", "prefiero_no_decir"];
 
 export type OnboardingPayload = {
   displayName: string;
+  gender: Gender;
   styleTags: string[];
   favoriteOccasions: string[];
   topSize: string | null;
@@ -65,6 +69,9 @@ export async function saveOnboarding(
   if (payload.favoriteOccasions.length === 0) {
     return { ok: false, error: "Elige al menos una ocasion." };
   }
+  if (!VALID_GENDERS.includes(payload.gender)) {
+    return { ok: false, error: "Elige una opcion de genero valida." };
+  }
 
   // UPSERT por user_id (la columna tiene UNIQUE), asi si el usuario vuelve al
   // onboarding sus respuestas se actualizan en vez de duplicarse.
@@ -94,7 +101,11 @@ export async function saveOnboarding(
 
   const { error: profileError } = await supabase
     .from("profiles")
-    .update({ onboarding_completed: true, display_name: displayName })
+    .update({
+      onboarding_completed: true,
+      display_name: displayName,
+      gender: payload.gender,
+    })
     .eq("id", user.id);
 
   if (profileError) {
