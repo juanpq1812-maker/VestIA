@@ -31,7 +31,7 @@ export default async function EditItemPage({ params }: Props) {
   const { data: itemData } = await supabase
     .from("clothing_items")
     .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_path, created_at, updated_at"
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_path, source, created_at, updated_at"
     )
     .eq("id", id)
     .eq("user_id", user.id) // Seguridad extra: solo el dueño puede editar

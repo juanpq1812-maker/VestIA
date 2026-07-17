@@ -19,6 +19,7 @@ import {
   removeBackgroundAction,
 } from "@/app/wardrobe/upload/actions";
 import { checkBurstBudgetAction } from "@/app/wardrobe/upload/burstActions";
+import { reconstructGarmentImageAction } from "@/app/wardrobe/upload/garmentReconstructionActions";
 import {
   mapAiOccasions,
   matchColorToPalette,
@@ -52,14 +53,23 @@ export type BurstQueueCallbacks = {
 type Supa = SupabaseClient<any>;
 
 /**
- * Sube la foto cruda (ya redimensionada) a Storage e inserta la fila en
- * `clothing_items` con status='draft'. No analiza nada — el análisis lo hace
- * `processPendingForUser` en background.
+ * Sube una foto cruda (ya redimensionada) a Storage e inserta la fila en
+ * `clothing_items` con status='draft'. `extra` permite prellenar atributos ya
+ * conocidos (ej. la detección grupal de una foto de outfit completo ya trae
+ * categoría/color por prenda — ver outfitExtraction.ts) — si no se pasa,
+ * queda todo null y `processPendingForUser` lo completa vía Claude Vision.
  */
 export async function enqueueDraftPhoto(
   supabase: Supa,
   userId: string,
-  file: File
+  file: File,
+  extra?: {
+    source?: "individual" | "outfit_extraction";
+    category?: ClothingCategory | null;
+    subcategory?: string | null;
+    primary_color?: string | null;
+    occasions?: string[];
+  }
 ): Promise<BurstClothingItem | null> {
   const uuid = crypto.randomUUID();
   const path = buildClothingImagePath({ userId, fileName: file.name, uuid });
@@ -79,9 +89,10 @@ export async function enqueueDraftPhoto(
       user_id: userId,
       status: "draft",
       raw_image_path: path,
+      ...extra,
     })
     .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, created_at, updated_at"
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, created_at, updated_at"
     )
     .single();
 
@@ -102,7 +113,7 @@ export async function fetchPendingItems(
   const { data } = await supabase
     .from("clothing_items")
     .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, created_at, updated_at"
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, created_at, updated_at"
     )
     .eq("user_id", userId)
     .in("status", ["draft", "processing", "ready", "error"])
@@ -137,7 +148,7 @@ async function updateItem(
     .update(patch)
     .eq("id", id)
     .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, created_at, updated_at"
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, created_at, updated_at"
     )
     .single();
   return (data as BurstClothingItem) ?? null;
@@ -160,12 +171,20 @@ async function processOne(
   const processing = await updateItem(supabase, item.id, { status: "processing" });
   if (processing) callbacks.onItemChange?.(processing);
 
-  const budget = await checkBurstBudgetAction();
-  if (!budget.allowed) {
-    const reverted = await updateItem(supabase, item.id, { status: "draft" });
-    if (reverted) callbacks.onItemChange?.(reverted);
-    callbacks.onBudgetExceeded?.(budget.resetInMinutes);
-    return "budget_exceeded";
+  // Las prendas recortadas de una foto de outfit completo ya pasaron por
+  // Claude Vision en la detección grupal (1 sola llamada para todas) — acá
+  // solo les falta Remove.bg, así que no vuelven a gatear/consumir el pool
+  // de análisis (eso sería cobrar N créditos por 1 sola detección).
+  const isOutfitExtraction = item.source === "outfit_extraction";
+
+  if (!isOutfitExtraction) {
+    const budget = await checkBurstBudgetAction();
+    if (!budget.allowed) {
+      const reverted = await updateItem(supabase, item.id, { status: "draft" });
+      if (reverted) callbacks.onItemChange?.(reverted);
+      callbacks.onBudgetExceeded?.(budget.resetInMinutes);
+      return "budget_exceeded";
+    }
   }
 
   try {
@@ -177,25 +196,57 @@ async function processOne(
       throw new Error(downloadError?.message ?? "No se pudo descargar la foto cruda.");
     }
 
-    const analyzeForm = new FormData();
-    analyzeForm.append("image", rawBlob, "photo.jpg");
-    const analysis = await analyzeClothingImageAction(analyzeForm);
+    // Prendas de outfit_extraction: antes de Remove.bg, intentar reconstruir
+    // una foto de producto limpia con Gemini (sin persona, sin oclusiones).
+    // Es una mejora, no un requisito — si falla o no hay cupo, se sigue con
+    // el crop crudo tal cual funcionaba antes de este paso.
+    let bgInputBlob: Blob = rawBlob;
+    let reconstructed = false;
 
-    const bgForm = new FormData();
-    bgForm.append("image", rawBlob, "photo.jpg");
-    const bgResult = await removeBackgroundAction(bgForm);
+    if (isOutfitExtraction) {
+      const description = [item.subcategory, item.primary_color]
+        .filter((v): v is string => Boolean(v))
+        .join(" ") || item.category || "prenda de ropa";
 
-    if (!analysis.ok || !bgResult.ok) {
-      throw new Error("Análisis o eliminación de fondo falló.");
+      const reconForm = new FormData();
+      reconForm.append("image", rawBlob, "photo.jpg");
+      reconForm.append("description", description);
+      const reconResult = await reconstructGarmentImageAction(reconForm);
+
+      if (reconResult.ok) {
+        bgInputBlob = base64ToBlob(reconResult.base64, reconResult.contentType);
+        reconstructed = true;
+      }
     }
 
-    const { categoria, subcategoria, color_principal, color_hex, ocasiones } = analysis.data;
-    const category = VALID_CATEGORIES.includes(categoria as ClothingCategory)
-      ? (categoria as ClothingCategory)
-      : null;
-    const subcategory = category ? matchSubcategory(category, subcategoria ?? "") : "";
-    const color = matchColorToPalette(color_principal ?? "", color_hex ?? "");
-    const occasions = mapAiOccasions(ocasiones ?? []);
+    const bgForm = new FormData();
+    bgForm.append("image", bgInputBlob, "photo.jpg");
+    const bgResult = await removeBackgroundAction(bgForm);
+
+    let category = item.category;
+    let subcategory = item.subcategory;
+    let color = item.primary_color;
+    let occasions = item.occasions;
+
+    if (!isOutfitExtraction) {
+      const analyzeForm = new FormData();
+      analyzeForm.append("image", rawBlob, "photo.jpg");
+      const analysis = await analyzeClothingImageAction(analyzeForm);
+
+      if (!analysis.ok || !bgResult.ok) {
+        throw new Error("Análisis o eliminación de fondo falló.");
+      }
+
+      const { categoria, subcategoria, color_principal, color_hex, ocasiones } = analysis.data;
+      category = VALID_CATEGORIES.includes(categoria as ClothingCategory)
+        ? (categoria as ClothingCategory)
+        : null;
+      subcategory = category ? matchSubcategory(category, subcategoria ?? "") || null : null;
+      color = matchColorToPalette(color_principal ?? "", color_hex ?? "") || null;
+      occasions = mapAiOccasions(ocasiones ?? []);
+    } else if (!bgResult.ok) {
+      throw new Error("Eliminación de fondo falló.");
+    }
 
     const pngBlob = base64ToBlob(bgResult.base64, bgResult.contentType);
     const finalPath = buildClothingImagePath({
@@ -213,10 +264,11 @@ async function processOne(
     const ready = await updateItem(supabase, item.id, {
       status: "ready",
       category,
-      subcategory: subcategory || null,
-      primary_color: color || null,
+      subcategory,
+      primary_color: color,
       occasions,
       image_path: finalPath,
+      reconstructed: isOutfitExtraction && reconstructed,
     });
     if (ready) callbacks.onItemChange?.(ready);
     return "ok";
@@ -292,7 +344,7 @@ export async function retryErrorItem(
     .eq("id", itemId)
     .eq("user_id", userId)
     .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, created_at, updated_at"
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, created_at, updated_at"
     )
     .single();
 

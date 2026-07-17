@@ -86,3 +86,15 @@ export function mapAiOccasions(aiOccasions: string[]): string[] {
     })
     .filter((o): o is string => o !== null);
 }
+
+/**
+ * Prellena `occasions` a partir de la "formalidad" (1-5) que devuelve la
+ * detección de outfit completo — el usuario lo sigue pudiendo editar en la
+ * revisión igual que cualquier otro campo, esto es solo un punto de partida.
+ */
+export function mapFormalityToOccasions(formalidad: number): string[] {
+  if (formalidad <= 2) return ["Casual", "Deportivo"];
+  if (formalidad === 3) return ["Casual", "Trabajo"];
+  if (formalidad === 4) return ["Trabajo", "Citas"];
+  return ["Formal", "Eventos formales"];
+}

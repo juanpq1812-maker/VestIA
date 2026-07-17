@@ -1,4 +1,4 @@
-// Modal "¿Compartís esta foto con la comunidad?" — aparece justo después de
+// Modal "¿Compartes esta foto con la comunidad?" — aparece justo después de
 // registrar un uso ("Lo usé hoy"/"otro día") en SavedOutfitCard.
 //
 // Requiere una FOTO REAL (nunca el moodboard/miniaturas de prendas): así
@@ -50,7 +50,7 @@ export default function ShareOutfitModal({
 
   async function onCompartir() {
     if (!file) {
-      setError("Elegí o tomá una foto para compartir.");
+      setError("Elige o toma una foto para compartir.");
       return;
     }
     setEnviando(true);
@@ -63,7 +63,7 @@ export default function ShareOutfitModal({
 
     if (!user) {
       setEnviando(false);
-      setError("Sesión expirada. Recargá la página e intentá de nuevo.");
+      setError("Sesión expirada. Recarga la página e intenta de nuevo.");
       return;
     }
 
@@ -115,10 +115,10 @@ export default function ShareOutfitModal({
       >
         <header className="border-b border-border px-5 py-4">
           <h2 id="share-outfit-modal-title" className="font-display text-xl font-semibold text-text">
-            ¿Compartís este look?
+            ¿Compartes este look?
           </h2>
           <p className="mt-1 text-xs text-text-muted">
-            Sacate o subí una foto real con el outfit puesto — se suma a tu perfil de
+            Toma o sube una foto real con el outfit puesto — se suma a tu perfil de
             Comunidad.
           </p>
         </header>

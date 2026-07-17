@@ -130,6 +130,10 @@ export type ClothingItemStatus =
   | "error"
   | "confirmed";
 
+// Origen de la foto (migración 0020). 'outfit_extraction' = recortada
+// automáticamente de una foto de outfit completo — candidata a "mejorar foto".
+export type ClothingItemSource = "individual" | "outfit_extraction";
+
 // `ClothingItem` sigue representando una prenda confirmada — todo query que la
 // use debe filtrar `status = 'confirmed'` (CONFIRMED_STATUS), donde `category`
 // siempre está resuelta. Las filas en draft/processing/error/ready (con
@@ -149,6 +153,8 @@ export type ClothingItem = {
   raw_image_path: string | null;
   retry_count: number;
   error_message: string | null;
+  source: ClothingItemSource;
+  reconstructed: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -174,6 +180,8 @@ export type ClothingItemInsert = {
   raw_image_path?: string | null;
   retry_count?: number;
   error_message?: string | null;
+  source?: ClothingItemSource;
+  reconstructed?: boolean;
   created_at?: string;
   updated_at?: string;
 };

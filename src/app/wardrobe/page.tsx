@@ -37,7 +37,7 @@ export default async function WardrobePage({ searchParams }: Props) {
       supabase
         .from("clothing_items")
         .select(
-          "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, created_at, updated_at"
+          "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, source, created_at, updated_at"
         )
         .eq("status", CONFIRMED_STATUS)
         .order("created_at", { ascending: false }),

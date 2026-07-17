@@ -412,7 +412,7 @@ export default function UploadForm() {
     if (!subcategory) errs.subcategory = "Elige una subcategoría.";
     if (!color) errs.color = "Selecciona el color principal.";
     if (occasions.length === 0)
-      errs.occasions = "Marcá al menos una ocasión para esta prenda.";
+      errs.occasions = "Marca al menos una ocasión para esta prenda.";
     if (name.length > NAME_MAX_LENGTH)
       errs.name = `El nombre no puede pasar de ${NAME_MAX_LENGTH} caracteres.`;
     return errs;
@@ -492,7 +492,7 @@ export default function UploadForm() {
 
       if (uploadError) {
         setGeneralError(
-          `No pudimos subir la imagen: ${uploadError.message}. Revisá tu conexión o volvé a intentarlo.`
+          `No pudimos subir la imagen: ${uploadError.message}. Revisa tu conexión o vuelve a intentarlo.`
         );
         return;
       }
@@ -811,8 +811,8 @@ export default function UploadForm() {
             <h2 className="font-display text-lg font-semibold text-text">Subcategoría</h2>
             <p className="mt-1 text-xs text-text-muted">
               {category
-                ? "Especificá qué tipo de prenda es dentro de la categoría."
-                : "Primero elegí una categoría arriba."}
+                ? "Especifica qué tipo de prenda es dentro de la categoría."
+                : "Primero elige una categoría arriba."}
             </p>
             <div
               role="radiogroup"
