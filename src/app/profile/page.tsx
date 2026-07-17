@@ -10,6 +10,7 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import LogoutButton from "@/components/auth/LogoutButton";
 import CalendarFeedForm from "@/components/profile/CalendarFeedForm";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 
 export const metadata = {
   title: "Perfil — StrandIA",
@@ -41,7 +42,10 @@ export default async function ProfilePage() {
       .select("display_name, created_at")
       .eq("id", user?.id ?? "")
       .maybeSingle(),
-    supabase.from("clothing_items").select("id", { count: "exact", head: true }),
+    supabase
+      .from("clothing_items")
+      .select("id", { count: "exact", head: true })
+      .eq("status", CONFIRMED_STATUS),
     supabase.from("outfits").select("id", { count: "exact", head: true }),
     supabase.from("outfit_uses").select("used_date"),
     supabase

@@ -17,6 +17,7 @@ import WardrobeTabs from "@/components/wardrobe/WardrobeTabs";
 import OnboardingProgressBar from "@/components/wardrobe/OnboardingProgressBar";
 import UploadSuccessBanner from "@/components/wardrobe/UploadSuccessBanner";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { ClothingItem } from "@/types/database";
 
 type Props = {
@@ -38,6 +39,7 @@ export default async function WardrobePage({ searchParams }: Props) {
         .select(
           "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, created_at, updated_at"
         )
+        .eq("status", CONFIRMED_STATUS)
         .order("created_at", { ascending: false }),
       supabase.from("outfits").select("id, clothing_item_ids"),
       supabase.from("outfit_uses").select("outfit_id"),

@@ -15,6 +15,7 @@
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { callAnthropicApi } from "@/lib/ai/aiClient";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { ClothingItem, Gender, UserPreferences } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -83,12 +84,15 @@ export async function generateOutfits(
 
   // 1. Leer el armario del usuario. RLS ya filtra por user_id, pero le ponemos
   //    el filtro explicito para ser claros y soportar service-role en tests.
+  //    status='confirmed' es critico aca: nunca generar looks con prendas
+  //    del modo rafaga que todavia estan en draft/processing/error.
   const { data: itemsData, error: itemsError } = await supabase
     .from("clothing_items")
     .select(
       "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, created_at, updated_at"
     )
-    .eq("user_id", input.userId);
+    .eq("user_id", input.userId)
+    .eq("status", CONFIRMED_STATUS);
 
   if (itemsError) {
     console.error("[generateOutfits] error leyendo clothing_items", itemsError);

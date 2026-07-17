@@ -13,6 +13,7 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import OutfitGenerator from "@/components/outfits/OutfitGenerator";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { ClothingCategory } from "@/types/database";
 
 type Props = {
@@ -29,7 +30,8 @@ export default async function OutfitsPage({ searchParams }: Props) {
     supabase
       .from("clothing_items")
       .select("category")
-      .eq("user_id", user?.id ?? ""),
+      .eq("user_id", user?.id ?? "")
+      .eq("status", CONFIRMED_STATUS),
     supabase
       .from("profiles")
       .select("display_name")

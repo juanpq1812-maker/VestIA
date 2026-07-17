@@ -18,6 +18,7 @@ import RepeatedOutfitsSection, {
   type RepeatableOutfit,
 } from "@/components/outfits/RepeatedOutfitsSection";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { ClothingItem, Outfit, OutfitUse } from "@/types/database";
 
 export default async function SavedOutfitsPage() {
@@ -94,6 +95,7 @@ export default async function SavedOutfitsPage() {
       .select(
         "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, created_at, updated_at"
       )
+      .eq("status", CONFIRMED_STATUS)
       .in("id", allItemIds);
 
     const items = (itemsRaw ?? []) as ClothingItem[];

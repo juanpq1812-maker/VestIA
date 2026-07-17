@@ -16,6 +16,7 @@ import { recordPetAction } from "@/lib/pet/actions";
 import { computePetState } from "@/lib/pet/compute";
 import type { AgendaEvent } from "@/components/dashboard/AgendaCard";
 import type { EventOutfitData } from "@/components/dashboard/EventOutfitSection";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 
 export const metadata: Metadata = {
   title: "StrandIA — Tu armario digital con IA",
@@ -70,6 +71,7 @@ export default async function RootPage() {
       .select(
         "id, name, subcategory, category, primary_color, image_path, created_at"
       )
+      .eq("status", CONFIRMED_STATUS)
       .order("created_at", { ascending: false }),
   ]);
 
@@ -201,6 +203,7 @@ export default async function RootPage() {
           ? await supabase
               .from("clothing_items")
               .select("id, name, subcategory, category, primary_color, image_path")
+              .eq("status", CONFIRMED_STATUS)
               .in("id", ids)
           : { data: [] };
         const { createSignedUrlMap: sign } = await import("@/lib/storage/clothingImages");

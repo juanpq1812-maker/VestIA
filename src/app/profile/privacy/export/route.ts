@@ -20,6 +20,9 @@ export async function GET() {
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("user_preferences").select("*").maybeSingle(),
+      // Sin filtro de status a propósito: el export de datos personales debe
+      // incluir TODO lo que le pertenece al usuario, incluidas las prendas
+      // que quedaron en draft/processing/error del modo ráfaga.
       supabase.from("clothing_items").select("*"),
       supabase.from("outfits").select("*"),
       supabase.from("outfit_uses").select("*"),

@@ -6,6 +6,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QuestType } from "./constants";
 import { createCommunityShareSignedUrlMap } from "@/lib/storage/communityShares";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { CommunityShare } from "@/types/database";
 
 export type Quest = {
@@ -75,6 +76,7 @@ async function computeProgress(
         .from("clothing_items")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
+        .eq("status", CONFIRMED_STATUS)
         .gte("created_at", sinceIso);
       return count ?? 0;
     }

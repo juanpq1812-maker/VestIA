@@ -43,6 +43,18 @@ import {
   SUBCATEGORIES,
 } from "@/lib/wardrobe/constants";
 import {
+  CAMERA_DOWNSCALE_MAX_PX,
+  base64ToBlob,
+  bytesToReadable,
+  downscaleToMaxPx,
+} from "@/lib/wardrobe/imageUtils";
+import {
+  hexToColorName,
+  mapAiOccasions,
+  matchColorToPalette,
+  matchSubcategory,
+} from "@/lib/wardrobe/aiMapping";
+import {
   CLOTHING_CATEGORIES,
   type ClothingCategory,
 } from "@/types/database";
@@ -63,88 +75,6 @@ type FieldErrors = {
   name?: string;
 };
 
-// ── Helpers de color ──────────────────────────────────────────────────────────
-
-const COLOR_RGB: Record<string, [number, number, number]> = {
-  negro: [17, 17, 17],
-  blanco: [255, 255, 255],
-  gris: [107, 114, 128],
-  azul: [37, 99, 235],
-  rojo: [220, 38, 38],
-  verde: [22, 163, 74],
-  amarillo: [250, 204, 21],
-  rosa: [236, 72, 153],
-  morado: [124, 58, 237],
-  beige: [214, 199, 163],
-  café: [107, 63, 29],
-  naranja: [249, 115, 22],
-};
-
-function hexToRgb(hex: string): [number, number, number] | null {
-  const clean = hex.replace("#", "");
-  if (clean.length !== 6) return null;
-  const n = parseInt(clean, 16);
-  if (isNaN(n)) return null;
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-function hexToColorName(hex: string): string {
-  const rgb = hexToRgb(hex);
-  if (!rgb) return "negro";
-  let minDist = Infinity;
-  let closest = "negro";
-  for (const [name, rep] of Object.entries(COLOR_RGB)) {
-    const dist = Math.sqrt(
-      (rgb[0] - rep[0]) ** 2 + (rgb[1] - rep[1]) ** 2 + (rgb[2] - rep[2]) ** 2
-    );
-    if (dist < minDist) {
-      minDist = dist;
-      closest = name;
-    }
-  }
-  return closest;
-}
-
-function normStr(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
-}
-
-function matchColorToPalette(colorName: string, colorHex: string): string {
-  const n = normStr(colorName);
-  const exact = COLOR_PALETTE.find((c) => normStr(c.name) === n);
-  if (exact) return exact.name;
-  const partial = COLOR_PALETTE.find((c) => {
-    const p = normStr(c.name);
-    return n.includes(p) || p.includes(n);
-  });
-  if (partial) return partial.name;
-  if (colorHex) return hexToColorName(colorHex);
-  return "";
-}
-
-function matchSubcategory(category: string, aiSubcat: string): string {
-  const opts = SUBCATEGORIES[category as ClothingCategory] ?? [];
-  const n = normStr(aiSubcat);
-  const exact = opts.find((o) => normStr(o) === n);
-  if (exact) return exact;
-  const partial = opts.find((o) => {
-    const on = normStr(o);
-    return n.includes(on) || on.includes(n);
-  });
-  return partial ?? "";
-}
-
-function mapAiOccasions(aiOccasions: string[]): string[] {
-  return aiOccasions
-    .map((o) => {
-      const norm = o.toLowerCase();
-      return ITEM_OCCASIONS.find((io) => io.toLowerCase() === norm) ?? null;
-    })
-    .filter((o): o is string => o !== null);
-}
 
 // visibleImg is used only for coordinate mapping (bounding rect).
 // srcImg is the actual image drawn to canvas — must be the downscaled
@@ -182,61 +112,8 @@ function extractPixelColor(
 
 // ── Helpers generales ─────────────────────────────────────────────────────────
 
-// Max long-edge (px) used when downscaling camera photos before any processing.
-const CAMERA_DOWNSCALE_MAX_PX = 1200;
-
-// Decode `file` into a canvas capped at `maxPx` on the long edge, then return a
-// new JPEG File. The original objectURL is revoked inside this function right
-// after the Image element decodes it, so the full-resolution bitmap is freed
-// from memory before the caller proceeds. If the image is already within limits,
-// the original File is returned unchanged (no canvas work).
-function downscaleToMaxPx(file: File, maxPx: number): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url); // liberar bitmap original inmediatamente
-      const { naturalWidth: w, naturalHeight: h } = img;
-      if (w <= maxPx && h <= maxPx) {
-        resolve(file);
-        return;
-      }
-      const scale = maxPx / Math.max(w, h);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(w * scale);
-      canvas.height = Math.round(h * scale);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) { reject(new Error("no canvas ctx")); return; }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { reject(new Error("toBlob failed")); return; }
-          resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }));
-        },
-        "image/jpeg",
-        0.92,
-      );
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load failed")); };
-    img.src = url;
-  });
-}
-
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
-}
-
-function bytesToReadable(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function base64ToBlob(base64: string, type: string): Blob {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type });
 }
 
 // ── Grupos de color para la sección expandible ────────────────────────────────
@@ -677,6 +554,12 @@ export default function UploadForm() {
           onClose={() => setShowCameraTips(false)}
         />
       ) : null}
+
+      <div className="flex justify-start">
+        <a href="/wardrobe/upload" className="text-sm font-medium text-primary hover:underline">
+          ← Volver al modo ráfaga
+        </a>
+      </div>
 
       {/* ── Foto ─────────────────────────────────────────────────────────── */}
       <Card padding="sm">

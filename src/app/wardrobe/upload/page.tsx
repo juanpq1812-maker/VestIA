@@ -14,8 +14,13 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import UploadForm from "@/components/wardrobe/UploadForm";
+import BurstCapture from "@/components/wardrobe/BurstCapture";
 
-export default async function UploadPage() {
+type Props = {
+  searchParams: Promise<{ modo?: string }>;
+};
+
+export default async function UploadPage({ searchParams }: Props) {
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -27,9 +32,12 @@ export default async function UploadPage() {
     .eq("id", user?.id ?? "")
     .maybeSingle();
 
+  const sp = await searchParams;
+  const modoIndividual = sp.modo === "individual";
+
   return (
     <div className="flex flex-1 flex-col">
-      <Header email={user?.email} displayName={profile?.display_name} />
+      <Header email={user?.email} displayName={profile?.display_name} hideNav />
 
       <main className="flex-1 pb-24 pt-10 sm:pb-14 sm:pt-14">
         <Container size="md">
@@ -40,8 +48,9 @@ export default async function UploadPage() {
                 Subir prenda
               </h1>
               <p className="mt-2 max-w-xl text-base text-text-muted">
-                Sube una foto, dinos que es y para que ocasiones la usas. Va
-                directo a tu armario y queda lista para que la IA la combine.
+                {modoIndividual
+                  ? "Sube una foto, dinos que es y para que ocasiones la usas. Va directo a tu armario y queda lista para que la IA la combine."
+                  : "Capturá tus prendas una tras otra sin pausas — analizamos todo en segundo plano mientras seguís fotografiando."}
               </p>
             </div>
             <Link href="/wardrobe">
@@ -50,7 +59,7 @@ export default async function UploadPage() {
           </div>
 
           <div className="mt-8">
-            <UploadForm />
+            {modoIndividual ? <UploadForm /> : <BurstCapture />}
           </div>
         </Container>
       </main>

@@ -108,3 +108,14 @@ export const NAME_MAX_LENGTH = 50;
 export const BASIC_COLORS: readonly string[] = [
   "negro", "blanco", "gris", "beige", "café", "azul", "rojo", "verde",
 ];
+
+// ---------------------------------------------------------------------------
+// Ciclo de vida del modo rafaga (`clothing_items.status`, migración 0018).
+// Solo las prendas 'confirmed' son parte real del armario del usuario — toda
+// query que liste/cuente el armario (o alimente al generador de outfits, los
+// quests, o los stats de perfil) debe filtrar por este valor. Excepciones
+// documentadas en el propio call site: el export de datos personales
+// (GDPR) y las operaciones por id ya conocido (editar/borrar una prenda
+// puntual) no lo necesitan.
+// ---------------------------------------------------------------------------
+export const CONFIRMED_STATUS = "confirmed" as const;

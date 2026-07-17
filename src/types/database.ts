@@ -121,6 +121,19 @@ export type UserPreferencesInsert = {
 
 export type UserPreferencesUpdate = Partial<UserPreferencesInsert>;
 
+// Ciclo de vida del modo ráfaga (migración 0018). Solo 'confirmed' es parte
+// real del armario del usuario — ver CONFIRMED_STATUS en lib/wardrobe/constants.
+export type ClothingItemStatus =
+  | "draft"
+  | "processing"
+  | "ready"
+  | "error"
+  | "confirmed";
+
+// `ClothingItem` sigue representando una prenda confirmada — todo query que la
+// use debe filtrar `status = 'confirmed'` (CONFIRMED_STATUS), donde `category`
+// siempre está resuelta. Las filas en draft/processing/error/ready (con
+// `category` todavía null) usan `BurstClothingItem` — ver lib/wardrobe/burstQueue.ts.
 export type ClothingItem = {
   id: string;
   user_id: string;
@@ -132,14 +145,24 @@ export type ClothingItem = {
   occasions: string[];
   image_url: string | null;
   image_path: string | null;
+  status: ClothingItemStatus;
+  raw_image_path: string | null;
+  retry_count: number;
+  error_message: string | null;
   created_at: string;
   updated_at: string;
+};
+
+// Fila cruda de `clothing_items` tal como puede existir mientras está en el
+// pipeline del modo ráfaga (antes de confirmarse) — `category` puede ser null.
+export type BurstClothingItem = Omit<ClothingItem, "category"> & {
+  category: ClothingCategory | null;
 };
 
 export type ClothingItemInsert = {
   id?: string;
   user_id: string;
-  category: ClothingCategory;
+  category?: ClothingCategory | null;
   subcategory?: string | null;
   name?: string | null;
   primary_color?: string | null;
@@ -147,6 +170,10 @@ export type ClothingItemInsert = {
   occasions?: string[];
   image_url?: string | null;
   image_path?: string | null;
+  status?: ClothingItemStatus;
+  raw_image_path?: string | null;
+  retry_count?: number;
+  error_message?: string | null;
   created_at?: string;
   updated_at?: string;
 };
