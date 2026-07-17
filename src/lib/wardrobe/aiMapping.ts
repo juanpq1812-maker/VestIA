@@ -1,0 +1,88 @@
+// Mapea la respuesta de Claude Vision (analyzeClothingImageAction) a las
+// opciones válidas del formulario de subida (categoría/subcategoría/color/
+// ocasiones). Compartido entre el flujo individual (UploadForm.tsx) y el
+// modo ráfaga (burstQueue.ts).
+
+import { COLOR_PALETTE, ITEM_OCCASIONS, SUBCATEGORIES } from "@/lib/wardrobe/constants";
+import type { ClothingCategory } from "@/types/database";
+
+const COLOR_RGB: Record<string, [number, number, number]> = {
+  negro: [17, 17, 17],
+  blanco: [255, 255, 255],
+  gris: [107, 114, 128],
+  azul: [37, 99, 235],
+  rojo: [220, 38, 38],
+  verde: [22, 163, 74],
+  amarillo: [250, 204, 21],
+  rosa: [236, 72, 153],
+  morado: [124, 58, 237],
+  beige: [214, 199, 163],
+  café: [107, 63, 29],
+  naranja: [249, 115, 22],
+};
+
+export function hexToRgb(hex: string): [number, number, number] | null {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return null;
+  const n = parseInt(clean, 16);
+  if (isNaN(n)) return null;
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+export function hexToColorName(hex: string): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return "negro";
+  let minDist = Infinity;
+  let closest = "negro";
+  for (const [name, rep] of Object.entries(COLOR_RGB)) {
+    const dist = Math.sqrt(
+      (rgb[0] - rep[0]) ** 2 + (rgb[1] - rep[1]) ** 2 + (rgb[2] - rep[2]) ** 2
+    );
+    if (dist < minDist) {
+      minDist = dist;
+      closest = name;
+    }
+  }
+  return closest;
+}
+
+export function normStr(s: string) {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+}
+
+export function matchColorToPalette(colorName: string, colorHex: string): string {
+  const n = normStr(colorName);
+  const exact = COLOR_PALETTE.find((c) => normStr(c.name) === n);
+  if (exact) return exact.name;
+  const partial = COLOR_PALETTE.find((c) => {
+    const p = normStr(c.name);
+    return n.includes(p) || p.includes(n);
+  });
+  if (partial) return partial.name;
+  if (colorHex) return hexToColorName(colorHex);
+  return "";
+}
+
+export function matchSubcategory(category: string, aiSubcat: string): string {
+  const opts = SUBCATEGORIES[category as ClothingCategory] ?? [];
+  const n = normStr(aiSubcat);
+  const exact = opts.find((o) => normStr(o) === n);
+  if (exact) return exact;
+  const partial = opts.find((o) => {
+    const on = normStr(o);
+    return n.includes(on) || on.includes(n);
+  });
+  return partial ?? "";
+}
+
+export function mapAiOccasions(aiOccasions: string[]): string[] {
+  return aiOccasions
+    .map((o) => {
+      const norm = o.toLowerCase();
+      return ITEM_OCCASIONS.find((io) => io.toLowerCase() === norm) ?? null;
+    })
+    .filter((o): o is string => o !== null);
+}

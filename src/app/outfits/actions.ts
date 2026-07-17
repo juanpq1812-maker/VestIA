@@ -23,6 +23,7 @@ import { recordPetAction } from "@/lib/pet/actions";
 import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
 import { suggestOutfitForEvent } from "@/lib/ai/eventOutfit";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 export type GenerateActionInput = {
   mode: GenerateMode;
   occasion?: string;
@@ -179,6 +180,7 @@ export async function generateEventOutfitAction(
     const { data: itemsRaw } = await supabase
       .from("clothing_items")
       .select("id, name, subcategory, category, primary_color, image_path")
+      .eq("status", CONFIRMED_STATUS)
       .in("id", itemIds);
     const paths = (itemsRaw ?? [])
       .map((i) => i.image_path)
@@ -238,6 +240,7 @@ export async function saveOutfitAction(
     .from("clothing_items")
     .select("id")
     .eq("user_id", user.id)
+    .eq("status", CONFIRMED_STATUS)
     .in("id", input.clothing_item_ids);
 
   if (ownedErr) {

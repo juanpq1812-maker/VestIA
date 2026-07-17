@@ -11,6 +11,7 @@ import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import EditItemForm from "@/components/wardrobe/EditItemForm";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { ClothingItem } from "@/types/database";
 
 type Props = {
@@ -34,6 +35,7 @@ export default async function EditItemPage({ params }: Props) {
     )
     .eq("id", id)
     .eq("user_id", user.id) // Seguridad extra: solo el dueño puede editar
+    .eq("status", CONFIRMED_STATUS) // esta pantalla es solo para prendas ya confirmadas
     .maybeSingle();
 
   if (!itemData) notFound();
