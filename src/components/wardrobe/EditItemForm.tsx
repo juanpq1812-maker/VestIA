@@ -6,19 +6,27 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import Chip from "@/components/onboarding/Chip";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
+import { CLOTHING_IMAGES_BUCKET, buildClothingImagePath } from "@/lib/storage/clothingImages";
+import { removeBackgroundAction } from "@/app/wardrobe/upload/actions";
 import {
+  ALLOWED_MIME_TYPES,
   COLOR_PALETTE,
   ITEM_OCCASIONS,
   NAME_MAX_LENGTH,
   SUBCATEGORIES,
 } from "@/lib/wardrobe/constants";
+import {
+  CAMERA_DOWNSCALE_MAX_PX,
+  base64ToBlob,
+  downscaleToMaxPx,
+} from "@/lib/wardrobe/imageUtils";
 import {
   CLOTHING_CATEGORIES,
   type ClothingCategory,
@@ -44,6 +52,7 @@ type Props = {
 
 export default function EditItemForm({ item, imageUrl }: Props) {
   const router = useRouter();
+  const retakeInputRef = useRef<HTMLInputElement>(null);
 
   const [category, setCategory] = useState<ClothingCategory | "">(
     item.category ?? ""
@@ -59,6 +68,13 @@ export default function EditItemForm({ item, imageUrl }: Props) {
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // "Mejora esta foto": solo para prendas recortadas de una foto de outfit
+  // completo (item.source === 'outfit_extraction'). El Remove.bg corre apenas
+  // se elige la foto nueva; la subida a Storage queda para el submit.
+  const [newPhoto, setNewPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
+  const [retakingPhoto, setRetakingPhoto] = useState(false);
+  const [retakeError, setRetakeError] = useState<string | null>(null);
+
   const subcategoryOptions = useMemo<readonly string[]>(() => {
     return category ? SUBCATEGORIES[category] : [];
   }, [category]);
@@ -70,6 +86,37 @@ export default function EditItemForm({ item, imageUrl }: Props) {
       delete copy[key];
       return copy;
     });
+  }
+
+  async function handleRetakeFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    e.target.value = "";
+    if (!selected) return;
+
+    if (!ALLOWED_MIME_TYPES.includes(selected.type as (typeof ALLOWED_MIME_TYPES)[number])) {
+      setRetakeError("Formato no permitido. Usa JPG, PNG o WebP.");
+      return;
+    }
+
+    setRetakeError(null);
+    setRetakingPhoto(true);
+    try {
+      const downscaled = await downscaleToMaxPx(selected, CAMERA_DOWNSCALE_MAX_PX).catch(
+        () => selected
+      );
+      const fd = new FormData();
+      fd.append("image", downscaled, downscaled.name);
+      const result = await removeBackgroundAction(fd);
+      if (!result.ok) {
+        setRetakeError("No pudimos procesar la foto. Prueba de nuevo.");
+        return;
+      }
+      const blob = base64ToBlob(result.base64, result.contentType);
+      if (newPhoto) URL.revokeObjectURL(newPhoto.previewUrl);
+      setNewPhoto({ blob, previewUrl: URL.createObjectURL(blob) });
+    } finally {
+      setRetakingPhoto(false);
+    }
   }
 
   function handleCategoria(cat: ClothingCategory) {
@@ -86,7 +133,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
     if (!subcategory) errs.subcategory = "Elige una subcategoría.";
     if (!color) errs.color = "Selecciona el color principal.";
     if (occasions.length === 0)
-      errs.occasions = "Marcá al menos una ocasión para esta prenda.";
+      errs.occasions = "Marca al menos una ocasión para esta prenda.";
     if (name.length > NAME_MAX_LENGTH)
       errs.name = `El nombre no puede pasar de ${NAME_MAX_LENGTH} caracteres.`;
     return errs;
@@ -111,6 +158,22 @@ export default function EditItemForm({ item, imageUrl }: Props) {
         return;
       }
 
+      let newImagePath: string | null = null;
+      if (newPhoto) {
+        newImagePath = buildClothingImagePath({
+          userId: user.id,
+          fileName: "photo.png",
+          uuid: crypto.randomUUID(),
+        });
+        const { error: uploadError } = await supabase.storage
+          .from(CLOTHING_IMAGES_BUCKET)
+          .upload(newImagePath, newPhoto.blob, { contentType: "image/png", upsert: false });
+        if (uploadError) {
+          setGeneralError(`No pudimos subir la foto nueva: ${uploadError.message}.`);
+          return;
+        }
+      }
+
       const { error: updateError } = await supabase
         .from("clothing_items")
         .update({
@@ -119,6 +182,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
           name: name.trim() || null,
           primary_color: color,
           occasions,
+          ...(newImagePath ? { image_path: newImagePath, source: "individual" } : {}),
         })
         .eq("id", item.id)
         .eq("user_id", user.id);
@@ -126,6 +190,14 @@ export default function EditItemForm({ item, imageUrl }: Props) {
       if (updateError) {
         setGeneralError(`No pudimos guardar los cambios: ${updateError.message}.`);
         return;
+      }
+
+      // Foto vieja: best-effort, un huérfano en Storage no rompe nada.
+      if (newImagePath && item.image_path) {
+        await supabase.storage
+          .from(CLOTHING_IMAGES_BUCKET)
+          .remove([item.image_path])
+          .catch(() => {});
       }
 
       router.push("/wardrobe");
@@ -140,23 +212,56 @@ export default function EditItemForm({ item, imageUrl }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Preview de la foto (no editable) */}
+      {/* Preview de la foto */}
       {imageUrl ? (
         <Card padding="md">
           <h2 className="font-display text-lg font-semibold text-text">
             Foto de la prenda
           </h2>
           <p className="mt-1 text-xs text-text-muted">
-            La foto no se puede cambiar desde aquí.
+            {item.source === "outfit_extraction"
+              ? "Recortada de una foto de outfit completo — la calidad puede ser menor. Puedes tomarle una foto individual."
+              : "La foto no se puede cambiar desde aquí."}
           </p>
           <div className="mt-4 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imageUrl}
+              src={newPhoto?.previewUrl ?? imageUrl}
               alt="Foto de la prenda"
               className="max-h-64 w-auto rounded-lg border border-border object-contain"
             />
           </div>
+
+          {item.source === "outfit_extraction" ? (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <input
+                ref={retakeInputRef}
+                type="file"
+                accept={ALLOWED_MIME_TYPES.join(",")}
+                capture="environment"
+                className="sr-only"
+                onChange={handleRetakeFileChange}
+                aria-hidden="true"
+              />
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={() => retakeInputRef.current?.click()}
+                isLoading={retakingPhoto}
+                loadingText="Procesando foto…"
+              >
+                {newPhoto ? "Tomar otra foto" : "Tomar foto nueva"}
+              </Button>
+              {newPhoto ? (
+                <p className="text-xs text-success">Foto lista — se guarda con «Guardar cambios».</p>
+              ) : null}
+              {retakeError ? (
+                <p role="alert" className="text-xs font-medium text-danger">
+                  {retakeError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </Card>
       ) : null}
 
@@ -196,8 +301,8 @@ export default function EditItemForm({ item, imageUrl }: Props) {
         </h2>
         <p className="mt-1 text-xs text-text-muted">
           {category
-            ? "Especificá qué tipo de prenda es."
-            : "Primero elegí una categoría."}
+            ? "Especifica qué tipo de prenda es."
+            : "Primero elige una categoría."}
         </p>
         <div
           role="radiogroup"

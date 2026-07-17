@@ -168,7 +168,7 @@ export async function toggleFollowAction(authorId: string): Promise<ToggleFollow
   } = await supabase.auth.getUser();
 
   if (!user) return { ok: false, error: "Sesión expirada." };
-  if (authorId === user.id) return { ok: false, error: "No podés seguirte a vos mismo." };
+  if (authorId === user.id) return { ok: false, error: "No puedes seguirte a ti mismo." };
 
   const { data: existing } = await supabase
     .from("community_follows")

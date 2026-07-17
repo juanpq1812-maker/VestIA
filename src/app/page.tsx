@@ -78,7 +78,7 @@ export default async function RootPage() {
   const displayName =
     profileRes.data?.display_name?.trim() ||
     user.email?.split("@")[0] ||
-    "vos";
+    "tú";
   const allUses = allUsesRes.data ?? [];
   const allOutfits = allOutfitsRes.data ?? [];
   const allItems = allItemsRes.data ?? [];

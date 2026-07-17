@@ -35,7 +35,7 @@ export async function resolveReportAction(
   decision: "dismiss" | "remove"
 ): Promise<ResolveReportResult> {
   const { supabase, userId, isAdmin } = await requireAdmin();
-  if (!isAdmin || !userId) return { ok: false, error: "No tenés acceso de administrador." };
+  if (!isAdmin || !userId) return { ok: false, error: "No tienes acceso de administrador." };
 
   const { data: report, error: reportErr } = await supabase
     .from("community_share_reports")

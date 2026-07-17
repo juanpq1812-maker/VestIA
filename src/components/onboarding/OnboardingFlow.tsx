@@ -188,7 +188,7 @@ export default function OnboardingFlow() {
             )}
             {paso === 4 && (
               <PasoChips
-                titulo="¿Para qué ocasiones te vestís más seguido?"
+                titulo="¿Para qué ocasiones te vistes más seguido?"
                 subtitulo="Esto define qué outfits te vamos a generar primero."
                 opciones={[...OCCASION_TAGS]}
                 seleccionadas={ocasiones}

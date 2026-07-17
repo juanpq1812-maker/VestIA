@@ -15,9 +15,19 @@ import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import UploadForm from "@/components/wardrobe/UploadForm";
 import BurstCapture from "@/components/wardrobe/BurstCapture";
+import OutfitPhotoCapture from "@/components/wardrobe/OutfitPhotoCapture";
 
 type Props = {
   searchParams: Promise<{ modo?: string }>;
+};
+
+const TITLES: Record<string, string> = {
+  individual:
+    "Sube una foto, dinos que es y para que ocasiones la usas. Va directo a tu armario y queda lista para que la IA la combine.",
+  outfit:
+    "Sube una foto de tu outfit completo y detectamos cada prenda por ti — revisa y confirma el lote al final.",
+  burst:
+    "Captura tus prendas una tras otra sin pausas — analizamos todo en segundo plano mientras sigues fotografiando.",
 };
 
 export default async function UploadPage({ searchParams }: Props) {
@@ -33,7 +43,7 @@ export default async function UploadPage({ searchParams }: Props) {
     .maybeSingle();
 
   const sp = await searchParams;
-  const modoIndividual = sp.modo === "individual";
+  const modo = sp.modo === "individual" || sp.modo === "outfit" ? sp.modo : "burst";
 
   return (
     <div className="flex flex-1 flex-col">
@@ -47,11 +57,7 @@ export default async function UploadPage({ searchParams }: Props) {
               <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
                 Subir prenda
               </h1>
-              <p className="mt-2 max-w-xl text-base text-text-muted">
-                {modoIndividual
-                  ? "Sube una foto, dinos que es y para que ocasiones la usas. Va directo a tu armario y queda lista para que la IA la combine."
-                  : "Capturá tus prendas una tras otra sin pausas — analizamos todo en segundo plano mientras seguís fotografiando."}
-              </p>
+              <p className="mt-2 max-w-xl text-base text-text-muted">{TITLES[modo]}</p>
             </div>
             <Link href="/wardrobe">
               <Button variant="ghost">Volver al armario</Button>
@@ -59,8 +65,21 @@ export default async function UploadPage({ searchParams }: Props) {
           </div>
 
           <div className="mt-8">
-            {modoIndividual ? <UploadForm /> : <BurstCapture />}
+            {modo === "individual" ? <UploadForm /> : null}
+            {modo === "outfit" ? <OutfitPhotoCapture /> : null}
+            {modo === "burst" ? <BurstCapture /> : null}
           </div>
+
+          {modo === "burst" ? (
+            <div className="mt-6 flex justify-center">
+              <a
+                href="/wardrobe/upload?modo=outfit"
+                className="text-sm font-medium text-primary hover:underline"
+              >
+                Subir foto de tu outfit completo
+              </a>
+            </div>
+          ) : null}
         </Container>
       </main>
     </div>

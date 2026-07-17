@@ -31,10 +31,10 @@ export default async function ReviewPage() {
             <div>
               <p className="text-sm text-text-muted">Armario digital</p>
               <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
-                Revisá tus prendas
+                Revisa tus prendas
               </h1>
               <p className="mt-2 max-w-xl text-base text-text-muted">
-                Corregí lo que haga falta y confirmá el lote — recién ahí se
+                Corrige lo que haga falta y confirma el lote — recién ahí se
                 suman a tu armario.
               </p>
             </div>

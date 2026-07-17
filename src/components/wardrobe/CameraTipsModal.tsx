@@ -8,12 +8,12 @@ const TIPS = [
   {
     icon: "wb_sunny",
     title: "Luz natural",
-    desc: "Fotografiá cerca de una ventana con luz del día para que los colores salgan fieles.",
+    desc: "Fotografía cerca de una ventana con luz del día para que los colores salgan fieles.",
   },
   {
     icon: "crop_free",
     title: "Fondo neutro",
-    desc: "Usá una pared blanca o una cama ordenada para que la prenda destaque.",
+    desc: "Usa una pared blanca o una cama ordenada para que la prenda destaque.",
   },
   {
     icon: "straighten",

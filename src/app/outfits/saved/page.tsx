@@ -93,7 +93,7 @@ export default async function SavedOutfitsPage() {
     const { data: itemsRaw } = await supabase
       .from("clothing_items")
       .select(
-        "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, created_at, updated_at"
+        "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, source, created_at, updated_at"
       )
       .eq("status", CONFIRMED_STATUS)
       .in("id", allItemIds);

@@ -33,6 +33,13 @@ type Edits = {
   occasions: string[];
 };
 
+type ExistingItem = {
+  id: string;
+  category: ClothingCategory;
+  primary_color: string | null;
+  image_path: string | null;
+};
+
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
@@ -62,6 +69,9 @@ export default function ReviewGrid({ userId }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
+  const [existingItems, setExistingItems] = useState<ExistingItem[]>([]);
+  const [dismissedDuplicates, setDismissedDuplicates] = useState<Set<string>>(new Set());
+  const [showingOriginal, setShowingOriginal] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     const fetched = await fetchPendingItems(supabase, userId);
@@ -74,12 +84,14 @@ export default function ReviewGrid({ userId }: Props) {
       return next;
     });
 
+    // Ambos paths por item: `image_path` para el resultado final e
+    // `raw_image_path` para el toggle "Ver original" (outfit_extraction).
     const paths = fetched
-      .map((i) => i.image_path ?? i.raw_image_path)
+      .flatMap((i) => [i.image_path, i.raw_image_path])
       .filter((p): p is string => Boolean(p));
     if (paths.length > 0) {
       const signed = await createSignedUrlMap(supabase, paths);
-      setImageUrls(signed);
+      setImageUrls((prev) => new Map([...prev, ...signed]));
     }
   }, [supabase, userId]);
 
@@ -94,6 +106,25 @@ export default function ReviewGrid({ userId }: Props) {
       // Retoma cualquier draft pendiente (fotos que llegaron mientras el
       // usuario no estaba en esta pantalla, o que quedaron a medias).
       processPendingForUser(supabase, userId, { onItemChange: () => refresh() }).catch(() => {});
+
+      // Armario ya confirmado del usuario, para el chequeo de duplicados de
+      // las prendas extraídas de una foto de outfit completo — una sola vez,
+      // no hace falta refrescar mientras se revisa el lote.
+      const { data: confirmed } = await supabase
+        .from("clothing_items")
+        .select("id, category, primary_color, image_path")
+        .eq("user_id", userId)
+        .eq("status", "confirmed");
+      if (!active) return;
+      const existing = (confirmed ?? []) as ExistingItem[];
+      setExistingItems(existing);
+      const existingPaths = existing
+        .map((i) => i.image_path)
+        .filter((p): p is string => Boolean(p));
+      if (existingPaths.length > 0) {
+        const signed = await createSignedUrlMap(supabase, existingPaths);
+        setImageUrls((prev) => new Map([...prev, ...signed]));
+      }
     })();
     return () => {
       active = false;
@@ -120,6 +151,13 @@ export default function ReviewGrid({ userId }: Props) {
     setEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }
 
+  function findDuplicate(e: Edits): ExistingItem | null {
+    if (!e.category || !e.color) return null;
+    return (
+      existingItems.find((i) => i.category === e.category && i.primary_color === e.color) ?? null
+    );
+  }
+
   async function handleDelete(item: BurstClothingItem) {
     await deletePendingItem(supabase, userId, item);
     setItems((prev) => prev.filter((i) => i.id !== item.id));
@@ -136,7 +174,7 @@ export default function ReviewGrid({ userId }: Props) {
     setGeneralError(null);
     const validos = readyItems.filter((i) => isComplete(edits[i.id] ?? editsFromItem(i)));
     if (validos.length === 0) {
-      setGeneralError("Completá categoría, subcategoría, color y ocasión de al menos una prenda lista.");
+      setGeneralError("Completa categoría, subcategoría, color y ocasión de al menos una prenda lista.");
       return;
     }
 
@@ -256,8 +294,17 @@ export default function ReviewGrid({ userId }: Props) {
 
         {readyItems.map((item) => {
           const e = edits[item.id] ?? editsFromItem(item);
-          const url = item.image_path ? imageUrls.get(item.image_path) : undefined;
+          const isOutfitExtraction = item.source === "outfit_extraction";
+          const showingOrig = showingOriginal.has(item.id);
+          const finalUrl = item.image_path ? imageUrls.get(item.image_path) : undefined;
+          const originalUrl = item.raw_image_path ? imageUrls.get(item.raw_image_path) : undefined;
+          const url = showingOrig && originalUrl ? originalUrl : finalUrl;
           const subcategoryOptions = e.category ? SUBCATEGORIES[e.category] : [];
+          const duplicate =
+            item.source === "outfit_extraction" && !dismissedDuplicates.has(item.id)
+              ? findDuplicate(e)
+              : null;
+          const duplicateUrl = duplicate?.image_path ? imageUrls.get(duplicate.image_path) : undefined;
 
           return (
             <Card key={item.id} padding="sm">
@@ -267,6 +314,29 @@ export default function ReviewGrid({ userId }: Props) {
                   <img src={url} alt="Prenda capturada" className="h-full w-full object-cover" />
                 ) : null}
               </div>
+
+              {isOutfitExtraction && originalUrl && finalUrl ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowingOriginal((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id);
+                      else next.add(item.id);
+                      return next;
+                    })
+                  }
+                  className="mt-2 text-xs font-medium text-primary hover:underline"
+                >
+                  {showingOrig ? "Ver reconstruida" : "Ver original"}
+                </button>
+              ) : null}
+
+              {isOutfitExtraction && !item.reconstructed ? (
+                <p className="mt-1 text-[11px] text-text-faint">
+                  No pudimos mejorar esta foto automáticamente — mostrando el recorte original.
+                </p>
+              ) : null}
 
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {CLOTHING_CATEGORIES.map((cat) => (
@@ -330,8 +400,45 @@ export default function ReviewGrid({ userId }: Props) {
 
               {!isComplete(e) ? (
                 <p className="mt-2 text-xs text-text-faint">
-                  Completá categoría, subcategoría, color y ocasión.
+                  Completa categoría, subcategoría, color y ocasión.
                 </p>
+              ) : null}
+
+              {duplicate ? (
+                <div className="mt-3 flex items-center gap-2 rounded-md bg-warning-light px-3 py-2">
+                  {duplicateUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={duplicateUrl}
+                      alt=""
+                      className="h-10 w-8 shrink-0 rounded object-cover"
+                    />
+                  ) : null}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-warning">¿Ya tienes esta?</p>
+                    <p className="text-[11px] text-warning">
+                      Tienes una prenda parecida en tu armario.
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item)}
+                      className="rounded-full border border-warning px-2.5 py-1 text-[11px] font-semibold text-warning hover:bg-warning hover:text-white"
+                    >
+                      Descartar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setDismissedDuplicates((prev) => new Set(prev).add(item.id))
+                      }
+                      className="rounded-full px-2.5 py-1 text-[11px] font-medium text-warning underline"
+                    >
+                      Guardar igual
+                    </button>
+                  </div>
+                </div>
               ) : null}
 
               <div className="mt-3 flex justify-end">

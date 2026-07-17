@@ -73,6 +73,16 @@ export default function ClothingCard({ item }: Props) {
           </span>
         ) : null}
 
+        {/* Prenda recortada de una foto de outfit completo: invita a re-fotografiarla sola */}
+        {item.source === "outfit_extraction" ? (
+          <Link
+            href={`/wardrobe/${item.id}/edit`}
+            className="absolute bottom-2 left-2 rounded-full bg-surface/90 px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-sm backdrop-blur transition-colors hover:text-primary"
+          >
+            Mejora esta foto
+          </Link>
+        ) : null}
+
         <DeleteItemButton
           itemId={item.id}
           imagePath={item.image_path}

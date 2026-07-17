@@ -145,8 +145,8 @@ export default async function AdminReportsPage() {
             Reportes de comunidad
           </h1>
           <p className="mt-2 text-sm text-text-muted">
-            Contenido reportado por la comunidad — descartá el reporte o
-            eliminá el outfit compartido.
+            Contenido reportado por la comunidad — descarta el reporte o
+            elimina el outfit compartido.
           </p>
 
           <div className="mt-6">

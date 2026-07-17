@@ -66,7 +66,7 @@ function validate(input: QuestInput): string | null {
   if (!Number.isFinite(input.pointsReward) || input.pointsReward <= 0) {
     return "Los puntos deben ser mayores a 0.";
   }
-  if (!input.startsAt || !input.endsAt) return "Definí fecha de inicio y fin.";
+  if (!input.startsAt || !input.endsAt) return "Define fecha de inicio y fin.";
   if (new Date(input.endsAt) <= new Date(input.startsAt)) {
     return "La fecha de fin debe ser posterior a la de inicio.";
   }
@@ -75,7 +75,7 @@ function validate(input: QuestInput): string | null {
 
 export async function createQuestAction(input: QuestInput): Promise<QuestFormResult> {
   const { supabase, isAdmin } = await requireAdmin();
-  if (!isAdmin) return { ok: false, error: "No tenés acceso de administrador." };
+  if (!isAdmin) return { ok: false, error: "No tienes acceso de administrador." };
 
   const validationError = validate(input);
   if (validationError) return { ok: false, error: validationError };
@@ -106,7 +106,7 @@ export async function updateQuestAction(
   input: QuestInput
 ): Promise<QuestFormResult> {
   const { supabase, isAdmin } = await requireAdmin();
-  if (!isAdmin) return { ok: false, error: "No tenés acceso de administrador." };
+  if (!isAdmin) return { ok: false, error: "No tienes acceso de administrador." };
 
   const validationError = validate(input);
   if (validationError) return { ok: false, error: validationError };
@@ -140,7 +140,7 @@ export async function toggleQuestPublishedAction(
   nextPublished: boolean
 ): Promise<QuestFormResult> {
   const { supabase, isAdmin } = await requireAdmin();
-  if (!isAdmin) return { ok: false, error: "No tenés acceso de administrador." };
+  if (!isAdmin) return { ok: false, error: "No tienes acceso de administrador." };
 
   const { error } = await supabase
     .from("quests")

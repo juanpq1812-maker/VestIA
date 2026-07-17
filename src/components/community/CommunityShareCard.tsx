@@ -54,7 +54,7 @@ export default function CommunityShareCard({ share }: Props) {
     });
   }
 
-  const autor = share.isOwnShare ? "Vos" : share.author_display_name?.trim() || "Alguien de la comunidad";
+  const autor = share.isOwnShare ? "Tú" : share.author_display_name?.trim() || "Alguien de la comunidad";
 
   return (
     <div className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow duration-200 hover:shadow-md">
