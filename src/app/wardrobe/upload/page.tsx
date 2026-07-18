@@ -16,19 +16,26 @@ import Button from "@/components/ui/Button";
 import UploadForm from "@/components/wardrobe/UploadForm";
 import BurstCapture from "@/components/wardrobe/BurstCapture";
 import OutfitPhotoCapture from "@/components/wardrobe/OutfitPhotoCapture";
+import UploadModeChooser from "@/components/wardrobe/UploadModeChooser";
 
 type Props = {
   searchParams: Promise<{ modo?: string }>;
 };
 
-const TITLES: Record<string, string> = {
+type Modo = "individual" | "outfit" | "burst";
+
+const TITLES: Record<Modo, string> = {
   individual:
-    "Sube una foto, dinos que es y para que ocasiones la usas. Va directo a tu armario y queda lista para que la IA la combine.",
+    "Sube una foto, dinos qué es y para qué ocasiones la usas. Va directo a tu armario y queda lista para que la IA la combine.",
   outfit:
     "Sube una foto de tu outfit completo y detectamos cada prenda por ti — revisa y confirma el lote al final.",
   burst:
     "Captura tus prendas una tras otra sin pausas — analizamos todo en segundo plano mientras sigues fotografiando.",
 };
+
+function parseModo(raw: string | undefined): Modo | null {
+  return raw === "individual" || raw === "outfit" || raw === "burst" ? raw : null;
+}
 
 export default async function UploadPage({ searchParams }: Props) {
   const supabase = await createSupabaseServerClient();
@@ -43,7 +50,7 @@ export default async function UploadPage({ searchParams }: Props) {
     .maybeSingle();
 
   const sp = await searchParams;
-  const modo = sp.modo === "individual" || sp.modo === "outfit" ? sp.modo : "burst";
+  const modo = parseModo(sp.modo);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -57,29 +64,28 @@ export default async function UploadPage({ searchParams }: Props) {
               <h1 className="mt-1 font-display text-3xl font-bold text-text sm:text-4xl">
                 Subir prenda
               </h1>
-              <p className="mt-2 max-w-xl text-base text-text-muted">{TITLES[modo]}</p>
+              <p className="mt-2 max-w-xl text-base text-text-muted">
+                {modo ? TITLES[modo] : "¿Cómo quieres subir tus prendas hoy? Elige la forma que más te convenga."}
+              </p>
             </div>
-            <Link href="/wardrobe">
-              <Button variant="ghost">Volver al armario</Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              {modo ? (
+                <Link href="/wardrobe/upload">
+                  <Button variant="ghost">Cambiar forma de subir</Button>
+                </Link>
+              ) : null}
+              <Link href="/wardrobe">
+                <Button variant="ghost">Volver al armario</Button>
+              </Link>
+            </div>
           </div>
 
           <div className="mt-8">
+            {modo === null ? <UploadModeChooser /> : null}
             {modo === "individual" ? <UploadForm /> : null}
             {modo === "outfit" ? <OutfitPhotoCapture /> : null}
             {modo === "burst" ? <BurstCapture /> : null}
           </div>
-
-          {modo === "burst" ? (
-            <div className="mt-6 flex justify-center">
-              <a
-                href="/wardrobe/upload?modo=outfit"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Subir foto de tu outfit completo
-              </a>
-            </div>
-          ) : null}
         </Container>
       </main>
     </div>

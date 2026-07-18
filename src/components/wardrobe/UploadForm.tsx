@@ -555,12 +555,6 @@ export default function UploadForm() {
         />
       ) : null}
 
-      <div className="flex justify-start">
-        <a href="/wardrobe/upload" className="text-sm font-medium text-primary hover:underline">
-          ← Volver al modo ráfaga
-        </a>
-      </div>
-
       {/* ── Foto ─────────────────────────────────────────────────────────── */}
       <Card padding="sm">
         {/* Contenedor con aspect ratio fijo — portrait como la prenda */}
@@ -949,7 +943,7 @@ export default function UploadForm() {
               ¿Para qué ocasiones sirve?
             </h2>
             <p className="mt-1 text-xs text-text-muted">
-              Marcá todas las que apliquen (mínimo 1). Esto ayuda a la IA a combinarla mejor.
+              Marca todas las que apliquen (mínimo 1). Esto ayuda a la IA a combinarla mejor.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {ITEM_OCCASIONS.map((o) => (

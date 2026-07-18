@@ -1,30 +1,32 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef } from "react";
 
 const LS_KEY = "strandia_camera_tips_seen";
 
-const TIPS = [
+const DO_TIPS = [
+  {
+    icon: "checkroom",
+    title: "Prenda completa",
+    desc: "Que se vea toda la prenda, de frente.",
+  },
   {
     icon: "wb_sunny",
-    title: "Luz natural",
-    desc: "Fotografía cerca de una ventana con luz del día para que los colores salgan fieles.",
+    title: "Buena iluminación",
+    desc: "Usa luz natural o blanca, sin sombras fuertes.",
   },
   {
-    icon: "crop_free",
-    title: "Fondo neutro",
-    desc: "Usa una pared blanca o una cama ordenada para que la prenda destaque.",
+    icon: "auto_awesome",
+    title: "Fondo limpio",
+    desc: "Fondo neutro y sin objetos que distraigan.",
   },
-  {
-    icon: "straighten",
-    title: "Prenda extendida",
-    desc: "Estirala sobre una superficie plana o colgala para que se vea toda la forma.",
-  },
-  {
-    icon: "center_focus_strong",
-    title: "Encuadre completo",
-    desc: "Asegurate de que la prenda entre entera en el cuadro, sin recortes.",
-  },
+] as const;
+
+const AVOID_TIPS = [
+  { icon: "bedtime", desc: "Fotos oscuras o con poca luz" },
+  { icon: "blur_on", desc: "Imágenes borrosas" },
+  { icon: "crop", desc: "Solo partes de la prenda" },
+  { icon: "wallpaper", desc: "Fondos cargados o con objetos" },
 ] as const;
 
 interface Props {
@@ -34,7 +36,6 @@ interface Props {
 
 export default function CameraTipsModal({ onConfirm, onClose }: Props) {
   const titleId = useId();
-  const [dontShowAgain, setDontShowAgain] = useState(false);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
 
   // Focus the confirm button on mount for keyboard/screen-reader users
@@ -59,7 +60,7 @@ export default function CameraTipsModal({ onConfirm, onClose }: Props) {
   }, []);
 
   function handleConfirm() {
-    if (dontShowAgain) localStorage.setItem(LS_KEY, "1");
+    localStorage.setItem(LS_KEY, "1");
     onConfirm();
   }
 
@@ -73,76 +74,96 @@ export default function CameraTipsModal({ onConfirm, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
+        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
         style={{ animation: "scaleIn 180ms cubic-bezier(0.16,1,0.3,1)" }}
       >
-        {/* Header */}
-        <div className="border-b border-border px-5 py-4">
-          <p className="text-xs font-bold uppercase tracking-widest text-primary">
-            Antes de abrir la cámara
-          </p>
-          <h2
-            id={titleId}
-            className="mt-1 font-display text-xl font-semibold text-text"
-          >
-            Tips para una buena foto
-          </h2>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <span className="material-symbols-outlined text-xl leading-none" aria-hidden="true">
+            close
+          </span>
+        </button>
+
+        <div className="max-h-[85vh] overflow-y-auto px-6 pb-6 pt-8">
+          {/* Header */}
+          <div className="text-center">
+            <h2
+              id={titleId}
+              className="font-display text-2xl font-bold text-text"
+            >
+              Tips para una mejor recomendación
+            </h2>
+            <p className="mx-auto mt-2 max-w-xs text-sm text-text-muted">
+              Toma una foto clara de tu prenda siguiendo estas 3 indicaciones.
+            </p>
+          </div>
+
+          {/* Do's */}
+          <div className="mt-6 grid grid-cols-3 gap-3">
+            {DO_TIPS.map((tip, i) => (
+              <div key={tip.icon} className="flex flex-col items-center text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
+                  <span
+                    className="material-symbols-outlined text-2xl leading-none"
+                    aria-hidden="true"
+                  >
+                    {tip.icon}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-text">
+                  {i + 1}. {tip.title}
+                </p>
+                <p className="mt-1 text-xs text-text-muted">{tip.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Evita */}
+          <div className="mt-6 rounded-xl border border-border bg-surface-2 p-4">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white">
+                <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
+                  close
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-text">Evita</p>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {AVOID_TIPS.map((tip) => (
+                <div key={tip.icon} className="flex flex-col items-center text-center">
+                  <span
+                    className="material-symbols-outlined text-2xl leading-none text-text-muted"
+                    aria-hidden="true"
+                  >
+                    {tip.icon}
+                  </span>
+                  <p className="mt-1.5 text-xs text-text-muted">{tip.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Tips */}
-        <ul className="divide-y divide-border px-5">
-          {TIPS.map((tip) => (
-            <li key={tip.icon} className="flex items-start gap-4 py-4">
-              <span
-                className="material-symbols-outlined mt-0.5 shrink-0 text-2xl text-primary"
-                aria-hidden="true"
-              >
-                {tip.icon}
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-text">{tip.title}</p>
-                <p className="mt-0.5 text-xs text-text-muted">{tip.desc}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-
         {/* Footer */}
-        <div className="border-t border-border bg-surface-2 px-5 py-4">
-          {/* Checkbox "No mostrar de nuevo" */}
-          <label className="mb-4 flex cursor-pointer items-center gap-3">
-            <input
-              type="checkbox"
-              checked={dontShowAgain}
-              onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="h-4 w-4 rounded border-border accent-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            />
-            <span className="text-sm text-text-muted">No mostrar de nuevo</span>
-          </label>
-
-          <div className="flex items-center justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-border bg-transparent px-6 py-3 text-sm font-semibold text-text-muted transition-all duration-200 ease-out hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        <div className="border-t border-border bg-surface-2 px-6 py-4">
+          <button
+            ref={confirmBtnRef}
+            type="button"
+            onClick={handleConfirm}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:bg-primary-hover hover:shadow-md hover:-translate-y-px active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <span
+              className="material-symbols-outlined text-base leading-none"
+              aria-hidden="true"
             >
-              Cancelar
-            </button>
-            <button
-              ref={confirmBtnRef}
-              type="button"
-              onClick={handleConfirm}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:bg-primary-hover hover:shadow-md hover:-translate-y-px active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              <span
-                className="material-symbols-outlined text-base leading-none"
-                aria-hidden="true"
-              >
-                photo_camera
-              </span>
-              Entendido, abrir cámara
-            </button>
-          </div>
+              photo_camera
+            </span>
+            Entendido, tomar foto
+          </button>
         </div>
       </div>
     </div>
