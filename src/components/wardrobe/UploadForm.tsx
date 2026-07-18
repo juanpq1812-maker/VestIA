@@ -10,6 +10,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -217,6 +218,19 @@ export default function UploadForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    createSupabaseBrowserClient()
+      .auth.getUser()
+      .then(({ data: { user } }) => {
+        if (active && user) setUserId(user.id);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const [progress, setProgress] = useState<string | null>(null);
 
   const subcategoryOptions = useMemo<readonly string[]>(() => {
@@ -534,7 +548,7 @@ export default function UploadForm() {
   }
 
   function handleCameraClick() {
-    if (localStorage.getItem("strandia_camera_tips_seen")) {
+    if (userId && localStorage.getItem(`strandia_camera_tips_seen:${userId}`)) {
       cameraInputRef.current?.click();
     } else {
       setShowCameraTips(true);
@@ -545,8 +559,9 @@ export default function UploadForm() {
 
   return (
     <div className="flex flex-col gap-6">
-      {showCameraTips ? (
+      {showCameraTips && userId ? (
         <CameraTipsModal
+          storageKey={`strandia_camera_tips_seen:${userId}`}
           onConfirm={() => {
             setShowCameraTips(false);
             cameraInputRef.current?.click();

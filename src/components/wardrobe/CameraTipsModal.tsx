@@ -2,8 +2,6 @@
 
 import { useEffect, useId, useRef } from "react";
 
-const LS_KEY = "strandia_camera_tips_seen";
-
 const DO_TIPS = [
   {
     icon: "checkroom",
@@ -30,11 +28,15 @@ const AVOID_TIPS = [
 ] as const;
 
 interface Props {
+  /** Clave de localStorage donde se marca "ya vi los tips" — debe incluir el
+   * user id (ver callers) para que cada cuenta nueva vea el modal al menos
+   * una vez, sin depender de si el dispositivo ya lo mostró para otra cuenta. */
+  storageKey: string;
   onConfirm: () => void;
   onClose: () => void;
 }
 
-export default function CameraTipsModal({ onConfirm, onClose }: Props) {
+export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Props) {
   const titleId = useId();
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -60,7 +62,7 @@ export default function CameraTipsModal({ onConfirm, onClose }: Props) {
   }, []);
 
   function handleConfirm() {
-    localStorage.setItem(LS_KEY, "1");
+    localStorage.setItem(storageKey, "1");
     onConfirm();
   }
 

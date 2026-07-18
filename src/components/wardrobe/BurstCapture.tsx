@@ -23,7 +23,7 @@ import {
   resumeStuckProcessing,
 } from "@/lib/wardrobe/burstQueue";
 
-const CAMERA_TIPS_KEY = "strandia_camera_tips_seen";
+const CAMERA_TIPS_KEY_PREFIX = "strandia_camera_tips_seen";
 
 type FlyingThumb = { key: number; src: string };
 
@@ -153,7 +153,7 @@ export default function BurstCapture() {
   }
 
   function handleCameraClick() {
-    if (localStorage.getItem(CAMERA_TIPS_KEY)) {
+    if (userId && localStorage.getItem(`${CAMERA_TIPS_KEY_PREFIX}:${userId}`)) {
       cameraInputRef.current?.click();
     } else {
       setShowCameraTips(true);
@@ -174,8 +174,9 @@ export default function BurstCapture() {
 
   return (
     <div className="flex flex-col gap-6">
-      {showCameraTips ? (
+      {showCameraTips && userId ? (
         <CameraTipsModal
+          storageKey={`${CAMERA_TIPS_KEY_PREFIX}:${userId}`}
           onConfirm={() => {
             setShowCameraTips(false);
             cameraInputRef.current?.click();

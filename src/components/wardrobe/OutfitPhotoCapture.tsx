@@ -18,7 +18,7 @@ import { peekBurstBudgetAction } from "@/app/wardrobe/upload/burstActions";
 import { processPendingForUser } from "@/lib/wardrobe/burstQueue";
 
 const MAX_PHOTOS = 10;
-const CAMERA_TIPS_KEY = "strandia_camera_tips_seen";
+const CAMERA_TIPS_KEY_PREFIX = "strandia_camera_tips_seen";
 
 type PhotoResult = { label: string; detail: string; ok: boolean };
 
@@ -129,7 +129,7 @@ export default function OutfitPhotoCapture() {
   }
 
   function handleCameraClick() {
-    if (localStorage.getItem(CAMERA_TIPS_KEY)) {
+    if (userId && localStorage.getItem(`${CAMERA_TIPS_KEY_PREFIX}:${userId}`)) {
       cameraInputRef.current?.click();
     } else {
       setShowCameraTips(true);
@@ -138,8 +138,9 @@ export default function OutfitPhotoCapture() {
 
   return (
     <div className="flex flex-col gap-6">
-      {showCameraTips ? (
+      {showCameraTips && userId ? (
         <CameraTipsModal
+          storageKey={`${CAMERA_TIPS_KEY_PREFIX}:${userId}`}
           onConfirm={() => {
             setShowCameraTips(false);
             cameraInputRef.current?.click();
