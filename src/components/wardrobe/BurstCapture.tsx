@@ -177,7 +177,6 @@ export default function BurstCapture() {
       {showCameraTips ? (
         <CameraTipsModal
           onConfirm={() => {
-            localStorage.setItem(CAMERA_TIPS_KEY, "1");
             setShowCameraTips(false);
             cameraInputRef.current?.click();
           }}
@@ -220,7 +219,7 @@ export default function BurstCapture() {
                   <circle cx="12" cy="13" r="4" />
                 </svg>
               </div>
-              <p className="text-sm font-semibold text-text">Capturá tus prendas una tras otra</p>
+              <p className="text-sm font-semibold text-text">Captura tus prendas una tras otra</p>
               <p className="text-xs text-text-faint">
                 Sin pausas — analizamos todo en segundo plano mientras seguís fotografiando.
               </p>
@@ -282,15 +281,6 @@ export default function BurstCapture() {
           </Button>
         </div>
       </Card>
-
-      <div className="flex justify-center">
-        <a
-          href="/wardrobe/upload?modo=individual"
-          className="text-sm font-medium text-primary hover:underline"
-        >
-          Subir una prenda a la vez
-        </a>
-      </div>
     </div>
   );
 }

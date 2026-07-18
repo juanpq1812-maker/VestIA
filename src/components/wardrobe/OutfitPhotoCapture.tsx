@@ -10,6 +10,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
+import CameraTipsModal from "@/components/wardrobe/CameraTipsModal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import { ALLOWED_MIME_TYPES } from "@/lib/wardrobe/constants";
 import { extractOutfitPhoto } from "@/lib/wardrobe/outfitExtraction";
@@ -17,6 +18,7 @@ import { peekBurstBudgetAction } from "@/app/wardrobe/upload/burstActions";
 import { processPendingForUser } from "@/lib/wardrobe/burstQueue";
 
 const MAX_PHOTOS = 10;
+const CAMERA_TIPS_KEY = "strandia_camera_tips_seen";
 
 type PhotoResult = { label: string; detail: string; ok: boolean };
 
@@ -27,6 +29,7 @@ export default function OutfitPhotoCapture() {
 
   const [supabase] = useState(() => createSupabaseBrowserClient());
   const [userId, setUserId] = useState<string | null>(null);
+  const [showCameraTips, setShowCameraTips] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [progressLabel, setProgressLabel] = useState<string | null>(null);
   const [results, setResults] = useState<PhotoResult[]>([]);
@@ -125,8 +128,26 @@ export default function OutfitPhotoCapture() {
     processFiles(capped);
   }
 
+  function handleCameraClick() {
+    if (localStorage.getItem(CAMERA_TIPS_KEY)) {
+      cameraInputRef.current?.click();
+    } else {
+      setShowCameraTips(true);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
+      {showCameraTips ? (
+        <CameraTipsModal
+          onConfirm={() => {
+            setShowCameraTips(false);
+            cameraInputRef.current?.click();
+          }}
+          onClose={() => setShowCameraTips(false)}
+        />
+      ) : null}
+
       {generalError ? (
         <p role="alert" className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
           {generalError}
@@ -177,7 +198,7 @@ export default function OutfitPhotoCapture() {
         <div className="mt-2 grid grid-cols-2 gap-3">
           <Button
             variant="ghost"
-            onClick={() => cameraInputRef.current?.click()}
+            onClick={handleCameraClick}
             disabled={processing || !userId}
           >
             Cámara
