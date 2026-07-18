@@ -5,27 +5,26 @@
 // marcas aliadas) con todo lo no funcional marcado explícitamente como
 // "Próximamente" — nada simula ser real.
 
+import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import QuestCard from "@/components/community/QuestCard";
 import CommunityShareCard from "@/components/community/CommunityShareCard";
+import EditorialPostCard from "@/components/editorial/EditorialPostCard";
 import {
   getQuestsWithProgress,
   getCommunityPoints,
   getCommunityFeed,
 } from "@/lib/community/query";
 import { levelFromPoints } from "@/lib/community/constants";
+import { getLatestPublishedPosts } from "@/lib/editorial/query";
 
 export const metadata = {
   title: "Comunidad — StrandIA",
 };
 
-const BENEFICIOS = [
-  { marca: "Marcas de moda", detalle: "Descuentos exclusivos en básicos" },
-  { marca: "Tiendas aliadas", detalle: "Envío gratis en tu primer pedido" },
-  { marca: "Drops especiales", detalle: "Acceso anticipado a lanzamientos" },
-];
+const HILO_PREVIEW_COUNT = 3;
 
 export default async function ComunidadPage() {
   const supabase = await createSupabaseServerClient();
@@ -33,13 +32,14 @@ export default async function ComunidadPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [quests, points, feed] = user
+  const [quests, points, feed, hiloPosts] = user
     ? await Promise.all([
         getQuestsWithProgress(supabase, user.id),
         getCommunityPoints(supabase, user.id),
         getCommunityFeed(supabase, user.id),
+        getLatestPublishedPosts(supabase, HILO_PREVIEW_COUNT),
       ])
-    : [[], 0, []];
+    : [[], 0, [], []];
   const nivel = levelFromPoints(points);
 
   return (
@@ -101,32 +101,39 @@ export default async function ComunidadPage() {
             )}
           </section>
 
-          {/* ── Marcas aliadas y beneficios ───────────────────────────── */}
+          {/* ── El Hilo ────────────────────────────────────────────────── */}
           <section className="mt-10">
-            <SectionTitle>Marcas aliadas y beneficios</SectionTitle>
-            <ul className="mt-4 divide-y divide-divider overflow-hidden rounded-xl bg-surface shadow-sm">
-              {BENEFICIOS.map((b) => (
-                <li key={b.marca} className="flex items-center gap-4 px-4 py-4">
-                  <span
-                    aria-hidden="true"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-ink text-white"
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 12v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8M2 7h20v5H2zM12 21V7M12 7c-1.5 0-4-1-4-3a2 2 0 0 1 4 0M12 7c1.5 0 4-1 4-3a2 2 0 0 0-4 0" />
-                    </svg>
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-text">{b.marca}</p>
-                    <p className="truncate text-xs text-text-muted">{b.detalle}</p>
-                  </div>
-                  <ProximamenteBadge />
-                </li>
-              ))}
-            </ul>
-            <p className="mt-3 text-xs text-text-muted">
-              Estamos cerrando alianzas con marcas — los beneficios aparecerán
-              aquí cuando estén activos.
-            </p>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <SectionTitle>El Hilo</SectionTitle>
+                <p className="mt-1 text-sm text-text-muted">
+                  No pierdas el hilo de lo que pasa en el mundo de la moda.
+                </p>
+              </div>
+              {hiloPosts.length > 0 ? (
+                <Link
+                  href="/hilo"
+                  className="text-sm font-medium text-primary hover:underline"
+                >
+                  Ver todo El Hilo
+                </Link>
+              ) : null}
+            </div>
+
+            {hiloPosts.length === 0 ? (
+              <div className="mt-4 rounded-xl bg-surface p-5 shadow-sm">
+                <p className="text-sm text-text-muted">
+                  Pronto empezamos a tejer El Hilo — columnas, drops de marcas
+                  aliadas y tendencias, curadas por el equipo de StrandIA.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {hiloPosts.map((post) => (
+                  <EditorialPostCard key={post.id} post={post} />
+                ))}
+              </div>
+            )}
           </section>
         </Container>
       </main>
@@ -136,12 +143,4 @@ export default async function ComunidadPage() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return <h2 className="font-display text-2xl text-text">{children}</h2>;
-}
-
-function ProximamenteBadge() {
-  return (
-    <span className="shrink-0 rounded-full bg-surface-offset px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-      Próximamente
-    </span>
-  );
 }

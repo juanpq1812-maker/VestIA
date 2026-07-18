@@ -228,3 +228,103 @@ order by policyname;
 
 Esperado: bucket con `public = false` y las 2 policies (`insert_own`,
 `select_authenticated`).
+
+---
+
+## 6. Bucket `editorial-images` (portadas y fotos de "El Hilo")
+
+Para que `/admin/hilo` pueda subir portadas y fotos intercaladas de los
+artículos editoriales, y `/hilo`, `/hilo/[slug]` y `/comunidad` puedan
+mostrarlas — incluyendo `og:image` para que WhatsApp/Instagram/etc. puedan
+leer la portada sin autenticación.
+
+A diferencia de `clothing-images` y `community-shares`, este bucket es
+**público de verdad** (`public = true`): cualquiera con el link exacto puede
+ver la imagen, sin firma ni sesión. Esto es intencional y seguro porque:
+
+- Los nombres de archivo son `{uuid}.{ext}` (mismo patrón que
+  `clothing-images`) — no son adivinables ni secuenciales.
+- **No se otorga ninguna policy de `select`** sobre `storage.objects` para
+  este bucket. Eso no afecta la lectura por link directo (el flag
+  `public = true` del bucket la sirve sin pasar por RLS), pero sí bloquea el
+  endpoint de **listado** (`/storage/v1/object/list/...`) para `anon` y
+  `authenticated` — nadie puede enumerar el contenido del bucket, solo leer
+  un archivo si ya conoce su path exacto.
+- Solo el contenido editorial (portadas, fotos de artículos) vive acá —
+  nunca fotos de usuarios.
+
+1. En **Storage**, crea un nuevo bucket:
+
+   | Campo                              | Valor                                                |
+   | ---------------------------------- | ---------------------------------------------------- |
+   | **Name**                           | `editorial-images`                                   |
+   | **Public bucket**                  | **ON** (lectura pública real, sin firma)             |
+   | **Allowed MIME types** (opcional)  | `image/jpeg, image/png, image/webp`                  |
+   | **File size limit** (opcional)     | `5 MB`                                                |
+
+2. En el **SQL Editor**, corre:
+
+```sql
+drop policy if exists "editorial_images_insert_admin" on storage.objects;
+drop policy if exists "editorial_images_update_admin" on storage.objects;
+drop policy if exists "editorial_images_delete_admin" on storage.objects;
+
+-- INSERT: solo admins (profiles.is_admin) pueden subir. Sin aislamiento por
+-- carpeta de usuario — es contenido editorial del equipo, no de usuarios.
+create policy "editorial_images_insert_admin"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'editorial-images'
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  );
+
+-- UPDATE: solo admins.
+create policy "editorial_images_update_admin"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'editorial-images'
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  )
+  with check (
+    bucket_id = 'editorial-images'
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  );
+
+-- DELETE: solo admins.
+create policy "editorial_images_delete_admin"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'editorial-images'
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and p.is_admin)
+  );
+
+-- A propósito: NO se crea policy de "select". La lectura por link directo
+-- la sirve el flag `public = true` del bucket sin pasar por RLS; sin policy
+-- de select, el endpoint de listado queda bloqueado para todo el mundo.
+```
+
+3. Verifica con:
+
+```sql
+select id, name, public from storage.buckets where id = 'editorial-images';
+
+select policyname, cmd
+from pg_policies
+where schemaname = 'storage'
+  and tablename = 'objects'
+  and policyname like 'editorial_images_%'
+order by policyname;
+```
+
+Esperado: bucket con `public = true` y 3 policies (`insert_admin`,
+`update_admin`, `delete_admin`) — ninguna de `select`.
+
+4. Prueba de enumeración bloqueada (opcional pero recomendado): con la
+   `anon key` (sin sesión), intenta `GET
+   /storage/v1/object/list/editorial-images` — debe fallar. Con el path
+   exacto de un archivo subido, `GET
+   /storage/v1/object/public/editorial-images/{path}` debe funcionar sin
+   headers de autenticación.

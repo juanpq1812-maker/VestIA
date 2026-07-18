@@ -39,16 +39,18 @@ export default function Loading() {
             </div>
           </div>
 
-          {/* Marcas aliadas */}
+          {/* El Hilo */}
           <div className="mt-10">
-            <div className="h-7 w-72 animate-pulse rounded bg-surface-2" />
-            <div className="mt-3 divide-y divide-divider overflow-hidden rounded-xl bg-surface shadow-sm">
+            <div className="h-7 w-40 animate-pulse rounded bg-surface-2" />
+            <div className="mt-2 h-4 w-64 animate-pulse rounded bg-surface-2" />
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="flex items-center gap-4 px-4 py-4">
-                  <div className="h-11 w-11 shrink-0 animate-pulse rounded-lg bg-surface-2" />
-                  <div className="flex-1">
-                    <div className="h-4 w-32 animate-pulse rounded bg-surface-2" />
-                    <div className="mt-1.5 h-3 w-48 animate-pulse rounded bg-surface-2" />
+                <div key={i} className="overflow-hidden rounded-xl bg-surface shadow-sm">
+                  <div className="aspect-[4/3] animate-pulse bg-surface-2" />
+                  <div className="p-4">
+                    <div className="h-4 w-16 animate-pulse rounded-full bg-surface-2" />
+                    <div className="mt-2 h-5 w-3/4 animate-pulse rounded bg-surface-2" />
+                    <div className="mt-1.5 h-3 w-24 animate-pulse rounded bg-surface-2" />
                   </div>
                 </div>
               ))}
