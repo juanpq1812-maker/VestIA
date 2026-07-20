@@ -1,30 +1,36 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import LazyImage from "@/components/ui/LazyImage";
 
-const DO_TIPS = [
-  {
-    icon: "checkroom",
-    title: "Prenda completa",
-    desc: "Que se vea toda la prenda, de frente.",
-  },
-  {
-    icon: "wb_sunny",
-    title: "Buena iluminación",
-    desc: "Usa luz natural o blanca, sin sombras fuertes.",
-  },
-  {
-    icon: "auto_awesome",
-    title: "Fondo limpio",
-    desc: "Fondo neutro y sin objetos que distraigan.",
-  },
+// Assets intercambiables en /public/camera-tips/ — el set de fotos se
+// actualiza reemplazando estos archivos, sin tocar este componente.
+// Specs recomendadas: JPG, aspect ratio 3:4 (≈900×1200px), ~150-200KB.
+// Si un archivo falta, cada foto cae a un fallback digno (fondo surface +
+// el ícono de esa tarjeta) — el modal nunca se ve roto por un asset ausente.
+//   ejemplo-ideal.jpg        protagonista: la foto "de catálogo"
+//   evita-oscura.jpg         ejemplo de foto oscura / mal iluminada
+//   evita-borrosa.jpg        ejemplo de foto borrosa
+//   evita-parcial.jpg        ejemplo que solo muestra parte de la prenda
+//   evita-fondo-cargado.jpg  ejemplo con fondo desordenado
+//   antes.jpg / despues.jpg  antes→después de la reconstrucción con IA
+//                            (el bloque solo aparece si AMBOS existen)
+const ASSET_BASE = "/camera-tips";
+const HERO_SRC = `${ASSET_BASE}/ejemplo-ideal.jpg`;
+const ANTES_SRC = `${ASSET_BASE}/antes.jpg`;
+const DESPUES_SRC = `${ASSET_BASE}/despues.jpg`;
+
+const HERO_ANNOTATIONS = [
+  { icon: "checkroom", label: "Prenda completa", position: "left-3 top-3" },
+  { icon: "wb_sunny", label: "Luz natural", position: "right-3 top-3" },
+  { icon: "auto_awesome", label: "Fondo limpio", position: "bottom-3 left-3" },
 ] as const;
 
-const AVOID_TIPS = [
-  { icon: "bedtime", desc: "Fotos oscuras o con poca luz" },
-  { icon: "blur_on", desc: "Imágenes borrosas" },
-  { icon: "crop", desc: "Solo partes de la prenda" },
-  { icon: "wallpaper", desc: "Fondos cargados o con objetos" },
+const AVOID_ITEMS = [
+  { src: `${ASSET_BASE}/evita-oscura.jpg`, icon: "bedtime", caption: "Muy oscura" },
+  { src: `${ASSET_BASE}/evita-borrosa.jpg`, icon: "blur_on", caption: "Borrosa" },
+  { src: `${ASSET_BASE}/evita-parcial.jpg`, icon: "crop", caption: "Solo una parte" },
+  { src: `${ASSET_BASE}/evita-fondo-cargado.jpg`, icon: "wallpaper", caption: "Fondo cargado" },
 ] as const;
 
 interface Props {
@@ -39,6 +45,10 @@ interface Props {
 export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Props) {
   const titleId = useId();
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  const [heroFailed, setHeroFailed] = useState(false);
+  const antesOk = useImageAvailable(ANTES_SRC);
+  const despuesOk = useImageAvailable(DESPUES_SRC);
+  const showBeforeAfter = antesOk && despuesOk;
 
   // Focus the confirm button on mount for keyboard/screen-reader users
   useEffect(() => {
@@ -76,81 +86,121 @@ export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Prop
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
+        className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-lg"
         style={{ animation: "scaleIn 180ms cubic-bezier(0.16,1,0.3,1)" }}
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-surface/90 text-text-muted backdrop-blur transition-colors duration-150 hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <span className="material-symbols-outlined text-xl leading-none" aria-hidden="true">
             close
           </span>
         </button>
 
-        <div className="max-h-[85vh] overflow-y-auto px-6 pb-6 pt-8">
-          {/* Header */}
-          <div className="text-center">
-            <h2
-              id={titleId}
-              className="font-display text-2xl font-bold text-text"
-            >
-              Tips para una mejor recomendación
-            </h2>
-            <p className="mx-auto mt-2 max-w-xs text-sm text-text-muted">
-              Toma una foto clara de tu prenda siguiendo estas 3 indicaciones.
-            </p>
-          </div>
-
-          {/* Do's */}
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            {DO_TIPS.map((tip, i) => (
-              <div key={tip.icon} className="flex flex-col items-center text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
-                  <span
-                    className="material-symbols-outlined text-2xl leading-none"
-                    aria-hidden="true"
-                  >
-                    {tip.icon}
-                  </span>
-                </div>
-                <p className="mt-3 text-sm font-semibold text-text">
-                  {i + 1}. {tip.title}
-                </p>
-                <p className="mt-1 text-xs text-text-muted">{tip.desc}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Evita */}
-          <div className="mt-6 rounded-xl border border-border bg-surface-2 p-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-white">
-                <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
-                  close
-                </span>
-              </div>
-              <p className="text-sm font-semibold text-text">Evita</p>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-8">
+          {/* Hebri presenta el tip */}
+          <div className="flex items-start gap-3 pr-8">
+            <img
+              src="/hebri/estados/hebri_feliz.png"
+              alt=""
+              aria-hidden="true"
+              width={56}
+              height={56}
+              className="pet-sway pet-breathe motion-reduce:!animate-none shrink-0"
+            />
+            <div className="relative mt-1 rounded-2xl rounded-tl-sm bg-primary-light px-4 py-3">
+              <h2 id={titleId} className="font-display text-lg font-semibold leading-snug text-text">
+                Un tip antes de la foto
+              </h2>
+              <p className="mt-0.5 text-sm text-text-muted">
+                Con esto te armo mejores outfits.
+              </p>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {AVOID_TIPS.map((tip) => (
-                <div key={tip.icon} className="flex flex-col items-center text-center">
-                  <span
-                    className="material-symbols-outlined text-2xl leading-none text-text-muted"
-                    aria-hidden="true"
-                  >
-                    {tip.icon}
+          </div>
+
+          {/* Protagonista: la foto ideal */}
+          <div className="mt-6">
+            <SectionLabel icon="photo_camera" text="La foto ideal se ve así" />
+            <div className="relative mt-3 aspect-[3/4] w-full overflow-hidden rounded-xl border border-border bg-surface-2">
+              {heroFailed ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
+                  <span className="material-symbols-outlined text-3xl text-primary" aria-hidden="true">
+                    checkroom
                   </span>
-                  <p className="mt-1.5 text-xs text-text-muted">{tip.desc}</p>
+                  <p className="text-xs text-text-muted">
+                    Prenda completa · luz natural · fondo limpio
+                  </p>
                 </div>
+              ) : (
+                <>
+                  <LazyImage
+                    src={HERO_SRC}
+                    alt="Ejemplo de foto ideal: prenda completa, con luz natural y fondo limpio"
+                    className="h-full w-full object-cover"
+                    onError={() => setHeroFailed(true)}
+                  />
+                  {HERO_ANNOTATIONS.map((tag) => (
+                    <span
+                      key={tag.label}
+                      className={`absolute ${tag.position} inline-flex items-center gap-1.5 rounded-full bg-surface/95 px-3 py-1.5 text-xs font-semibold text-text shadow-md backdrop-blur`}
+                    >
+                      <span className="material-symbols-outlined text-sm leading-none text-primary" aria-hidden="true">
+                        {tag.icon}
+                      </span>
+                      {tag.label}
+                    </span>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Secundario: evita esto */}
+          <div className="mt-6">
+            <SectionLabel icon="close" text="Evita esto" tone="danger" />
+            <div className="mt-3 grid grid-cols-4 gap-3">
+              {AVOID_ITEMS.map((item) => (
+                <AvoidThumb key={item.src} {...item} />
               ))}
             </div>
           </div>
+
+          {/* Cierre motivacional: antes → después, solo si ambos assets existen */}
+          {showBeforeAfter ? (
+            <div className="mt-6 rounded-xl border border-border bg-primary-light/50 p-4">
+              <p className="text-sm font-semibold text-text">
+                ¿No te quedó perfecta? Tranquilo.
+              </p>
+              <div className="mt-3 flex items-center gap-2.5">
+                <div className="aspect-square flex-1 overflow-hidden rounded-lg border border-border bg-surface-2">
+                  <LazyImage
+                    src={ANTES_SRC}
+                    alt="Foto original, tal como la tomó el usuario"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <span className="material-symbols-outlined shrink-0 text-xl text-primary" aria-hidden="true">
+                  arrow_forward
+                </span>
+                <div className="aspect-square flex-1 overflow-hidden rounded-lg border border-border bg-surface-2">
+                  <LazyImage
+                    src={DESPUES_SRC}
+                    alt="La misma prenda reconstruida por la IA, lista para el armario"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              </div>
+              <p className="mt-3 text-center text-xs text-text-muted">
+                La reconstruimos con IA — tu foto se convierte en foto de catálogo.
+              </p>
+            </div>
+          ) : null}
         </div>
 
-        {/* Footer */}
+        {/* Footer fijo — el CTA siempre queda alcanzable, incluso con scroll */}
         <div className="border-t border-border bg-surface-2 px-6 py-4">
           <button
             ref={confirmBtnRef}
@@ -158,10 +208,7 @@ export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Prop
             onClick={handleConfirm}
             className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:bg-primary-hover hover:shadow-md hover:-translate-y-px active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            <span
-              className="material-symbols-outlined text-base leading-none"
-              aria-hidden="true"
-            >
+            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
               photo_camera
             </span>
             Entendido, tomar foto
@@ -170,4 +217,89 @@ export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Prop
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Subcomponentes internos
+// ---------------------------------------------------------------------------
+
+function SectionLabel({
+  icon,
+  text,
+  tone = "primary",
+}: {
+  icon: string;
+  text: string;
+  tone?: "primary" | "danger";
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className={`flex h-6 w-6 items-center justify-center rounded-full text-white ${
+          tone === "danger" ? "bg-danger" : "bg-primary"
+        }`}
+      >
+        <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">
+          {icon}
+        </span>
+      </div>
+      <p className="text-sm font-semibold text-text">{text}</p>
+    </div>
+  );
+}
+
+function AvoidThumb({
+  src,
+  icon,
+  caption,
+}: {
+  src: string;
+  icon: string;
+  caption: string;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div>
+      <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border bg-surface-2">
+        {failed ? (
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="material-symbols-outlined text-xl text-text-faint" aria-hidden="true">
+              {icon}
+            </span>
+          </div>
+        ) : (
+          <LazyImage
+            src={src}
+            alt={`Ejemplo a evitar: foto ${caption.toLowerCase()}`}
+            className="h-full w-full object-cover"
+            onError={() => setFailed(true)}
+          />
+        )}
+        <span
+          className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-white shadow-sm"
+          aria-hidden="true"
+        >
+          <span className="material-symbols-outlined text-[13px] leading-none">close</span>
+        </span>
+      </div>
+      <p className="mt-1.5 text-center text-[11px] leading-tight text-text-muted">{caption}</p>
+    </div>
+  );
+}
+
+/** true una vez que `src` se confirma cargable; se queda en false si falta o falla. */
+function useImageAvailable(src: string): boolean {
+  const [ok, setOk] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const img = new window.Image();
+    img.onload = () => { if (alive) setOk(true); };
+    img.onerror = () => { if (alive) setOk(false); };
+    img.src = src;
+    return () => { alive = false; };
+  }, [src]);
+
+  return ok;
 }

@@ -689,6 +689,18 @@ export default function UploadForm() {
                 Galería
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => setShowCameraTips(true)}
+              disabled={!userId}
+              className="mx-auto mt-3 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-text-muted transition-colors duration-150 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">
+                help
+              </span>
+              Tips para la foto
+            </button>
             {/* Hidden file inputs — uno por modo para no manipular el DOM en runtime */}
             <input
               ref={cameraInputRef}
