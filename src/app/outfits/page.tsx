@@ -14,6 +14,7 @@ import Container from "@/components/ui/Container";
 import OutfitGenerator from "@/components/outfits/OutfitGenerator";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { getCurrentWeather } from "@/lib/weather/openMeteo";
 import type { ClothingCategory } from "@/types/database";
 
 type Props = {
@@ -26,7 +27,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [categoriesRes, profileRes, sp] = await Promise.all([
+  const [categoriesRes, profileRes, sp, weather] = await Promise.all([
     supabase
       .from("clothing_items")
       .select("category")
@@ -38,6 +39,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
       .eq("id", user?.id ?? "")
       .maybeSingle(),
     searchParams,
+    getCurrentWeather(),
   ]);
 
   const categoryItems = categoriesRes.data ?? [];
@@ -73,6 +75,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
               lockedItemId={lockedItemId}
               lockedItemName={lockedItemName}
               wardrobeSummary={wardrobeSummary}
+              weather={weather}
             />
           </div>
         </Container>

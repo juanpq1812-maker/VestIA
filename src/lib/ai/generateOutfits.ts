@@ -16,6 +16,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { callAnthropicApi } from "@/lib/ai/aiClient";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { getCurrentWeather, type CurrentWeather } from "@/lib/weather/openMeteo";
 import type { ClothingItem, Gender, UserPreferences } from "@/types/database";
 
 // ---------------------------------------------------------------------------
@@ -35,6 +36,12 @@ export type GenerateOutfitsInput = {
   lockedItemId?: string;
   /** Cuántos outfits pedir (2 por defecto; 1 para sugerencias por evento). */
   count?: 1 | 2;
+  /**
+   * Si es `false`, no se considera el clima actual en el prompt. El clima de
+   * Open-Meteo es el de AHORA, no un pronóstico — para outfits de eventos con
+   * fecha futura no aplica. Default `true`.
+   */
+  includeWeather?: boolean;
 };
 
 /** Codigos de error que la UI puede traducir a mensajes amigables. */
@@ -116,8 +123,11 @@ export async function generateOutfits(
     );
   }
 
-  // 2. Leer preferencias (es opcional: si no existen, usamos defaults).
-  const [{ data: prefsData }, { data: profileData }] = await Promise.all([
+  // 2. Leer preferencias (es opcional: si no existen, usamos defaults) y el
+  //    clima actual en paralelo. getCurrentWeather() nunca lanza y esta
+  //    cacheado 30 min por Next, asi que sumarlo aca no agrega latencia ni
+  //    llamadas de red extra.
+  const [{ data: prefsData }, { data: profileData }, weather] = await Promise.all([
     supabase
       .from("user_preferences")
       .select("style_tags, favorite_occasions")
@@ -128,6 +138,7 @@ export async function generateOutfits(
       .select("gender")
       .eq("id", input.userId)
       .maybeSingle(),
+    input.includeWeather === false ? Promise.resolve(null) : getCurrentWeather(),
   ]);
 
   const prefs = (prefsData ?? null) as Pick<
@@ -146,6 +157,7 @@ export async function generateOutfits(
     description: input.description,
     lockedItemId: input.lockedItemId,
     count: input.count ?? 2,
+    weather,
   });
 
   const rawJson = await callAiModel(prompt);
@@ -216,8 +228,9 @@ function buildPrompt(args: {
   description?: string;
   lockedItemId?: string;
   count: 1 | 2;
+  weather: CurrentWeather | null;
 }): string {
-  const { items, prefs, gender, mode, occasion, description, lockedItemId, count } = args;
+  const { items, prefs, gender, mode, occasion, description, lockedItemId, count, weather } = args;
 
   // Listamos las prendas en formato compacto: ID + categoria/subcategoria +
   // color + ocasiones. Suficiente para que la IA combine sin pasarnos del
@@ -271,6 +284,18 @@ function buildPrompt(args: {
     ? `- "match_percentage": usa null (en modo sorpresa no hay solicitud que medir).`
     : `- "match_percentage": entero 0-100 que refleje HONESTAMENTE qué tan bien el outfit cumple ${solicitudTexto}. No lo infles: si tu armario no tiene la prenda ideal para el pedido, baja el número en consecuencia.`;
 
+  // Contexto climático: solo si tenemos dato (Open-Meteo puede fallar, y en
+  // ese caso weather es null — la generación sigue igual, sin este bloque).
+  const bloqueClima = weather
+    ? [
+        `Clima actual en Bogotá: ${weather.tempC}°C, ${weather.descripcion.toLowerCase()}${
+          weather.windKmh >= 20 ? `, viento de ${weather.windKmh} km/h` : ""
+        }.`,
+        `Ten en cuenta el clima al elegir las prendas: con frío prioriza capas o abrigo, con lluvia evita prendas muy abiertas o que no protejan, con calor prioriza telas frescas. El clima COMPLEMENTA la ocasión pedida, nunca la reemplaza: si piden algo formal y llueve, arma un look formal apto para lluvia, sin cambiar el nivel de formalidad. Si el clima influyó en una prenda concreta que elegiste, menciónalo brevemente y de forma natural en la "explanation" (ej: "una chaqueta liviana por la llovizna de hoy"). No lo menciones si no influyó en nada.`,
+        ``,
+      ]
+    : [];
+
   const reglaLockedItem = lockedItemId
     ? `REGLA OBLIGATORIA: CADA outfit generado DEBE incluir la prenda con id="${lockedItemId}". Esta regla no es negociable ni opcional; es un requisito estricto.`
     : "";
@@ -314,6 +339,7 @@ function buildPrompt(args: {
     ``,
     instruccionDeOcasion,
     ``,
+    ...bloqueClima,
     `Armario disponible:`,
     inventario,
     ``,
