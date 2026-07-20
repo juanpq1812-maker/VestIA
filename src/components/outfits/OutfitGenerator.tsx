@@ -28,6 +28,7 @@ import Toast from "@/components/ui/Toast";
 import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSection";
 import InspirationSection from "@/components/outfits/InspirationSection";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
+import type { CurrentWeather } from "@/lib/weather/openMeteo";
 
 import OutfitMoodboard from "@/components/outfits/OutfitMoodboard";
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
@@ -62,6 +63,8 @@ type Props = {
   lockedItemName?: string | null;
   /** Conteo de prendas por categoría para las sugerencias de completado. */
   wardrobeSummary?: WardrobeSummary;
+  /** Clima actual en Bogotá — la IA lo considera al generar. Null si Open-Meteo falló. */
+  weather?: CurrentWeather | null;
 };
 
 export default function OutfitGenerator({
@@ -69,6 +72,7 @@ export default function OutfitGenerator({
   lockedItemId,
   lockedItemName,
   wardrobeSummary = {},
+  weather,
 }: Props) {
   const [tab, setTab] = useState<Tab>("occasion");
   const [occasion, setOccasion] = useState<string>(OCASIONES[1]); // "Casual"
@@ -149,6 +153,17 @@ export default function OutfitGenerator({
           {tab === "surprise" && <SurpriseBlurb />}
         </div>
       </section>
+
+      {weather && (
+        <div className="flex justify-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium text-text-muted">
+            <span aria-hidden="true">
+              {weather.tempC <= 14 ? "❄️" : weather.tempC >= 24 ? "☀️" : "⛅"}
+            </span>
+            {weather.tempC}°C · {weather.descripcion} en Bogotá
+          </span>
+        </div>
+      )}
 
       <Button
         variant="primary"

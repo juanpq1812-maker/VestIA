@@ -43,6 +43,17 @@ function horaBogota(iso: string): string {
   });
 }
 
+/**
+ * ¿El evento es hoy (en hora de Bogotá)? Open-Meteo solo nos da el clima de
+ * AHORA, no un pronóstico — así que el clima solo tiene sentido incluirlo
+ * para eventos de hoy. Para eventos futuros lo omitimos (generateOutfits
+ * recibe includeWeather: false); pronóstico multi-día queda fuera de alcance.
+ */
+function esHoyBogota(iso: string): boolean {
+  const fmt = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+  return fmt(new Date(iso)) === fmt(new Date());
+}
+
 export type EventSuggestionResult =
   | { ok: true; suggestion: EventOutfitSuggestion }
   | { ok: false; error: string };
@@ -75,6 +86,7 @@ export async function suggestOutfitForEvent(
       mode: "description",
       description: contexto.slice(0, 200),
       count: 1,
+      includeWeather: esHoyBogota(event.starts_at),
     });
   } catch (err) {
     const msg =
