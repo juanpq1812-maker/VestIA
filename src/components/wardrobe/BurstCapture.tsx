@@ -222,7 +222,7 @@ export default function BurstCapture() {
               </div>
               <p className="text-sm font-semibold text-text">Captura tus prendas una tras otra</p>
               <p className="text-xs text-text-faint">
-                Sin pausas — analizamos todo en segundo plano mientras seguís fotografiando.
+                Sin pausas — analizamos todo en segundo plano mientras sigues fotografiando.
               </p>
             </div>
           )}

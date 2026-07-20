@@ -45,15 +45,56 @@ interface Props {
 export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Props) {
   const titleId = useId();
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   const [heroFailed, setHeroFailed] = useState(false);
   const antesOk = useImageAvailable(ANTES_SRC);
   const despuesOk = useImageAvailable(DESPUES_SRC);
   const showBeforeAfter = antesOk && despuesOk;
 
-  // Focus the confirm button on mount for keyboard/screen-reader users
+  // Si ya vio los tips antes (o se abrió desde el re-acceso tras haberlos
+  // visto), el CTA está listo desde el inicio. Si es la primera vez, el CTA
+  // se destraba solo cuando el usuario llega al final del contenido.
+  // `initiallySeen` se calcula una sola vez (lazy init) y nunca cambia —
+  // sirve tanto para el estado inicial del CTA como para decidir el foco.
+  const [initiallySeen] = useState(
+    () => typeof window !== "undefined" && Boolean(localStorage.getItem(storageKey))
+  );
+  const [ctaReady, setCtaReady] = useState(initiallySeen);
+
+  // Primera vez: observa un sentinel al final del contenido — cuando entra
+  // en el viewport del scroll interno, destraba el CTA. Se usa
+  // IntersectionObserver (no cálculos de scrollHeight) para que funcione
+  // igual sin importar cuánto contenido haya (assets faltantes, etc).
   useEffect(() => {
-    confirmBtnRef.current?.focus();
-  }, []);
+    if (ctaReady) return;
+    const root = scrollRef.current;
+    const target = sentinelRef.current;
+    if (!root || !target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setCtaReady(true);
+          observer.disconnect();
+        }
+      },
+      { root, threshold: 0.01 }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [ctaReady]);
+
+  // Foco inicial: si el CTA ya está listo, al botón. Si no, al contenido
+  // scrolleable (para que usuarios de teclado puedan bajar con flechas/Page
+  // Down sin quedar atrapados sin un elemento enfocable).
+  useEffect(() => {
+    if (initiallySeen) {
+      confirmBtnRef.current?.focus();
+    } else {
+      scrollRef.current?.focus();
+    }
+  }, [initiallySeen]);
 
   // Close on ESC
   useEffect(() => {
@@ -100,15 +141,19 @@ export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Prop
           </span>
         </button>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-8">
+        <div
+          ref={scrollRef}
+          tabIndex={-1}
+          className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-8 focus:outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+        >
           {/* Hebri presenta el tip */}
           <div className="flex items-start gap-3 pr-8">
             <img
               src="/hebri/estados/hebri_feliz.png"
               alt=""
               aria-hidden="true"
-              width={56}
-              height={56}
+              width={84}
+              height={84}
               className="pet-sway pet-breathe motion-reduce:!animate-none shrink-0"
             />
             <div className="relative mt-1 rounded-2xl rounded-tl-sm bg-primary-light px-4 py-3">
@@ -198,21 +243,37 @@ export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Prop
               </p>
             </div>
           ) : null}
+
+          {/* Sentinel: cuando entra en el viewport del scroll, el CTA se destraba. */}
+          <div ref={sentinelRef} aria-hidden="true" className="h-px" />
         </div>
 
-        {/* Footer fijo — el CTA siempre queda alcanzable, incluso con scroll */}
+        {/* Footer fijo — nunca oculta el contenido; antes de scrollear hasta
+            el final (primera vez) muestra un indicador en vez del CTA. */}
         <div className="border-t border-border bg-surface-2 px-6 py-4">
-          <button
-            ref={confirmBtnRef}
-            type="button"
-            onClick={handleConfirm}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:bg-primary-hover hover:shadow-md hover:-translate-y-px active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
-              photo_camera
-            </span>
-            Entendido, tomar foto
-          </button>
+          {ctaReady ? (
+            <button
+              ref={confirmBtnRef}
+              type="button"
+              onClick={handleConfirm}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-3.5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:bg-primary-hover hover:shadow-md hover:-translate-y-px active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary motion-safe:animate-[fadeIn_200ms_ease-out]"
+            >
+              <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
+                photo_camera
+              </span>
+              Entendido, tomar foto
+            </button>
+          ) : (
+            <div className="flex flex-col items-center gap-0.5 py-1.5 text-text-muted motion-safe:animate-[fadeIn_200ms_ease-out]">
+              <span className="text-xs font-medium">Desliza para ver los tips</span>
+              <span
+                className="material-symbols-outlined motion-safe:animate-[chevronHint_1.6s_ease-in-out_infinite] text-xl leading-none"
+                aria-hidden="true"
+              >
+                expand_more
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </div>
