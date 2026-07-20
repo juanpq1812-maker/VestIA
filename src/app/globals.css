@@ -138,6 +138,13 @@ body {
   to   { opacity: 1; transform: scale(1); }
 }
 
+/* Chevron de "desliza para ver más" (CameraTipsModal) — deriva suave con
+   ease-in-out, sin rebote/elástico. */
+@keyframes chevronHint {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50%      { transform: translateY(4px); opacity: 1; }
+}
+
 /* Modo ráfaga (/wardrobe/upload): el thumbnail recién capturado "vuela" al
    contador de la esquina. --fly-x/--fly-y (px) los fija el componente según
    la posición real del contador para que la animación llegue justo ahí. */

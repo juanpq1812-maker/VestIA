@@ -222,7 +222,7 @@ export default function BurstCapture() {
               </div>
               <p className="text-sm font-semibold text-text">Captura tus prendas una tras otra</p>
               <p className="text-xs text-text-faint">
-                Sin pausas — analizamos todo en segundo plano mientras seguís fotografiando.
+                Sin pausas — analizamos todo en segundo plano mientras sigues fotografiando.
               </p>
             </div>
           )}
@@ -280,6 +280,17 @@ export default function BurstCapture() {
           <Button variant="secondary" size="md" fullWidth onClick={handleListo} disabled={queueCount === 0}>
             Listo {queueCount > 0 ? `(${queueCount})` : ""}
           </Button>
+
+          <button
+            type="button"
+            onClick={() => setShowCameraTips(true)}
+            className="mx-auto flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium text-text-muted transition-colors duration-150 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <span className="material-symbols-outlined text-sm leading-none" aria-hidden="true">
+              help
+            </span>
+            Tips para la foto
+          </button>
         </div>
       </Card>
     </div>
