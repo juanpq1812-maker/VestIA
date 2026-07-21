@@ -1,8 +1,9 @@
 // Orquestación client-side de la detección de outfit completo: downscale ->
 // detectOutfitItemsAction (1 llamada a Claude Vision para toda la foto) ->
 // recorte por bounding box de cada prenda -> encolar cada recorte como draft
-// con source='outfit_extraction'. El Remove.bg de cada recorte lo hace
-// processPendingForUser (burstQueue.ts), igual que en la ráfaga.
+// con source='outfit_extraction'. La reconstrucción/remoción de fondo con
+// Gemini de cada recorte la hace processPendingForUser (burstQueue.ts),
+// igual que en la ráfaga.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { detectOutfitItemsAction } from "@/app/wardrobe/upload/outfitDetectionActions";
@@ -42,6 +43,10 @@ async function enqueueDetectedOutfitGarment(
     subcategory,
     primary_color: color,
     occasions,
+    // La decisión de reconstrucción ya se tomó en la detección grupal (1 sola
+    // llamada a Vision para toda la foto) — se guarda en el draft para que
+    // burstQueue.ts la lea sin volver a analizar por prenda.
+    reconstruction_reason: garment.needs_reconstruction ? garment.reconstruction_reason : null,
   });
 
   return inserted !== null;
@@ -49,7 +54,7 @@ async function enqueueDetectedOutfitGarment(
 
 /**
  * Procesa UNA foto de outfit completo: detecta todas las prendas visibles y
- * encola un draft por cada una. No corre Remove.bg acá — eso lo retoma
+ * encola un draft por cada una. No procesa la imagen con Gemini acá — eso lo retoma
  * `processPendingForUser` (el caller debe llamarlo después, igual que hace
  * BurstCapture con cada foto individual).
  */

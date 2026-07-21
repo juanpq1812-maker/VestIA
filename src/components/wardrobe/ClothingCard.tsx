@@ -73,8 +73,8 @@ export default function ClothingCard({ item }: Props) {
           </span>
         ) : null}
 
-        {/* Prenda recortada de una foto de outfit completo: invita a re-fotografiarla sola */}
-        {item.source === "outfit_extraction" ? (
+        {/* Recortada de un outfit completo, o sin fondo removido (Gemini falló del todo): invita a re-fotografiarla */}
+        {item.source === "outfit_extraction" || item.background_removed === false ? (
           <Link
             href={`/wardrobe/${item.id}/edit`}
             className="absolute bottom-2 left-2 rounded-full bg-surface/90 px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-sm backdrop-blur transition-colors hover:text-primary"

@@ -1,6 +1,6 @@
 // Modo ráfaga: capturar muchas fotos seguidas sin pantallas intermedias.
 // Cada foto se sube cruda a Storage y entra a la cola de procesamiento en
-// background (burstQueue.ts) — Remove.bg + Claude Vision corren mientras el
+// background (burstQueue.ts) — Claude Vision + Gemini corren mientras el
 // usuario sigue tomando fotos. La revisión/confirmación pasa a
 // /wardrobe/upload/review.
 

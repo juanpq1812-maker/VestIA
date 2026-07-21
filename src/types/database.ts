@@ -155,6 +155,10 @@ export type ClothingItem = {
   error_message: string | null;
   source: ClothingItemSource;
   reconstructed: boolean;
+  /** Motivo (auditoría) por el que Vision marcó la foto para reconstrucción con Gemini; null si no aplicaba. */
+  reconstruction_reason: string | null;
+  /** false = Gemini falló del todo y se guardó la foto original sin remover el fondo (reprocesable con "Mejora esta foto"). */
+  background_removed: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -182,6 +186,8 @@ export type ClothingItemInsert = {
   error_message?: string | null;
   source?: ClothingItemSource;
   reconstructed?: boolean;
+  reconstruction_reason?: string | null;
+  background_removed?: boolean;
   created_at?: string;
   updated_at?: string;
 };

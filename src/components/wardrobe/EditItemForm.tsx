@@ -14,7 +14,7 @@ import Input from "@/components/ui/Input";
 import Chip from "@/components/onboarding/Chip";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import { CLOTHING_IMAGES_BUCKET, buildClothingImagePath } from "@/lib/storage/clothingImages";
-import { removeBackgroundAction } from "@/app/wardrobe/upload/actions";
+import { removeBackgroundWithGemini } from "@/app/wardrobe/upload/backgroundRemovalActions";
 import {
   ALLOWED_MIME_TYPES,
   COLOR_PALETTE,
@@ -67,10 +67,13 @@ export default function EditItemForm({ item, imageUrl }: Props) {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Guard de re-entrancia — mismo patrón que UploadForm/ReviewGrid.
+  const submittingRef = useRef(false);
 
-  // "Mejora esta foto": solo para prendas recortadas de una foto de outfit
-  // completo (item.source === 'outfit_extraction'). El Remove.bg corre apenas
-  // se elige la foto nueva; la subida a Storage queda para el submit.
+  // "Mejora esta foto": para prendas recortadas de una foto de outfit
+  // completo, o que se guardaron sin fondo removido (ver `canRetake` más
+  // abajo). La remoción de fondo con Gemini corre apenas se elige la foto
+  // nueva; la subida a Storage queda para el submit.
   const [newPhoto, setNewPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
   const [retakingPhoto, setRetakingPhoto] = useState(false);
   const [retakeError, setRetakeError] = useState<string | null>(null);
@@ -106,7 +109,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
       );
       const fd = new FormData();
       fd.append("image", downscaled, downscaled.name);
-      const result = await removeBackgroundAction(fd);
+      const result = await removeBackgroundWithGemini(fd);
       if (!result.ok) {
         setRetakeError("No pudimos procesar la foto. Prueba de nuevo.");
         return;
@@ -140,11 +143,14 @@ export default function EditItemForm({ item, imageUrl }: Props) {
   }
 
   async function handleSubmit() {
+    if (submittingRef.current) return;
+
     setGeneralError(null);
     const errs = validar();
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0 || !category) return;
 
+    submittingRef.current = true;
     setSubmitting(true);
 
     try {
@@ -182,7 +188,15 @@ export default function EditItemForm({ item, imageUrl }: Props) {
           name: name.trim() || null,
           primary_color: color,
           occasions,
-          ...(newImagePath ? { image_path: newImagePath, source: "individual" } : {}),
+          ...(newImagePath
+            ? {
+                image_path: newImagePath,
+                source: "individual",
+                background_removed: true,
+                reconstructed: false,
+                reconstruction_reason: null,
+              }
+            : {}),
         })
         .eq("id", item.id)
         .eq("user_id", user.id);
@@ -206,9 +220,16 @@ export default function EditItemForm({ item, imageUrl }: Props) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setGeneralError(`Algo salió mal: ${msg}.`);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
+
+  // Se puede retomar la foto si: (a) es un recorte de una foto de outfit
+  // completo (calidad de origen menor), o (b) el pipeline de imagen falló
+  // del todo y se guardó sin remover el fondo (background_removed === false)
+  // — en ambos casos vale la pena reintentar con una foto nueva.
+  const canRetake = item.source === "outfit_extraction" || item.background_removed === false;
 
   return (
     <div className="flex flex-col gap-6">
@@ -221,7 +242,9 @@ export default function EditItemForm({ item, imageUrl }: Props) {
           <p className="mt-1 text-xs text-text-muted">
             {item.source === "outfit_extraction"
               ? "Recortada de una foto de outfit completo — la calidad puede ser menor. Puedes tomarle una foto individual."
-              : "La foto no se puede cambiar desde aquí."}
+              : item.background_removed === false
+                ? "No pudimos quitarle el fondo automáticamente. Puedes intentarlo de nuevo con una foto nueva."
+                : "La foto no se puede cambiar desde aquí."}
           </p>
           <div className="mt-4 flex justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -232,7 +255,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
             />
           </div>
 
-          {item.source === "outfit_extraction" ? (
+          {canRetake ? (
             <div className="mt-4 flex flex-col items-center gap-2">
               <input
                 ref={retakeInputRef}
