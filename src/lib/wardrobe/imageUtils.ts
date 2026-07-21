@@ -51,6 +51,27 @@ export function downscaleToMaxPx(file: File, maxPx: number): Promise<File> {
   });
 }
 
+// Piso de calidad para fotos subidas por el usuario (p.ej. compartir con la
+// comunidad) — no atrapa ningún caso puntual, solo evita que una imagen
+// basura o corrupta (icono, thumbnail accidental, capture fallida) quede
+// guardada como si fuera una foto real. Deliberadamente bajo: 200px es
+// generoso, cualquier cámara real produce fotos muy por encima de esto.
+export const MIN_SHARE_PHOTO_DIMENSION_PX = 200;
+
+/** Ancho/alto reales del archivo, sin decodificarlo a canvas. */
+export function readImageDimensions(file: File): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load failed")); };
+    img.src = url;
+  });
+}
+
 export type BoundingBoxPercent = { x: number; y: number; width: number; height: number };
 
 /**
