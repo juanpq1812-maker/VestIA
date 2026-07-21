@@ -1,17 +1,12 @@
 "use server";
 
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
-import { removeBackground } from "@/lib/ai/removeBg";
+import { parseClothingAnalysis, type AIClothingAnalysis } from "@/lib/wardrobe/clothingAnalysisSchema";
 
-export type AIClothingAnalysis = {
-  categoria: string;
-  subcategoria: string;
-  color_principal: string;
-  color_hex: string;
-  ocasiones: string[];
-  confianza: "alta" | "media" | "baja";
-};
-
+// No reexportar el tipo desde acá: un archivo "use server" solo puede
+// exportar funciones async — reexportar un type rompe en runtime dev (no en
+// build). Los consumidores importan AIClothingAnalysis directamente de
+// clothingAnalysisSchema.ts.
 export type AnalyzeResult =
   | { ok: true; data: AIClothingAnalysis }
   | { ok: false };
@@ -23,7 +18,14 @@ const ANALYSIS_PROMPT = `Analiza esta foto de una prenda de ropa y responde ÚNI
   "color_principal": "string (nombre del color en español, ej: 'Azul marino', 'Blanco', 'Negro')",
   "color_hex": "string (código hex del color más prominente, ej: '#1B3A6B')",
   "ocasiones": ["casual","formal","deportivo","fiesta","trabajo","universidad"],
-  "confianza": "alta|media|baja"
+  "confianza": "alta|media|baja",
+  "needs_reconstruction": "boolean — true SOLO si la foto tiene un problema que una simple remoción de fondo no resuelve bien:
+    - hay una persona vistiendo o sosteniendo la prenda (partes del cuerpo visibles)
+    - la prenda está colgada en gancho/percha de forma que deforma su silueta
+    - la prenda está muy arrugada, doblada o amontonada (no se aprecia su forma)
+    - el fondo es tan cargado que una remoción de fondo simple probablemente recorte mal
+    Si la prenda se ve razonablemente extendida y completa, aunque la foto no sea perfecta, responde false. ANTE LA DUDA, responde false.",
+  "reconstruction_reason": "string corto en español si needs_reconstruction=true (ej: 'persona visible', 'fondo cargado', 'prenda arrugada'), o null si needs_reconstruction=false"
 }
 Solo responde el JSON, sin texto adicional.`;
 
@@ -44,43 +46,13 @@ export async function analyzeClothingImageAction(
       userText: ANALYSIS_PROMPT,
       imageBase64: base64,
       imageMimeType: mimeType,
-      maxTokens: 350,
+      maxTokens: 400,
     });
 
-    const stripped = rawText.replace(/```json\s*|\s*```/g, "").trim();
-    const first = stripped.indexOf("{");
-    const last = stripped.lastIndexOf("}");
-    if (first === -1 || last === -1) return { ok: false };
-
-    const data = JSON.parse(stripped.slice(first, last + 1)) as AIClothingAnalysis;
-
-    if (!data.categoria || !data.subcategoria) return { ok: false };
+    const data = parseClothingAnalysis(rawText);
+    if (!data) return { ok: false };
 
     return { ok: true, data };
-  } catch {
-    return { ok: false };
-  }
-}
-
-// ── Remove.bg ─────────────────────────────────────────────────────────────────
-
-export type RemoveBgResult =
-  | { ok: true; base64: string; contentType: "image/png" }
-  | { ok: false };
-
-export async function removeBackgroundAction(
-  formData: FormData,
-): Promise<RemoveBgResult> {
-  try {
-    const file = formData.get("image");
-    if (!file || !(file instanceof Blob)) return { ok: false };
-
-    const resultBlob = await removeBackground(file);
-
-    const arrayBuffer = await resultBlob.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-
-    return { ok: true, base64, contentType: "image/png" };
   } catch {
     return { ok: false };
   }

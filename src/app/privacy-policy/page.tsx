@@ -94,12 +94,10 @@ export default function PrivacyPolicyPage() {
             IA.
           </li>
           <li>
-            <strong className="text-text">remove.bg</strong> — eliminación del
-            fondo de las fotos al subirlas.
-          </li>
-          <li>
-            <strong className="text-text">Google</strong> — solo si eliges
-            iniciar sesión con Google o conectar Google Calendar.
+            <strong className="text-text">Google</strong> — reconstrucción y
+            eliminación del fondo de las fotos de prendas al subirlas (Gemini),
+            y opcionalmente si eliges iniciar sesión con Google o conectar
+            Google Calendar.
           </li>
         </ul>
       </LegalSection>

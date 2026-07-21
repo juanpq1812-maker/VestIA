@@ -59,11 +59,10 @@ import {
   CLOTHING_CATEGORIES,
   type ClothingCategory,
 } from "@/types/database";
-import {
-  analyzeClothingImageAction,
-  removeBackgroundAction,
-  type AIClothingAnalysis,
-} from "@/app/wardrobe/upload/actions";
+import { analyzeClothingImageAction } from "@/app/wardrobe/upload/actions";
+import { reconstructGarmentImageAction } from "@/app/wardrobe/upload/garmentReconstructionActions";
+import { removeBackgroundWithGemini } from "@/app/wardrobe/upload/backgroundRemovalActions";
+import type { AIClothingAnalysis } from "@/lib/wardrobe/clothingAnalysisSchema";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
@@ -116,6 +115,19 @@ function extractPixelColor(
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
+
+// Etapas reales del pipeline de guardado, en orden — cada mensaje mapea a un
+// % fijo del progreso. No es una barra falsa que avanza sola: solo se mueve
+// cuando la etapa correspondiente realmente terminó, así que el % siempre
+// refleja trabajo hecho de verdad.
+const SAVE_PROGRESS_STAGES: Record<string, number> = {
+  "Optimizando tu foto…": 15,
+  "Puliendo los detalles con IA…": 65,
+  "Quitando el fondo…": 65,
+  "Subiendo tu prenda…": 88,
+  "Guardando en tu armario…": 97,
+  "¡Listo!": 100,
+};
 
 // ── Grupos de color para la sección expandible ────────────────────────────────
 
@@ -192,6 +204,13 @@ export default function UploadForm() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const previewImgRef = useRef<HTMLImageElement>(null);
   const eyedropperImgRef = useRef<HTMLImageElement>(null);
+  // Guard de re-entrancia: se lee y escribe de forma síncrona, así que un
+  // segundo clic (o doble-tap en móvil, donde el `disabled` del botón puede
+  // no haberse pintado todavía) se descarta ANTES de arrancar un segundo
+  // insert. La protección visual del botón (isLoading/disabled) es la
+  // primera línea de defensa, pero puede fallar por timing — este ref es la
+  // que de verdad evita la prenda duplicada.
+  const submittingRef = useRef(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -207,6 +226,9 @@ export default function UploadForm() {
   const [aiAnalyzed, setAiAnalyzed] = useState(false);
   const [aiConfidence, setAiConfidence] = useState<AIClothingAnalysis["confianza"] | null>(null);
   const [aiDetectedLabel, setAiDetectedLabel] = useState<string | null>(null);
+  // Motivo por el que Vision marcó la foto para reconstrucción con Gemini —
+  // null = no hace falta. Se usa en handleSubmit para decidir el pipeline.
+  const [reconstructionReason, setReconstructionReason] = useState<string | null>(null);
 
   // Eyedropper
   const [eyedropperActive, setEyedropperActive] = useState(false);
@@ -218,6 +240,13 @@ export default function UploadForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // true durante la breve pausa de "¡Listo!" antes de navegar — mismo
+  // `submitting`, pero el panel cambia de spinner a check verde.
+  const [saveDone, setSaveDone] = useState(false);
+  // true cuando el intento de guardado más reciente falló — mantiene el
+  // panel abierto (en modo error) hasta que el usuario reintente o cancele,
+  // en vez de dejarlo colgado o desaparecer sin explicación.
+  const [saveFailed, setSaveFailed] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -251,6 +280,7 @@ export default function UploadForm() {
     setAiAnalyzed(false);
     setAiConfidence(null);
     setAiDetectedLabel(null);
+    setReconstructionReason(null);
     try {
       let forAI: File;
       try {
@@ -271,8 +301,16 @@ export default function UploadForm() {
       const result = await analyzeClothingImageAction(fd);
 
       if (result.ok) {
-        const { categoria, subcategoria, color_principal, color_hex, ocasiones, confianza } =
-          result.data;
+        const {
+          categoria,
+          subcategoria,
+          color_principal,
+          color_hex,
+          ocasiones,
+          confianza,
+          needs_reconstruction,
+          reconstruction_reason,
+        } = result.data;
 
         const validCategories: ClothingCategory[] = [
           "top", "bottom", "dress", "outerwear", "footwear", "accessory", "body",
@@ -292,6 +330,7 @@ export default function UploadForm() {
         if (mappedOcasiones.length > 0) setOccasions(mappedOcasiones);
 
         setAiConfidence(confianza ?? "baja");
+        setReconstructionReason(needs_reconstruction ? reconstruction_reason : null);
 
         const parts = [subcategoria, color_principal].filter(Boolean);
         if (parts.length > 0) setAiDetectedLabel(parts.join(" · "));
@@ -332,6 +371,7 @@ export default function UploadForm() {
     setColor("");
     setOccasions([]);
     setAiAnalyzed(false);
+    setReconstructionReason(null);
     setEyedropperActive(false);
 
     // Paso 1: redimensionar a máx 1200px ANTES de cualquier otra operación.
@@ -433,13 +473,28 @@ export default function UploadForm() {
   }
 
   async function handleSubmit() {
+    // Primera línea síncrona de la función: si ya hay un submit en vuelo,
+    // se ignora este clic por completo (ver comentario en submittingRef).
+    if (submittingRef.current) return;
+
+    // Único punto de salida por error: deja el panel abierto en modo error
+    // (con Reintentar/Cancelar) en vez de simplemente desaparecer — así el
+    // usuario nunca se queda sin saber qué pasó ni cómo seguir.
+    function fail(msg: string) {
+      setGeneralError(msg);
+      setSaveFailed(true);
+    }
+
     setGeneralError(null);
+    setSaveFailed(false);
     const errs = validar();
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0 || !file || !category) return;
 
+    submittingRef.current = true;
     setSubmitting(true);
-    setProgress("Optimizando imagen…");
+    setSaveDone(false);
+    setProgress("Optimizando tu foto…");
 
     try {
       const supabase = createSupabaseBrowserClient();
@@ -448,7 +503,7 @@ export default function UploadForm() {
         error: authError,
       } = await supabase.auth.getUser();
       if (authError || !user) {
-        setGeneralError("Tu sesión expiró. Vuelve a iniciar sesión.");
+        fail("Tu sesión expiró. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -462,34 +517,83 @@ export default function UploadForm() {
           initialQuality: COMPRESS_QUALITY,
         });
       } catch {
-        setGeneralError("No pudimos procesar la imagen. Prueba con otra foto.");
+        fail("No pudimos procesar la imagen. Prueba con otra foto.");
         return;
       }
 
       if (comprimido.size > MAX_COMPRESSED_BYTES) {
-        setGeneralError(
+        fail(
           `La imagen comprimida pesa ${bytesToReadable(comprimido.size)}. Prueba con una foto de menor resolución.`
         );
         return;
       }
 
-      // Paso: eliminar fondo con Remove.bg. Si falla por cualquier motivo,
-      // se sube la foto comprimida original como fallback.
-      setProgress("Eliminando fondo…");
+      // Un solo crédito de Gemini por prenda: si Vision marcó la foto como
+      // necesitada de reconstrucción, subimos la cruda primero (para el
+      // toggle "Ver original") e intentamos Gemini — ese resultado YA viene
+      // con el fondo removido, no hace falta una segunda llamada. Si no
+      // necesita reconstrucción, se le remueve el fondo con una edición
+      // mínima. Si Gemini falla del todo (sin cupo, error, timeout),
+      // fallback de última línea: se sube la foto comprimida original tal
+      // cual — la prenda nunca se pierde, queda marcada para reprocesar con
+      // "Mejora esta foto".
+      let rawPath: string | null = null;
+      let reconstructed = false;
+      let backgroundRemoved = false;
       let toUpload: File = comprimido;
-      try {
-        const fd = new FormData();
-        fd.append("image", comprimido, comprimido.name);
-        const bgResult = await removeBackgroundAction(fd);
-        if (bgResult.ok) {
-          const pngBlob = base64ToBlob(bgResult.base64, bgResult.contentType);
-          toUpload = new File([pngBlob], "photo.png", { type: "image/png" });
+
+      if (reconstructionReason) {
+        try {
+          const rawUuid = crypto.randomUUID();
+          const candidateRawPath = buildClothingImagePath({
+            userId: user.id,
+            fileName: comprimido.name,
+            uuid: rawUuid,
+          });
+          const { error: rawUploadError } = await supabase.storage
+            .from(CLOTHING_IMAGES_BUCKET)
+            .upload(candidateRawPath, comprimido, {
+              contentType: comprimido.type,
+              upsert: false,
+            });
+
+          if (!rawUploadError) {
+            rawPath = candidateRawPath;
+
+            setProgress("Puliendo los detalles con IA…");
+            const description = [subcategory, color].filter(Boolean).join(" ") || category || "prenda de ropa";
+            const reconForm = new FormData();
+            reconForm.append("image", comprimido, comprimido.name);
+            reconForm.append("description", description);
+            const reconResult = await reconstructGarmentImageAction(reconForm);
+
+            if (reconResult.ok) {
+              const reconBlob = base64ToBlob(reconResult.base64, reconResult.contentType);
+              toUpload = new File([reconBlob], "photo.png", { type: reconResult.contentType });
+              reconstructed = true;
+              backgroundRemoved = true;
+            }
+          }
+        } catch {
+          // fallback de última línea — se sigue con comprimido tal cual
         }
-      } catch {
-        // fallback silencioso — se usa comprimido
+      } else {
+        setProgress("Quitando el fondo…");
+        try {
+          const fd = new FormData();
+          fd.append("image", comprimido, comprimido.name);
+          const bgResult = await removeBackgroundWithGemini(fd);
+          if (bgResult.ok) {
+            const pngBlob = base64ToBlob(bgResult.base64, bgResult.contentType);
+            toUpload = new File([pngBlob], "photo.png", { type: "image/png" });
+            backgroundRemoved = true;
+          }
+        } catch {
+          // fallback de última línea — se sigue con comprimido tal cual
+        }
       }
 
-      setProgress("Subiendo foto…");
+      setProgress("Subiendo tu prenda…");
       const uuid = crypto.randomUUID();
       const path = buildClothingImagePath({
         userId: user.id,
@@ -505,13 +609,13 @@ export default function UploadForm() {
         });
 
       if (uploadError) {
-        setGeneralError(
+        fail(
           `No pudimos subir la imagen: ${uploadError.message}. Revisa tu conexión o vuelve a intentarlo.`
         );
         return;
       }
 
-      setProgress("Guardando prenda…");
+      setProgress("Guardando en tu armario…");
       const { error: insertError } = await supabase
         .from("clothing_items")
         .insert({
@@ -523,28 +627,50 @@ export default function UploadForm() {
           occasions,
           image_path: path,
           image_url: null,
+          raw_image_path: rawPath,
+          reconstructed,
+          reconstruction_reason: reconstructionReason,
+          background_removed: backgroundRemoved,
         });
 
       if (insertError) {
+        const orphanPaths = rawPath ? [path, rawPath] : [path];
         await supabase.storage
           .from(CLOTHING_IMAGES_BUCKET)
-          .remove([path])
+          .remove(orphanPaths)
           .catch(() => {});
-        setGeneralError(`No pudimos guardar la prenda: ${insertError.message}.`);
+        fail(`No pudimos guardar la prenda: ${insertError.message}.`);
         return;
       }
 
       recordPetAction("garment_uploaded").catch(() => {});
 
+      // Pausa breve de "¡Listo!" antes de navegar — puramente cosmética,
+      // para que el cierre se sienta como un cierre exitoso y no como un
+      // corte abrupto. IMPORTANTE: solo router.push, sin router.refresh()
+      // — llamarlos juntos acá (fuera del flujo de auth, que es donde este
+      // combo sí está probado) hacía que la transición de Next se colgara:
+      // el fetch del RSC de destino se completaba en el servidor (confirmado
+      // en logs) pero el navegador nunca conmutaba de ruta, dejando el panel
+      // "congelado" en el último mensaje. router.push a una URL nueva ya
+      // trae datos frescos por sí solo, no hace falta forzar un refresh.
+      setProgress("¡Listo!");
+      setSaveDone(true);
+      await new Promise((resolve) => setTimeout(resolve, 700));
       router.push("/wardrobe?uploaded=1");
-      router.refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
-      setGeneralError(`Algo salió mal: ${msg}.`);
+      fail(`Algo salió mal: ${msg}.`);
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
       setProgress(null);
     }
+  }
+
+  function handleCancelSaveError() {
+    setSaveFailed(false);
+    setGeneralError(null);
   }
 
   function handleCameraClick() {
@@ -1013,13 +1139,14 @@ export default function UploadForm() {
             />
           </Card>
 
-          {generalError ? (
-            <p
-              role="alert"
-              className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-            >
-              {generalError}
-            </p>
+          {submitting || saveFailed ? (
+            <SaveProgressPanel
+              message={progress}
+              done={saveDone}
+              error={saveFailed ? generalError : null}
+              onRetry={handleSubmit}
+              onCancel={handleCancelSaveError}
+            />
           ) : null}
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
@@ -1049,6 +1176,127 @@ export default function UploadForm() {
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+// ── Panel de progreso al guardar ──────────────────────────────────────────────
+//
+// El pipeline hace 1-2 llamadas a Gemini (5-15s cada una) antes de terminar,
+// así que el usuario necesita ver en todo momento que algo está pasando — es
+// justo lo que llevaba al doble-tap accidental. A diferencia de una barra
+// falsa que avanza sola, el % acá SOLO se mueve cuando `handleSubmit`
+// confirma que una etapa real terminó (ver SAVE_PROGRESS_STAGES): progreso
+// honesto, no teatro.
+function SaveProgressPanel({
+  message,
+  done,
+  error,
+  onRetry,
+  onCancel,
+}: {
+  message: string | null;
+  done: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onCancel: () => void;
+}) {
+  if (error) {
+    return (
+      <div
+        role="alert"
+        className="flex flex-col items-center gap-4 rounded-xl bg-danger-light px-5 py-6 motion-safe:animate-[fadeInUp_180ms_ease-out]"
+      >
+        <div className="flex items-center gap-3">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="shrink-0 text-danger"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v5M12 16h.01" />
+          </svg>
+          <p className="text-center font-display text-lg font-semibold text-danger">
+            {error}
+          </p>
+        </div>
+        <div className="flex w-full max-w-xs gap-3">
+          <Button variant="ghost" size="md" fullWidth onClick={onCancel}>
+            Cancelar
+          </Button>
+          <Button variant="primary" size="md" fullWidth onClick={onRetry}>
+            Reintentar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const pct = (message && SAVE_PROGRESS_STAGES[message]) || 8;
+
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className={[
+        "flex flex-col items-center gap-4 rounded-xl px-5 py-6 motion-safe:animate-[fadeInUp_180ms_ease-out]",
+        done ? "bg-success-light" : "bg-primary-light",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-3">
+        {done ? (
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            className="shrink-0 text-success"
+            aria-hidden="true"
+          >
+            <path d="M5 12l5 5L20 7" />
+          </svg>
+        ) : (
+          <div
+            className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            aria-hidden="true"
+          />
+        )}
+        <p
+          key={message}
+          className={[
+            "font-display text-lg font-semibold transition-opacity duration-300 motion-safe:animate-[fadeInUp_180ms_ease-out]",
+            done ? "text-success" : "text-primary",
+          ].join(" ")}
+        >
+          {message ?? "Trabajando en tu prenda…"}
+        </p>
+      </div>
+      <div className="w-full max-w-xs">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
+          <div
+            className={[
+              "h-full origin-left rounded-full transition-transform duration-500 ease-out",
+              done ? "bg-success" : "bg-primary",
+            ].join(" ")}
+            style={{ transform: `scaleX(${pct / 100})`, width: "100%" }}
+          />
+        </div>
+      </div>
+      <p
+        className={[
+          "text-center text-xs",
+          done ? "text-success/70" : "text-primary/70",
+        ].join(" ")}
+      >
+        {done ? "Ya quedó en tu armario." : "No cierres esta pantalla — ya casi queda lista."}
+      </p>
     </div>
   );
 }

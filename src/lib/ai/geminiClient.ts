@@ -1,8 +1,8 @@
 // Cliente de Gemini 3.1 Flash-Lite Image ("Nano Banana 2 Lite", Google
-// Generative Language API) para StrandIA. Se usa SOLO para reconstruir
-// prendas recortadas de una foto de outfit completo
-// (source='outfit_extraction') — ver
-// src/app/wardrobe/upload/garmentReconstructionActions.ts.
+// Generative Language API) para StrandIA. Cubre todo el pipeline de imagen
+// de subida de prendas: reconstrucción (garmentReconstructionActions.ts) y
+// remoción de fondo simple (backgroundRemovalActions.ts) — Remove.bg se dio
+// de baja, ya no hay una ruta que no pase por Gemini.
 //
 // IMPORTANTE: este archivo NO se debe importar desde Client Components. La
 // API key (`GEMINI_API_KEY`) es secreta y vive solo del lado del servidor —
@@ -14,8 +14,9 @@
 // Modelo preview de Google — mismo endpoint/formato generateContent que
 // gemini-2.5-flash-image (contents/parts de entrada, inlineData/mimeType de
 // salida), solo cambia el nombre del modelo. Si Google lo deprecia o lo
-// renombra, el fallback a crop + Remove.bg en burstQueue.ts ya cubre el
-// flujo sin romper nada — revisar disponibilidad si suben las tasas de
+// renombra, el fallback de última línea en burstQueue.ts/UploadForm.tsx
+// (guardar la foto original con background_removed=false) ya cubre el flujo
+// sin romper nada — revisar disponibilidad si suben las tasas de
 // "generation_failed" en los logs.
 const GEMINI_MODEL = "gemini-3.1-flash-lite-image";
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;

@@ -1,5 +1,6 @@
-// Moodboard editorial de un outfit: las prendas (PNG con fondo transparente por
-// Remove.bg) se posicionan como capas superpuestas sobre un fondo sólido de la
+// Moodboard editorial de un outfit: las prendas (PNG con fondo transparente,
+// removido con Gemini — puede faltar si el pipeline falló del todo, ver
+// background_removed) se posicionan como capas superpuestas sobre un fondo sólido de la
 // paleta de StrandIA. Cada categoría tiene su zona, con tamaño proporcional y
 // una rotación sutil DETERMINISTA (derivada del id) — determinista para no
 // romper la hidratación ni "saltar" en cada regeneración.

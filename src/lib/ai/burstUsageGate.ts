@@ -1,18 +1,28 @@
 // Rate limiter de IA para el modo rafaga de subida de prendas.
 //
-// Límite: 30 análisis Claude Vision por usuario por hora.
-// Aplica a: el procesamiento en background de la cola de fotos en
-// src/lib/wardrobe/burstQueue.ts.
+// Límite: 40 llamadas de generación/edición de imagen con Gemini por usuario
+// por hora (detección de outfit, reconstrucción, remoción de fondo — un
+// crédito por cada una). Aplica a: el procesamiento en background de la cola
+// de fotos en src/lib/wardrobe/burstQueue.ts.
 // Independiente de ai_uses/ai_uses_window_start (usageGate.ts), que gatean
 // generateOutfitsAction y analyzeInspirationPhotoAction — la rafaga tiene su
 // propio pool para no dejar sin cupo esas funciones.
+//
+// El análisis de Vision (Claude) NO consume de este pool — solo las llamadas
+// a Gemini. El gate previo en burstQueue.ts es un `peek` (no consume): cada
+// prenda cuesta exactamente 1 crédito, el de su llamada a Gemini.
+//
+// 40/hora en vez de 30: desde que Remove.bg se dio de baja, TODA prenda pasa
+// por Gemini (antes las fotos "buenas" salían gratis), así que subimos el
+// techo para que una sesión legítima de digitalización de clóset no choque
+// contra el límite a mitad de camino.
 //
 // Mismo algoritmo que usageGate.ts (ventana deslizante desde el primer uso),
 // leyendo/escribiendo burst_ai_uses / burst_ai_uses_window_start en profiles.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const RATE_LIMIT = 30;
+const RATE_LIMIT = 40;
 const WINDOW_MS = 60 * 60 * 1000; // 1 hora en milisegundos
 
 export type BurstRateLimitResult =
@@ -20,9 +30,10 @@ export type BurstRateLimitResult =
   | { allowed: false; resetInMinutes: number };
 
 /**
- * Verifica si el usuario puede analizar una foto más con Claude Vision en el
- * modo rafaga y consume un crédito. Fail-closed: si hay un error de base de
- * datos, bloquea la solicitud para evitar acceso no contado.
+ * Verifica si el usuario puede hacer una llamada más de imagen a Gemini
+ * (detección de outfit, reconstrucción o remoción de fondo) y consume un
+ * crédito. Fail-closed: si hay un error de base de datos, bloquea la
+ * solicitud para evitar acceso no contado.
  */
 export async function checkAndConsumeBurstUse(
   userId: string,

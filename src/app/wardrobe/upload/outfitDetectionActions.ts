@@ -3,7 +3,7 @@
 // Detección de prendas en una foto de outfit completo (selfie de espejo,
 // cuerpo entero, tendido en la cama). Una sola llamada a Claude Vision
 // devuelve TODAS las prendas visibles con su bounding box — el recorte por
-// prenda y el Remove.bg pasan por src/lib/wardrobe/outfitExtraction.ts.
+// prenda y la remoción de fondo pasan por src/lib/wardrobe/outfitExtraction.ts.
 //
 // La validación del JSON (sin zod) vive en outfitDetectionSchema.ts — un
 // archivo "use server" solo puede exportar funciones async, así que la
@@ -30,7 +30,9 @@ const DETECTION_PROMPT = `Analiza esta foto de un outfit completo (puede ser una
       "colores_secundarios": ["string (nombres de colores adicionales, puede ser [])"],
       "patron": "string (ej: 'liso', 'rayas', 'cuadros', 'estampado', 'sin patrón')",
       "formalidad": "número entero 1-5 (1=muy casual/deportivo, 5=muy formal)",
-      "bbox": { "x": 0, "y": 0, "width": 0, "height": 0 }
+      "bbox": { "x": 0, "y": 0, "width": 0, "height": 0 },
+      "needs_reconstruction": "boolean — estas prendas vienen de una foto de outfit completo (puesta o tendida junto a la persona), así que lo esperable es true casi siempre. Responde false SOLO en la excepción: cuando ESTA prenda en particular ya se ve extendida y completa por sí sola (ej. tendida aparte, sin nadie encima, sin deformar), aunque el resto de la foto tenga a la persona puesta.",
+      "reconstruction_reason": "string corto en español si needs_reconstruction=true (ej: 'puesta por la persona', 'colgada deformando la silueta'), o null si needs_reconstruction=false"
     }
   ]
 }
@@ -72,7 +74,7 @@ export async function detectOutfitItemsAction(
       userText: DETECTION_PROMPT,
       imageBase64: base64,
       imageMimeType: mimeType,
-      maxTokens: 1200,
+      maxTokens: 1500,
     });
 
     const items = parseDetectionResponse(rawText);

@@ -239,7 +239,7 @@ export default function CameraTipsModal({ storageKey, onConfirm, onClose }: Prop
                 </div>
               </div>
               <p className="mt-3 text-center text-xs text-text-muted">
-                La reconstruimos con IA — tu foto se convierte en foto de catálogo.
+                Si hace falta, la IA la convierte en foto de catálogo.
               </p>
             </div>
           ) : null}

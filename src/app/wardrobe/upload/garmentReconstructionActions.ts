@@ -1,9 +1,16 @@
 "use server";
 
-// Reconstrucción de una prenda recortada de una foto de outfit completo:
-// manda el crop crudo a Gemini 2.5 Flash Image pidiendo una foto de producto
-// limpia (sin persona, sin otras prendas) antes de pasar por Remove.bg.
-// Solo se usa para source='outfit_extraction' — ver burstQueue.ts.
+// Reconstrucción de una prenda cuya foto necesita más que remover el fondo
+// (persona vistiéndola, colgada deformando la silueta, muy arrugada, fondo
+// cargado — ver needs_reconstruction en el análisis de Vision). Manda la
+// foto cruda a Gemini pidiendo una foto de producto limpia (sin persona, sin
+// otras prendas, fondo blanco). Se usa en cualquier flujo (individual,
+// ráfaga, outfit_extraction) — la decisión la toma el flag, no el source.
+//
+// El resultado crudo de Gemini se post-procesa con finalizeGeminiImageOutput
+// (imageBackgroundRemoval.ts) para dejarlo con fondo transparente real, sin
+// gastar una segunda llamada — ver ese archivo para la decisión basada en
+// evidencia de por qué se pide fondo blanco y no transparente directamente.
 //
 // Gatea el mismo pool de rate limit que la detección de outfits
 // (burst_ai_uses): 1 crédito por intento de reconstrucción. El consumo pasa
@@ -11,11 +18,12 @@
 // que outfitDetectionActions.ts.
 
 import { callGeminiImageEdit } from "@/lib/ai/geminiClient";
+import { finalizeGeminiImageOutput } from "@/lib/ai/imageBackgroundRemoval";
 import { checkAndConsumeBurstUse } from "@/lib/ai/burstUsageGate";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export type ReconstructGarmentResult =
-  | { ok: true; base64: string; contentType: string }
+  | { ok: true; base64: string; contentType: "image/png" }
   | { ok: false; reason: "rate_limited"; resetInMinutes: number }
   | { ok: false; reason: "no_session" | "no_image" | "generation_failed" };
 
@@ -59,7 +67,10 @@ export async function reconstructGarmentImageAction(
 
     if (!result) return { ok: false, reason: "generation_failed" };
 
-    return { ok: true, base64: result.base64, contentType: result.mimeType };
+    const finalized = await finalizeGeminiImageOutput(result);
+    if (!finalized) return { ok: false, reason: "generation_failed" };
+
+    return { ok: true, ...finalized };
   } catch {
     return { ok: false, reason: "generation_failed" };
   }

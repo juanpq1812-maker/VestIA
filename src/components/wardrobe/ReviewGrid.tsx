@@ -5,7 +5,7 @@
 
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -72,6 +72,10 @@ export default function ReviewGrid({ userId }: Props) {
   const [existingItems, setExistingItems] = useState<ExistingItem[]>([]);
   const [dismissedDuplicates, setDismissedDuplicates] = useState<Set<string>>(new Set());
   const [showingOriginal, setShowingOriginal] = useState<Set<string>>(new Set());
+  // Guard de re-entrancia para "Guardar todo" — mismo patrón que UploadForm:
+  // se lee/escribe de forma síncrona para descartar un doble clic/tap antes
+  // de que arranque un segundo batch de updates.
+  const savingRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const fetched = await fetchPendingItems(supabase, userId);
@@ -171,6 +175,8 @@ export default function ReviewGrid({ userId }: Props) {
   }
 
   async function handleGuardarTodo() {
+    if (savingRef.current) return;
+
     setGeneralError(null);
     const validos = readyItems.filter((i) => isComplete(edits[i.id] ?? editsFromItem(i)));
     if (validos.length === 0) {
@@ -178,6 +184,7 @@ export default function ReviewGrid({ userId }: Props) {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
     try {
       const results = await Promise.all(
@@ -208,9 +215,12 @@ export default function ReviewGrid({ userId }: Props) {
         recordPetAction("garment_uploaded").catch(() => {});
       }
 
+      // Sin router.refresh(): ver el comentario equivalente en
+      // UploadForm.tsx — llamarlo justo después de push() cuelga la
+      // transición de Next fuera del flujo de auth.
       router.push(`/wardrobe?uploaded=${confirmedCount}`);
-      router.refresh();
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -294,7 +304,6 @@ export default function ReviewGrid({ userId }: Props) {
 
         {readyItems.map((item) => {
           const e = edits[item.id] ?? editsFromItem(item);
-          const isOutfitExtraction = item.source === "outfit_extraction";
           const showingOrig = showingOriginal.has(item.id);
           const finalUrl = item.image_path ? imageUrls.get(item.image_path) : undefined;
           const originalUrl = item.raw_image_path ? imageUrls.get(item.raw_image_path) : undefined;
@@ -315,7 +324,7 @@ export default function ReviewGrid({ userId }: Props) {
                 ) : null}
               </div>
 
-              {isOutfitExtraction && originalUrl && finalUrl ? (
+              {item.reconstructed && originalUrl && finalUrl ? (
                 <button
                   type="button"
                   onClick={() =>
@@ -332,7 +341,7 @@ export default function ReviewGrid({ userId }: Props) {
                 </button>
               ) : null}
 
-              {isOutfitExtraction && !item.reconstructed ? (
+              {item.reconstruction_reason && !item.reconstructed ? (
                 <p className="mt-1 text-[11px] text-text-faint">
                   No pudimos mejorar esta foto automáticamente — mostrando el recorte original.
                 </p>
