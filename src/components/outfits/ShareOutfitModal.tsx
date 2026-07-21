@@ -19,6 +19,12 @@ import {
   buildCommunitySharePath,
 } from "@/lib/storage/communityShares";
 import { shareOutfitAction } from "@/lib/community/actions";
+import {
+  downscaleToMaxPx,
+  OUTFIT_PHOTO_MAX_PX,
+  readImageDimensions,
+  MIN_SHARE_PHOTO_DIMENSION_PX,
+} from "@/lib/wardrobe/imageUtils";
 
 type Props = {
   outfitId: string;
@@ -67,12 +73,42 @@ export default function ShareOutfitModal({
       return;
     }
 
+    // Piso de calidad: rechaza fotos sospechosamente chicas (ícono,
+    // thumbnail accidental, captura fallida) antes de subir nada — no ataja
+    // un caso puntual, es una red mínima para cualquier subida futura.
+    try {
+      const { width, height } = await readImageDimensions(file);
+      if (Math.min(width, height) < MIN_SHARE_PHOTO_DIMENSION_PX) {
+        setEnviando(false);
+        setError("Esa imagen es muy pequeña para compartirse. Elige una foto real del look.");
+        return;
+      }
+    } catch {
+      setEnviando(false);
+      setError("No pudimos leer esa imagen. Prueba con otra foto.");
+      return;
+    }
+
+    // Normalizamos a JPEG vía canvas antes de subir — la cámara nativa de
+    // iOS puede capturar en HEIC, que Safari previsualiza localmente (decodifica
+    // a nivel de OS) pero que otros navegadores no pueden renderizar en <img>.
+    // Sin esto, el share queda "roto" (rectángulo sólido) para cualquiera que
+    // no use Safari. Mismo patrón que UploadForm.tsx para prendas.
+    let toUpload: File;
+    try {
+      toUpload = await downscaleToMaxPx(file, OUTFIT_PHOTO_MAX_PX);
+    } catch {
+      setEnviando(false);
+      setError("No pudimos procesar esa foto. Prueba con otra.");
+      return;
+    }
+
     const uuid = crypto.randomUUID();
-    const path = buildCommunitySharePath({ userId: user.id, fileName: file.name, uuid });
+    const path = buildCommunitySharePath({ userId: user.id, fileName: toUpload.name, uuid });
 
     const { error: uploadError } = await supabase.storage
       .from(COMMUNITY_SHARES_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, toUpload, { contentType: toUpload.type, upsert: false });
 
     if (uploadError) {
       setEnviando(false);

@@ -9,6 +9,7 @@ import {
   toggleFollowAction,
 } from "@/lib/community/actions";
 import ReportShareModal from "@/components/community/ReportShareModal";
+import ShareStoryCardButton from "@/components/community/ShareStoryCardButton";
 import type { CommunityShareFeedItem } from "@/lib/community/query";
 
 type Props = {
@@ -22,6 +23,11 @@ export default function CommunityShareCard({ share }: Props) {
   const [likeCount, setLikeCount] = useState(share.like_count);
   const [following, setFollowing] = useState(share.isFollowingAuthor);
   const [reportOpen, setReportOpen] = useState(false);
+  // La URL firmada puede existir pero apuntar a un archivo que el navegador
+  // no puede decodificar (p.ej. shares viejos subidos en HEIC antes del fix
+  // en ShareOutfitModal) — sin esto, un <img> roto deja ver el fondo sólido
+  // del contenedor detrás del ícono de imagen rota.
+  const [photoFailed, setPhotoFailed] = useState(false);
 
   function onToggleLike() {
     // Optimista: la UI cambia de inmediato, se revierte si el server falla.
@@ -59,13 +65,14 @@ export default function CommunityShareCard({ share }: Props) {
   return (
     <div className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-shadow duration-200 hover:shadow-md">
       <div className="relative aspect-[3/4] w-full overflow-hidden bg-surface-2">
-        {share.photoUrl ? (
+        {share.photoUrl && !photoFailed ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={share.photoUrl}
             alt={`Look compartido por ${autor}`}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
             loading="lazy"
+            onError={() => setPhotoFailed(true)}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-text-faint">
@@ -137,6 +144,11 @@ export default function CommunityShareCard({ share }: Props) {
           </svg>
           <span className={liked ? "text-danger" : ""}>{likeCount}</span>
         </button>
+
+        {/* Solo el dueño puede exportar afuera — la story card incluye su
+            foto real (cara). Ver ShareStoryCardButton.tsx y el gate de
+            servidor en getShareStoryCardDataAction. */}
+        {share.isOwnShare && <ShareStoryCardButton shareId={share.id} />}
       </div>
 
       {reportOpen && (
