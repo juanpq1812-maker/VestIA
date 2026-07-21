@@ -126,6 +126,7 @@ const SAVE_PROGRESS_STAGES: Record<string, number> = {
   "Quitando el fondo…": 65,
   "Subiendo tu prenda…": 88,
   "Guardando en tu armario…": 97,
+  "¡Listo!": 100,
 };
 
 // ── Grupos de color para la sección expandible ────────────────────────────────
@@ -239,6 +240,13 @@ export default function UploadForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // true durante la breve pausa de "¡Listo!" antes de navegar — mismo
+  // `submitting`, pero el panel cambia de spinner a check verde.
+  const [saveDone, setSaveDone] = useState(false);
+  // true cuando el intento de guardado más reciente falló — mantiene el
+  // panel abierto (en modo error) hasta que el usuario reintente o cancele,
+  // en vez de dejarlo colgado o desaparecer sin explicación.
+  const [saveFailed, setSaveFailed] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -469,13 +477,23 @@ export default function UploadForm() {
     // se ignora este clic por completo (ver comentario en submittingRef).
     if (submittingRef.current) return;
 
+    // Único punto de salida por error: deja el panel abierto en modo error
+    // (con Reintentar/Cancelar) en vez de simplemente desaparecer — así el
+    // usuario nunca se queda sin saber qué pasó ni cómo seguir.
+    function fail(msg: string) {
+      setGeneralError(msg);
+      setSaveFailed(true);
+    }
+
     setGeneralError(null);
+    setSaveFailed(false);
     const errs = validar();
     setFieldErrors(errs);
     if (Object.keys(errs).length > 0 || !file || !category) return;
 
     submittingRef.current = true;
     setSubmitting(true);
+    setSaveDone(false);
     setProgress("Optimizando tu foto…");
 
     try {
@@ -485,7 +503,7 @@ export default function UploadForm() {
         error: authError,
       } = await supabase.auth.getUser();
       if (authError || !user) {
-        setGeneralError("Tu sesión expiró. Vuelve a iniciar sesión.");
+        fail("Tu sesión expiró. Vuelve a iniciar sesión.");
         return;
       }
 
@@ -499,12 +517,12 @@ export default function UploadForm() {
           initialQuality: COMPRESS_QUALITY,
         });
       } catch {
-        setGeneralError("No pudimos procesar la imagen. Prueba con otra foto.");
+        fail("No pudimos procesar la imagen. Prueba con otra foto.");
         return;
       }
 
       if (comprimido.size > MAX_COMPRESSED_BYTES) {
-        setGeneralError(
+        fail(
           `La imagen comprimida pesa ${bytesToReadable(comprimido.size)}. Prueba con una foto de menor resolución.`
         );
         return;
@@ -591,7 +609,7 @@ export default function UploadForm() {
         });
 
       if (uploadError) {
-        setGeneralError(
+        fail(
           `No pudimos subir la imagen: ${uploadError.message}. Revisa tu conexión o vuelve a intentarlo.`
         );
         return;
@@ -621,22 +639,38 @@ export default function UploadForm() {
           .from(CLOTHING_IMAGES_BUCKET)
           .remove(orphanPaths)
           .catch(() => {});
-        setGeneralError(`No pudimos guardar la prenda: ${insertError.message}.`);
+        fail(`No pudimos guardar la prenda: ${insertError.message}.`);
         return;
       }
 
       recordPetAction("garment_uploaded").catch(() => {});
 
+      // Pausa breve de "¡Listo!" antes de navegar — puramente cosmética,
+      // para que el cierre se sienta como un cierre exitoso y no como un
+      // corte abrupto. IMPORTANTE: solo router.push, sin router.refresh()
+      // — llamarlos juntos acá (fuera del flujo de auth, que es donde este
+      // combo sí está probado) hacía que la transición de Next se colgara:
+      // el fetch del RSC de destino se completaba en el servidor (confirmado
+      // en logs) pero el navegador nunca conmutaba de ruta, dejando el panel
+      // "congelado" en el último mensaje. router.push a una URL nueva ya
+      // trae datos frescos por sí solo, no hace falta forzar un refresh.
+      setProgress("¡Listo!");
+      setSaveDone(true);
+      await new Promise((resolve) => setTimeout(resolve, 700));
       router.push("/wardrobe?uploaded=1");
-      router.refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
-      setGeneralError(`Algo salió mal: ${msg}.`);
+      fail(`Algo salió mal: ${msg}.`);
     } finally {
       submittingRef.current = false;
       setSubmitting(false);
       setProgress(null);
     }
+  }
+
+  function handleCancelSaveError() {
+    setSaveFailed(false);
+    setGeneralError(null);
   }
 
   function handleCameraClick() {
@@ -1105,16 +1139,15 @@ export default function UploadForm() {
             />
           </Card>
 
-          {generalError ? (
-            <p
-              role="alert"
-              className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-            >
-              {generalError}
-            </p>
+          {submitting || saveFailed ? (
+            <SaveProgressPanel
+              message={progress}
+              done={saveDone}
+              error={saveFailed ? generalError : null}
+              onRetry={handleSubmit}
+              onCancel={handleCancelSaveError}
+            />
           ) : null}
-
-          {submitting ? <SaveProgressPanel message={progress} /> : null}
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
             <Button
@@ -1155,23 +1188,92 @@ export default function UploadForm() {
 // falsa que avanza sola, el % acá SOLO se mueve cuando `handleSubmit`
 // confirma que una etapa real terminó (ver SAVE_PROGRESS_STAGES): progreso
 // honesto, no teatro.
-function SaveProgressPanel({ message }: { message: string | null }) {
+function SaveProgressPanel({
+  message,
+  done,
+  error,
+  onRetry,
+  onCancel,
+}: {
+  message: string | null;
+  done: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onCancel: () => void;
+}) {
+  if (error) {
+    return (
+      <div
+        role="alert"
+        className="flex flex-col items-center gap-4 rounded-xl bg-danger-light px-5 py-6 motion-safe:animate-[fadeInUp_180ms_ease-out]"
+      >
+        <div className="flex items-center gap-3">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            className="shrink-0 text-danger"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v5M12 16h.01" />
+          </svg>
+          <p className="text-center font-display text-lg font-semibold text-danger">
+            {error}
+          </p>
+        </div>
+        <div className="flex w-full max-w-xs gap-3">
+          <Button variant="ghost" size="md" fullWidth onClick={onCancel}>
+            Cancelar
+          </Button>
+          <Button variant="primary" size="md" fullWidth onClick={onRetry}>
+            Reintentar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const pct = (message && SAVE_PROGRESS_STAGES[message]) || 8;
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className="flex flex-col items-center gap-4 rounded-xl bg-primary-light px-5 py-6 motion-safe:animate-[fadeInUp_180ms_ease-out]"
+      className={[
+        "flex flex-col items-center gap-4 rounded-xl px-5 py-6 motion-safe:animate-[fadeInUp_180ms_ease-out]",
+        done ? "bg-success-light" : "bg-primary-light",
+      ].join(" ")}
     >
       <div className="flex items-center gap-3">
-        <div
-          className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
-          aria-hidden="true"
-        />
+        {done ? (
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            className="shrink-0 text-success"
+            aria-hidden="true"
+          >
+            <path d="M5 12l5 5L20 7" />
+          </svg>
+        ) : (
+          <div
+            className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent"
+            aria-hidden="true"
+          />
+        )}
         <p
           key={message}
-          className="font-display text-lg font-semibold text-primary transition-opacity duration-300 motion-safe:animate-[fadeInUp_180ms_ease-out]"
+          className={[
+            "font-display text-lg font-semibold transition-opacity duration-300 motion-safe:animate-[fadeInUp_180ms_ease-out]",
+            done ? "text-success" : "text-primary",
+          ].join(" ")}
         >
           {message ?? "Trabajando en tu prenda…"}
         </p>
@@ -1179,13 +1281,21 @@ function SaveProgressPanel({ message }: { message: string | null }) {
       <div className="w-full max-w-xs">
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface">
           <div
-            className="h-full origin-left rounded-full bg-primary transition-transform duration-500 ease-out"
+            className={[
+              "h-full origin-left rounded-full transition-transform duration-500 ease-out",
+              done ? "bg-success" : "bg-primary",
+            ].join(" ")}
             style={{ transform: `scaleX(${pct / 100})`, width: "100%" }}
           />
         </div>
       </div>
-      <p className="text-center text-xs text-primary/70">
-        No cierres esta pantalla — ya casi queda lista.
+      <p
+        className={[
+          "text-center text-xs",
+          done ? "text-success/70" : "text-primary/70",
+        ].join(" ")}
+      >
+        {done ? "Ya quedó en tu armario." : "No cierres esta pantalla — ya casi queda lista."}
       </p>
     </div>
   );

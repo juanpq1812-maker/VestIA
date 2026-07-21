@@ -215,8 +215,10 @@ export default function ReviewGrid({ userId }: Props) {
         recordPetAction("garment_uploaded").catch(() => {});
       }
 
+      // Sin router.refresh(): ver el comentario equivalente en
+      // UploadForm.tsx — llamarlo justo después de push() cuelga la
+      // transición de Next fuera del flujo de auth.
       router.push(`/wardrobe?uploaded=${confirmedCount}`);
-      router.refresh();
     } finally {
       savingRef.current = false;
       setSaving(false);

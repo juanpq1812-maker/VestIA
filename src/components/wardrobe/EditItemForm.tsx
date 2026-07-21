@@ -214,8 +214,12 @@ export default function EditItemForm({ item, imageUrl }: Props) {
           .catch(() => {});
       }
 
+      // Sin router.refresh(): llamarlo justo después de push() (fuera del
+      // flujo de auth, el único caso donde este combo está probado) hace que
+      // la transición de Next se cuelgue — el RSC de destino llega a
+      // completarse en el servidor pero el navegador nunca conmuta de ruta.
+      // push() a una ruta nueva ya trae datos frescos por sí solo.
       router.push("/wardrobe");
-      router.refresh();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       setGeneralError(`Algo salió mal: ${msg}.`);
