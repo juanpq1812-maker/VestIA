@@ -13,6 +13,10 @@ import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import ReviewGrid from "@/components/wardrobe/ReviewGrid";
 
+// Ver nota de maxDuration en /wardrobe/upload/page.tsx — mismo pipeline de
+// imagen, reintentos de prendas con error también pueden llamarlo acá.
+export const maxDuration = 60;
+
 export default async function ReviewPage() {
   const supabase = await createSupabaseServerClient();
   const {

@@ -328,3 +328,60 @@ Esperado: bucket con `public = true` y 3 policies (`insert_admin`,
    exacto de un archivo subido, `GET
    /storage/v1/object/public/editorial-images/{path}` debe funcionar sin
    headers de autenticación.
+
+---
+
+## 7. Bucket `imgly-models` (modelo ONNX de remoción de fondo)
+
+Para que `src/lib/ai/imageBackgroundRemoval.ts` cargue el modelo `small` de
+`@imgly/background-removal-node` en runtime, en vez de empaquetarlo en la
+función serverless (ver `IMGLY_MODEL_PUBLIC_PATH` en `.env.local.example` y
+`scripts/prune-imgly-assets.js` para el porqué: empaquetado revienta el
+límite de 250MB de Vercel al sumarle los binarios nativos de
+`onnxruntime-node`).
+
+A diferencia de todos los otros buckets del proyecto, este es **público de
+verdad y sin restricción de lectura** — no contiene datos de usuarios, es un
+modelo de ML de terceros (pesos ONNX), así que no hay nada que proteger.
+
+1. En **Storage**, crea un nuevo bucket:
+
+   | Campo                              | Valor           |
+   | ----------------------------------- | --------------- |
+   | **Name**                           | `imgly-models`  |
+   | **Public bucket**                  | **ON**          |
+
+2. Sube el manifest podado + los 11 chunks del modelo `small` (nunca subas
+   los chunks de `medium` — no se usan y sería 84MB extra sin motivo):
+
+   ```bash
+   # Desde node_modules/@imgly/background-removal-node/dist/ (ANTES de que
+   # corra el postinstall de este proyecto, que los borra — o desde una
+   # instalación aparte, ej. npm install en una carpeta temporal):
+   #   1. Lee resources.json, quédate solo con la entrada "/models/small".
+   #   2. Sube ese resources.json podado + los 11 archivos de chunk que
+   #      referencia (nombres = hashes sin extensión, ~42MB total) al bucket,
+   #      en la raíz (sin subcarpetas).
+   ```
+
+   No hace falta SQL Editor para este bucket: al crearlo como público desde
+   el dashboard, Supabase ya deja la lectura abierta sin policy adicional.
+
+3. Verifica con:
+
+   ```sql
+   select id, name, public from storage.buckets where id = 'imgly-models';
+   ```
+
+   Esperado: `public = true`. Y probá la URL pública directo en el navegador
+   (o `curl -I`):
+
+   ```
+   https://TU-PROYECTO.supabase.co/storage/v1/object/public/imgly-models/resources.json
+   ```
+
+   Debe responder `200` con `content-type: application/json`.
+
+4. Configura `IMGLY_MODEL_PUBLIC_PATH` en `.env.local` (desarrollo) y en las
+   variables de entorno del proyecto en Vercel (producción) con esa misma URL
+   base (terminada en `/`).

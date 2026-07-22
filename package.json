@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/prune-imgly-assets.js"
   },
   "dependencies": {
+    "@imgly/background-removal-node": "^1.4.5",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.105.1",
     "browser-image-compression": "^2.0.2",

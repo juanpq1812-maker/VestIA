@@ -14,6 +14,10 @@ import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { ClothingItem } from "@/types/database";
 
+// Ver nota de maxDuration en /wardrobe/upload/page.tsx — EditItemForm llama
+// al mismo pipeline de remoción de fondo vía "Mejora esta foto".
+export const maxDuration = 60;
+
 type Props = {
   params: Promise<{ id: string }>;
 };
