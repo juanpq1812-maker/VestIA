@@ -27,7 +27,10 @@ export type ReconstructGarmentResult =
   | { ok: false; reason: "rate_limited"; resetInMinutes: number }
   | { ok: false; reason: "no_session" | "no_image" | "generation_failed" };
 
-function buildPrompt(description: string): string {
+function buildPrompt(description: string, category: string | null): string {
+  if (category === "footwear") {
+    return `Extract only the ${description} from this photo. Generate it as a clean product photo showing the COMPLETE PAIR of shoes: both shoes of the exact same model, identical in color, material and every detail, standing side by side in profile (simple shoe-store product shot, no complex angles). No person, no other garments, plain white background. Preserve exactly the design of the shoe visible in the original photo — do not invent variations, do not generate two different shoes, just duplicate the same shoe as its matching pair. Do not invent details not visible in the photo.`;
+  }
   return `Extract only the ${description} from this photo. Generate it as a clean product photo: the garment alone, laid flat, no person, no other garments, plain white background, preserving the exact color, texture, pattern, buttons and cut of the original garment. Do not invent details not visible in the photo.`;
 }
 
@@ -43,6 +46,7 @@ export async function reconstructGarmentImageAction(
 
   const file = formData.get("image");
   const description = formData.get("description");
+  const category = formData.get("category");
   if (!file || !(file instanceof Blob)) return { ok: false, reason: "no_image" };
 
   const budget = await checkAndConsumeBurstUse(user.id, supabase);
@@ -58,11 +62,12 @@ export async function reconstructGarmentImageAction(
       typeof description === "string" && description.trim().length > 0
         ? description.trim()
         : "clothing item";
+    const categoryText = typeof category === "string" && category.trim().length > 0 ? category.trim() : null;
 
     const result = await callGeminiImageEdit({
       imageBase64: base64,
       imageMimeType: mimeType,
-      prompt: buildPrompt(descriptionText),
+      prompt: buildPrompt(descriptionText, categoryText),
     });
 
     if (!result) return { ok: false, reason: "generation_failed" };

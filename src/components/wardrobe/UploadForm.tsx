@@ -565,6 +565,7 @@ export default function UploadForm() {
             const reconForm = new FormData();
             reconForm.append("image", comprimido, comprimido.name);
             reconForm.append("description", description);
+            if (category) reconForm.append("category", category);
             const reconResult = await reconstructGarmentImageAction(reconForm);
 
             if (reconResult.ok) {
