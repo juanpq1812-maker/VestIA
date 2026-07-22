@@ -5,6 +5,7 @@ import IOSInstallBanner from "@/components/pwa/IOSInstallBanner";
 import ServiceWorkerRegistration from "@/components/pwa/ServiceWorkerRegistration";
 import SplashScreen from "@/components/pwa/SplashScreen";
 import AppleSplashLinks from "@/components/pwa/AppleSplashLinks";
+import PushOptInFlow from "@/components/push/PushOptInFlow";
 
 const hanken = Hanken_Grotesk({
   variable: "--font-hanken",
@@ -87,6 +88,7 @@ export default function RootLayout({
         <SplashScreen />
         <IOSInstallBanner />
         <ServiceWorkerRegistration />
+        <PushOptInFlow />
       </body>
     </html>
   );
