@@ -10,6 +10,7 @@ import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import LogoutButton from "@/components/auth/LogoutButton";
 import CalendarFeedForm from "@/components/profile/CalendarFeedForm";
+import PushDevTools from "@/components/profile/PushDevTools";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 
 export const metadata = {
@@ -187,6 +188,8 @@ export default async function ProfilePage() {
               ))}
             </ul>
           </section>
+
+          <PushDevTools />
 
           {/* ── Cerrar sesión ─────────────────────────────────────────── */}
           <div className="mt-10 flex justify-center">

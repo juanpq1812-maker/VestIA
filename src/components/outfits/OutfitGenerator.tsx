@@ -31,6 +31,7 @@ import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
 
 import OutfitMoodboard from "@/components/outfits/OutfitMoodboard";
+import { triggerFirstOutfitValueMoment } from "@/components/push/PushOptInFlow";
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
 // `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
 const OCASIONES = [
@@ -107,6 +108,7 @@ export default function OutfitGenerator({
         return;
       }
       setOutfits(res.outfits);
+      triggerFirstOutfitValueMoment();
     });
   }
 
