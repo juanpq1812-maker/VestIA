@@ -29,11 +29,39 @@ const securityHeaders = [
     : []),
 ];
 
+// Rutas que llaman a @imgly/background-removal-node (vía
+// finalizeGeminiImageOutput) — todo el pipeline de imagen de subida de
+// prendas. `\\[id\\]` escapa los corchetes literales del segmento dinámico
+// (picomatch los trata como character class si no se escapan) — mismo patrón
+// que usa el ejemplo de la doc oficial de Next.js para rutas dinámicas.
+const IMGLY_ROUTES = [
+  "/wardrobe/upload",
+  "/wardrobe/upload/review",
+  "/wardrobe/\\[id\\]/edit",
+];
+
 const nextConfig: NextConfig = {
   // node-ical (parser del calendario) no sobrevive el bundling de Turbopack
   // ("BigInt is not a function" al recolectar page data). Server-only: se
   // resuelve desde node_modules en runtime.
   serverExternalPackages: ["node-ical"],
+  // onnxruntime-node (dependencia nativa de @imgly/background-removal-node)
+  // trae binarios de 6 plataformas (~133MB). `scripts/prune-imgly-assets.js`
+  // ya los poda a solo la plataforma/arquitectura de la máquina que corre
+  // `npm install` (linux/x64 en el build de Vercel) — esto es defensa
+  // adicional explícita, en caso de que un futuro cambio en el pipeline de
+  // instalación (build cache restaurado sin postinstall, etc.) deje alguna
+  // plataforma de más sin podar.
+  outputFileTracingExcludes: Object.fromEntries(
+    IMGLY_ROUTES.map((route) => [
+      route,
+      [
+        "node_modules/onnxruntime-node/bin/napi-v3/darwin/**/*",
+        "node_modules/onnxruntime-node/bin/napi-v3/win32/**/*",
+        "node_modules/onnxruntime-node/bin/napi-v3/linux/arm64/**/*",
+      ],
+    ])
+  ),
   images: {
     // Fotografía editorial de la landing servida desde Unsplash.
     remotePatterns: [

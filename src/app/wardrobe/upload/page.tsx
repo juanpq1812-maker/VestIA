@@ -18,6 +18,13 @@ import BurstCapture from "@/components/wardrobe/BurstCapture";
 import OutfitPhotoCapture from "@/components/wardrobe/OutfitPhotoCapture";
 import UploadModeChooser from "@/components/wardrobe/UploadModeChooser";
 
+// El pipeline de imagen (Gemini + @imgly/background-removal-node) puede
+// tardar unos segundos, más si el contenedor está frío y @imgly tiene que
+// descargar el modelo de Supabase Storage (~10-16s medido) — ver
+// src/lib/ai/imageBackgroundRemoval.ts. Fluid Compute ya da 300s por
+// default, esto es explícito para que quede documentado en el código.
+export const maxDuration = 60;
+
 type Props = {
   searchParams: Promise<{ modo?: string }>;
 };
