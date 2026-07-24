@@ -42,11 +42,22 @@ const IMGLY_ROUTES = [
 
 const nextConfig: NextConfig = {
   // node-ical (parser del calendario) no sobrevive el bundling de Turbopack
-  // ("BigInt is not a function" al recolectar page data). onnxruntime-node y
-  // @imgly/background-removal-node: marcarlos externos evita que Turbopack
-  // intente bundlear el addon nativo (.node) — se resuelven desde
-  // node_modules en runtime, igual que node-ical.
-  serverExternalPackages: ["node-ical", "onnxruntime-node", "@imgly/background-removal-node"],
+  // ("BigInt is not a function" al recolectar page data). Server-only: se
+  // resuelve desde node_modules en runtime.
+  //
+  // NO agregamos aquí "onnxruntime-node" ni "@imgly/background-removal-node":
+  // onnxruntime-node YA viene en la lista por defecto de Next.js
+  // (server-external-packages.jsonc) — agregarlo de nuevo es un no-op.
+  // @imgly/background-removal-node SÍ lo probamos como external y reventó el
+  // límite de función de Vercel (529.56MB vs 250MB, verificado en un deploy
+  // real): al marcarlo external, Next no puede tracear finamente sus
+  // requires y termina copiando su árbol de node_modules completo (incluye
+  // un `sharp` nativo duplicado, node_modules/@imgly/.../node_modules/sharp,
+  // ~24MB solo esa copia, más lo que arrastre por asociación). Dejarlo
+  // bundleable (comportamiento por defecto) resuelve el tamaño — es JS puro,
+  // solo onnxruntime-node adentro es nativo, y ese ya es external por
+  // default.
+  serverExternalPackages: ["node-ical"],
   // onnxruntime-node trae binarios de 6 plataformas (~133MB).
   // `scripts/prune-imgly-assets.js` ya los poda a solo la plataforma/
   // arquitectura de la máquina que corre `npm install` (linux/x64 en el
@@ -63,14 +74,14 @@ const nextConfig: NextConfig = {
       ],
     ])
   ),
-  // marcar el paquete como `serverExternalPackages` evita que Turbopack lo
-  // bundlee, pero NO garantiza que el tracer copie el .so nativo al output
-  // de la función — ese archivo se carga vía dlopen() desde dentro del
-  // addon .node, no vía require()/import(), así que el tracer estático de
-  // Next nunca lo descubre solo. Sin este include explícito, el .node viaja
-  // pero su .so hermano no — y falla en runtime con "cannot open shared
-  // object file" (bug real visto en producción, confirmado en logs de
-  // Vercel de las tres rutas de subida).
+  // onnxruntime-node ya es external por defecto en Next (no bundleado), pero
+  // eso NO garantiza que el tracer copie el .so nativo al output de la
+  // función — ese archivo se carga vía dlopen() desde dentro del addon
+  // .node, no vía require()/import(), así que el tracer estático de Next
+  // nunca lo descubre solo. Sin este include explícito, el .node viaja pero
+  // su .so hermano no — y falla en runtime con "cannot open shared object
+  // file" (bug real visto en producción, confirmado en logs de Vercel de
+  // las tres rutas de subida).
   outputFileTracingIncludes: Object.fromEntries(
     IMGLY_ROUTES.map((route) => [
       route,
