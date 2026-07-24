@@ -61,6 +61,9 @@ export type BurstQueueCallbacks = {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supa = SupabaseClient<any>;
 
+const CLOTHING_ITEM_SELECT =
+  "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, reconstruction_reason, background_removed, subcategory_ai_raw, created_at, updated_at";
+
 /**
  * Sube una foto cruda (ya redimensionada) a Storage e inserta la fila en
  * `clothing_items` con status='draft'. `extra` permite prellenar atributos ya
@@ -79,6 +82,7 @@ export async function enqueueDraftPhoto(
     primary_color?: string | null;
     occasions?: string[];
     reconstruction_reason?: string | null;
+    subcategory_ai_raw?: string | null;
   }
 ): Promise<BurstClothingItem | null> {
   const uuid = crypto.randomUUID();
@@ -101,9 +105,7 @@ export async function enqueueDraftPhoto(
       raw_image_path: path,
       ...extra,
     })
-    .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, reconstruction_reason, background_removed, created_at, updated_at"
-    )
+    .select(CLOTHING_ITEM_SELECT)
     .single();
 
   if (insertError || !data) {
@@ -122,9 +124,7 @@ export async function fetchPendingItems(
 ): Promise<BurstClothingItem[]> {
   const { data } = await supabase
     .from("clothing_items")
-    .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, reconstruction_reason, background_removed, created_at, updated_at"
-    )
+    .select(CLOTHING_ITEM_SELECT)
     .eq("user_id", userId)
     .in("status", ["draft", "processing", "ready", "error"])
     .order("created_at", { ascending: true });
@@ -175,9 +175,7 @@ async function updateItem(
     .from("clothing_items")
     .update(patch)
     .eq("id", id)
-    .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, reconstruction_reason, background_removed, created_at, updated_at"
-    )
+    .select(CLOTHING_ITEM_SELECT)
     .single();
   return (data as BurstClothingItem) ?? null;
 }
@@ -202,9 +200,7 @@ async function claimItem(
     .update({ status: "processing" })
     .eq("id", id)
     .eq("status", "draft")
-    .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, reconstruction_reason, background_removed, created_at, updated_at"
-    )
+    .select(CLOTHING_ITEM_SELECT)
     .maybeSingle();
   return (data as BurstClothingItem | null) ?? null;
 }
@@ -274,6 +270,10 @@ async function processOne(
     // outfitExtraction.ts) — acá solo se lee, nunca se vuelve a analizar por
     // prenda (eso sería cobrar N créditos por 1 sola detección).
     let reconstructionReason = item.reconstruction_reason;
+    // Auditoría: si matchSubcategory no encuentra match, guardamos el string
+    // crudo de Vision acá — se persiste en subcategory_ai_raw más abajo. Para
+    // outfit_extraction ya viene resuelto desde outfitExtraction.ts (item.subcategory_ai_raw).
+    let subcategoryAiRaw = item.subcategory_ai_raw;
 
     if (!isOutfitExtraction) {
       const analyzeForm = new FormData();
@@ -296,7 +296,9 @@ async function processOne(
       category = VALID_CATEGORIES.includes(categoria as ClothingCategory)
         ? (categoria as ClothingCategory)
         : null;
-      subcategory = category ? matchSubcategory(category, subcategoria ?? "") || null : null;
+      const matchedSubcategory = category ? matchSubcategory(category, subcategoria ?? "") : "";
+      subcategory = matchedSubcategory || null;
+      subcategoryAiRaw = !matchedSubcategory && subcategoria?.trim() ? subcategoria.trim() : null;
       color = matchColorToPalette(color_principal ?? "", color_hex ?? "") || null;
       occasions = mapAiOccasions(ocasiones ?? []);
       reconstructionReason = needs_reconstruction ? reconstruction_reason : null;
@@ -365,6 +367,7 @@ async function processOne(
       reconstructed,
       reconstruction_reason: reconstructionReason,
       background_removed: backgroundRemoved,
+      subcategory_ai_raw: subcategoryAiRaw,
     });
     if (ready) callbacks.onItemChange?.(ready);
     return "ok";
@@ -439,9 +442,7 @@ export async function retryErrorItem(
     .update({ status: "draft", error_message: null })
     .eq("id", itemId)
     .eq("user_id", userId)
-    .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, reconstruction_reason, background_removed, created_at, updated_at"
-    )
+    .select(CLOTHING_ITEM_SELECT)
     .single();
 
   if (!data) return;
