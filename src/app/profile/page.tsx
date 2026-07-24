@@ -11,6 +11,8 @@ import Container from "@/components/ui/Container";
 import LogoutButton from "@/components/auth/LogoutButton";
 import CalendarFeedForm from "@/components/profile/CalendarFeedForm";
 import PushDevTools from "@/components/profile/PushDevTools";
+import NotificationPreferences from "@/components/profile/NotificationPreferences";
+import { DEFAULT_PUSH_PREFERENCES, type PushPreferences } from "@/lib/push/preferences";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 
 export const metadata = {
@@ -25,7 +27,7 @@ const PLAN_FREE_FEATURES = [
 
 // Los ítems con `href` son rutas reales; los demás quedan como "Próximamente".
 const CONFIG_ITEMS = [
-  { label: "Notificaciones", icon: IconBell, href: null },
+  { label: "Notificaciones", icon: IconBell, href: "#notificaciones" },
   { label: "Estilo preferido", icon: IconShirt, href: "/profile/style" },
   { label: "Privacidad", icon: IconLock, href: "/profile/privacy" },
   { label: "Ayuda y soporte", icon: IconHelp, href: "/profile/help" },
@@ -37,7 +39,7 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [profileRes, itemsRes, outfitsRes, usesRes, feedRes] = await Promise.all([
+  const [profileRes, itemsRes, outfitsRes, usesRes, feedRes, pushPrefsRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("display_name, created_at")
@@ -53,7 +55,15 @@ export default async function ProfilePage() {
       .from("calendar_feeds")
       .select("id, url, provider, sync_error")
       .order("created_at", { ascending: true }),
+    supabase
+      .from("push_preferences")
+      .select("recordatorio_diario, avisos_hebri, novedades_hilo")
+      .eq("user_id", user?.id ?? "")
+      .maybeSingle(),
   ]);
+
+  // Sin fila = todo activado (ver src/lib/push/preferences.ts).
+  const pushPrefs: PushPreferences = pushPrefsRes.data ?? DEFAULT_PUSH_PREFERENCES;
 
   // Las URLs ICS son secretas: al cliente solo van enmascaradas.
   const feeds = (feedRes.data ?? []).map((f) => ({
@@ -188,6 +198,8 @@ export default async function ProfilePage() {
               ))}
             </ul>
           </section>
+
+          <NotificationPreferences initial={pushPrefs} />
 
           <PushDevTools />
 

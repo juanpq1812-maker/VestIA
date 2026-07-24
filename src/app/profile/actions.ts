@@ -1,4 +1,6 @@
-// Server Actions del perfil: conectar / desconectar el calendario ICS.
+// Server Actions del perfil: conectar / desconectar el calendario ICS, y
+// guardar las preferencias de notificaciones push (push_preferences,
+// migracion 0027).
 
 "use server";
 
@@ -10,6 +12,7 @@ import {
   normalizeFeedUrl,
 } from "@/lib/calendar/ics";
 import { syncCalendarFeed } from "@/lib/calendar/sync";
+import type { PushPreferences } from "@/lib/push/preferences";
 
 export type SaveFeedResult =
   | { ok: true; feedId: string; provider: string; eventCount: number }
@@ -92,6 +95,40 @@ export async function deleteCalendarFeedAction(feedId: string): Promise<DeleteFe
   }
 
   revalidatePath("/");
+  revalidatePath("/profile");
+  return { ok: true };
+}
+
+export type SavePushPreferencesResult = { ok: true } | { ok: false; error: string };
+
+export async function savePushPreferencesAction(
+  prefs: PushPreferences
+): Promise<SavePushPreferencesResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: "Tu sesión expiró. Vuelve a iniciar sesión." };
+
+  // Upsert de la fila completa: el cliente ya tiene los 3 toggles en su
+  // estado local, asi que no hace falta un update parcial (evita una
+  // condicion de carrera leer-modificar-escribir para una pantalla de
+  // ajustes de bajo trafico).
+  const { error } = await supabase.from("push_preferences").upsert(
+    {
+      user_id: user.id,
+      recordatorio_diario: prefs.recordatorio_diario,
+      avisos_hebri: prefs.avisos_hebri,
+      novedades_hilo: prefs.novedades_hilo,
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) {
+    console.error("[savePushPreferencesAction]", error);
+    return { ok: false, error: "No pudimos guardar tus preferencias." };
+  }
+
   revalidatePath("/profile");
   return { ok: true };
 }
