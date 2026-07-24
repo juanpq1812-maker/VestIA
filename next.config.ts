@@ -82,10 +82,20 @@ const nextConfig: NextConfig = {
   // su .so hermano no — y falla en runtime con "cannot open shared object
   // file" (bug real visto en producción, confirmado en logs de Vercel de
   // las tres rutas de subida).
+  //
+  // OJO: el glob apunta a los archivos exactos, NO a todo el directorio
+  // linux/x64/**/* — verificado con VERCEL_ANALYZE_BUILD_OUTPUT=1 en un
+  // deploy real: ese directorio en Linux trae también los providers de GPU
+  // de onnxruntime (CUDA/TensorRT/DNNL) que no existen en el build de Mac,
+  // ~477MB que no usamos (Vercel no tiene GPU, model='small' corre en CPU).
+  // Solo necesitamos el addon nativo y la lib core.
   outputFileTracingIncludes: Object.fromEntries(
     IMGLY_ROUTES.map((route) => [
       route,
-      ["node_modules/onnxruntime-node/bin/napi-v3/linux/x64/**/*"],
+      [
+        "node_modules/onnxruntime-node/bin/napi-v3/linux/x64/onnxruntime_binding.node",
+        "node_modules/onnxruntime-node/bin/napi-v3/linux/x64/libonnxruntime.so*",
+      ],
     ])
   ),
   images: {
