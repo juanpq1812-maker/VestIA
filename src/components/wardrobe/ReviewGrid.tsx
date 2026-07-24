@@ -58,6 +58,15 @@ function isComplete(e: Edits): boolean {
 }
 
 const PENDING_STATUSES = new Set(["draft", "processing"]);
+// Umbral solo informativo (no técnico): a partir de acá el "Analizando…" se
+// siente largo aunque sea normal (cold-start del modelo de @imgly, ~10-16s,
+// más la llamada a Gemini). Bien por debajo de STUCK_PROCESSING_MINUTES (3
+// min) en burstQueue.ts — ese es el que de verdad libera el item.
+const SLOW_PROCESSING_MS = 25_000;
+
+function msSince(iso: string): number {
+  return Date.now() - new Date(iso).getTime();
+}
 
 export default function ReviewGrid({ userId }: Props) {
   const router = useRouter();
@@ -76,6 +85,11 @@ export default function ReviewGrid({ userId }: Props) {
   // se lee/escribe de forma síncrona para descartar un doble clic/tap antes
   // de que arranque un segundo batch de updates.
   const savingRef = useRef(false);
+  // Defensa en profundidad, NO el fix: el candado real es el claim atómico
+  // en burstQueue.ts. Esto solo evita lanzar `processPendingForUser` de
+  // nuevo si ya hay una pasada en vuelo desde esta misma pantalla — ver la
+  // nota equivalente en BurstCapture.tsx.
+  const processingRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const fetched = await fetchPendingItems(supabase, userId);
@@ -109,7 +123,14 @@ export default function ReviewGrid({ userId }: Props) {
       setLoading(false);
       // Retoma cualquier draft pendiente (fotos que llegaron mientras el
       // usuario no estaba en esta pantalla, o que quedaron a medias).
-      processPendingForUser(supabase, userId, { onItemChange: () => refresh() }).catch(() => {});
+      if (!processingRef.current) {
+        processingRef.current = true;
+        processPendingForUser(supabase, userId, { onItemChange: () => refresh() })
+          .catch(() => {})
+          .finally(() => {
+            processingRef.current = false;
+          });
+      }
 
       // Armario ya confirmado del usuario, para el chequeo de duplicados de
       // las prendas extraídas de una foto de outfit completo — una sola vez,
@@ -268,12 +289,18 @@ export default function ReviewGrid({ userId }: Props) {
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {pendingItems.map((item) => (
-          <Card key={item.id} padding="sm">
-            <div className="aspect-[3/4] animate-pulse rounded-lg bg-surface-2" />
-            <p className="mt-3 text-center text-xs text-text-muted">Analizando…</p>
-          </Card>
-        ))}
+        {pendingItems.map((item) => {
+          const isSlow =
+            item.status === "processing" && msSince(item.updated_at) > SLOW_PROCESSING_MS;
+          return (
+            <Card key={item.id} padding="sm">
+              <div className="aspect-[3/4] animate-pulse rounded-lg bg-surface-2" />
+              <p className="mt-3 text-center text-xs text-text-muted">
+                {isSlow ? "Está tardando más de lo normal, ya casi…" : "Analizando…"}
+              </p>
+            </Card>
+          );
+        })}
 
         {errorItems.map((item) => {
           const url = item.image_path ?? item.raw_image_path

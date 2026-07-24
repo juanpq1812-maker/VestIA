@@ -10,6 +10,15 @@
 //   acá, ver el fallback de última línea dentro de processOne)
 // Recién en la pantalla de revisión, al confirmar, pasa a 'confirmed' y
 // se vuelve visible en el resto de la app.
+//
+// `processPendingForUser` se puede invocar varias veces en paralelo (una foto
+// nueva en BurstCapture, el mount de ReviewGrid, sesiones en otra pestaña) —
+// cada invocación toma su propio snapshot de 'draft' vía `fetchPendingItems`,
+// así que dos invocaciones pueden ver el mismo item. El único punto que evita
+// procesarlo dos veces (con su doble costo de Gemini/burst_ai_uses) es el
+// claim atómico en `claimItem` dentro de `processOne` — ver su comentario.
+// `resumeStuckProcessing` es la otra mitad de ese contrato: si libera
+// 'processing' sin mirar cuánto lleva ahí, deshace el claim atómico.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -123,20 +132,38 @@ export async function fetchPendingItems(
   return (data ?? []) as BurstClothingItem[];
 }
 
+// Techo de reclamo huérfano: si un 'processing' lleva más que esto sin
+// actualizarse, asumimos que el proceso que lo reclamó murió (crash, tab
+// cerrada, función serverless matada) y lo liberamos. Con margen holgado
+// sobre maxDuration=60 de las rutas de Gemini — un proceso genuinamente en
+// vuelo no puede seguir vivo pasado ese límite, Vercel ya lo mató.
+const STUCK_PROCESSING_MINUTES = 3;
+
 /**
- * Si el usuario cerró la app con fotos en 'processing', al volver ese estado
- * quedó huérfano (nadie las va a terminar). Las regresamos a 'draft' para que
- * `processPendingForUser` las vuelva a tomar.
+ * Libera SOLO los 'processing' que llevan más de STUCK_PROCESSING_MINUTES sin
+ * actualizarse (huérfanos reales — el proceso que los reclamó murió a mitad).
+ * `updated_at` se auto-actualiza en cada UPDATE (trigger de la migración
+ * 0003), así que sirve como "hora del último claim/avance" sin columna nueva.
+ *
+ * CRÍTICO: no liberar TODO lo que esté en 'processing' sin mirar el tiempo —
+ * eso deshace el claim atómico de `processOne` (ver abajo). Si esta función
+ * resetea a 'draft' un item que otra pestaña/invocación tiene genuinamente en
+ * vuelo (ej. el usuario navega de capturar a revisar mientras Gemini sigue
+ * respondiendo), ese item vuelve a quedar disponible y se reclama y procesa
+ * DE NUEVO — mismo bug de doble proceso/doble cobro, por esta vía en vez de
+ * la carrera original.
  */
 export async function resumeStuckProcessing(
   supabase: Supa,
   userId: string
 ): Promise<void> {
+  const cutoff = new Date(Date.now() - STUCK_PROCESSING_MINUTES * 60 * 1000).toISOString();
   await supabase
     .from("clothing_items")
     .update({ status: "draft" })
     .eq("user_id", userId)
-    .eq("status", "processing");
+    .eq("status", "processing")
+    .lt("updated_at", cutoff);
 }
 
 async function updateItem(
@@ -155,12 +182,40 @@ async function updateItem(
   return (data as BurstClothingItem) ?? null;
 }
 
+/**
+ * Reclama un item 'draft' de forma ATÓMICA: UPDATE condicionado a
+ * `status = 'draft'`, con SELECT de vuelta. Si dos invocaciones de la cola se
+ * solapan (ej. una foto nueva dispara `processPendingForUser` mientras la
+ * pasada anterior sigue en curso, o la pantalla de revisión reanuda
+ * pendientes al mismo tiempo), ambas pueden tener el mismo item en su
+ * snapshot de `fetchPendingItems` — pero solo UNA gana este UPDATE (la
+ * condición `eq('status','draft')` hace que la segunda afecte 0 filas). La
+ * que pierde recibe `null` y debe salir limpio, sin consumir budget ni llamar
+ * a Gemini — ver `processOne`.
+ */
+async function claimItem(
+  supabase: Supa,
+  id: string
+): Promise<BurstClothingItem | null> {
+  const { data } = await supabase
+    .from("clothing_items")
+    .update({ status: "processing" })
+    .eq("id", id)
+    .eq("status", "draft")
+    .select(
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, status, raw_image_path, retry_count, error_message, source, reconstructed, reconstruction_reason, background_removed, created_at, updated_at"
+    )
+    .maybeSingle();
+  return (data as BurstClothingItem | null) ?? null;
+}
+
 async function processOne(
   supabase: Supa,
   item: BurstClothingItem,
   callbacks: BurstQueueCallbacks
-): Promise<"ok" | "budget_exceeded"> {
-  if (!item.raw_image_path) {
+): Promise<"ok" | "budget_exceeded" | "skipped"> {
+  const rawImagePath = item.raw_image_path;
+  if (!rawImagePath) {
     const failed = await updateItem(supabase, item.id, {
       status: "error",
       error_message: "Falta la foto cruda.",
@@ -169,8 +224,18 @@ async function processOne(
     return "ok";
   }
 
-  const processing = await updateItem(supabase, item.id, { status: "processing" });
-  if (processing) callbacks.onItemChange?.(processing);
+  // Claim atómico ANTES de gastar nada: si perdemos la carrera, salimos acá
+  // mismo — sin peek de budget, sin Vision, sin Gemini. Este es el candado
+  // real (a nivel DB); cualquier guard en el cliente es solo defensa en
+  // profundidad, no reemplaza esto.
+  const claimed = await claimItem(supabase, item.id);
+  if (!claimed) {
+    console.log("[burstQueue] item ya reclamado por otra invocación, salteando:", item.id);
+    return "skipped";
+  }
+  item = claimed;
+  console.log("[burstQueue] item reclamado, procesando:", item.id);
+  callbacks.onItemChange?.(claimed);
 
   // Las prendas recortadas de una foto de outfit completo ya pasaron por
   // Claude Vision en la detección grupal (1 sola llamada para todas) — acá
@@ -195,7 +260,7 @@ async function processOne(
   try {
     const { data: rawBlob, error: downloadError } = await supabase.storage
       .from(CLOTHING_IMAGES_BUCKET)
-      .download(item.raw_image_path);
+      .download(rawImagePath);
 
     if (downloadError || !rawBlob) {
       throw new Error(downloadError?.message ?? "No se pudo descargar la foto cruda.");

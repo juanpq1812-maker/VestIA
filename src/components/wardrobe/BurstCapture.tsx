@@ -43,12 +43,38 @@ export default function BurstCapture() {
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   const [supabase] = useState(() => createSupabaseBrowserClient());
+  // Defensa en profundidad, NO el fix: el candado real es el claim atómico
+  // en burstQueue.ts (UPDATE ... WHERE status='draft'). Esto solo evita
+  // lanzar una pasada completa de `processPendingForUser` si ya hay una en
+  // vuelo disparada por esta misma pestaña — reduce el ruido de invocaciones
+  // solapadas, pero otra pestaña/pantalla puede solaparse igual y el claim
+  // atómico es lo que evita que eso duplique trabajo.
+  const processingRef = useRef(false);
 
   const refreshQueueCount = useCallback(async () => {
     if (!userId) return;
     const pending = await fetchPendingItems(supabase, userId);
     setQueueCount(pending.filter((i) => i.status !== "confirmed").length);
   }, [supabase, userId]);
+
+  const runQueue = useCallback(
+    (uid: string) => {
+      if (processingRef.current) return;
+      processingRef.current = true;
+      processPendingForUser(supabase, uid, {
+        onItemChange: () => refreshQueueCount(),
+        onBudgetExceeded: (resetInMinutes) =>
+          setBudgetWarning(
+            `Llegaste al límite de análisis de esta hora. El resto se procesará en ~${resetInMinutes} min.`
+          ),
+      })
+        .catch(() => {})
+        .finally(() => {
+          processingRef.current = false;
+        });
+    },
+    [supabase, refreshQueueCount]
+  );
 
   // ── Inicialización: usuario, retomar procesamiento a medias, limpiar drafts viejos ──
   useEffect(() => {
@@ -67,13 +93,7 @@ export default function BurstCapture() {
       setQueueCount(pending.filter((i) => i.status !== "confirmed").length);
 
       // Sigue procesando lo que haya quedado pendiente de una sesión anterior.
-      processPendingForUser(supabase, user.id, {
-        onItemChange: () => refreshQueueCount(),
-        onBudgetExceeded: (resetInMinutes) =>
-          setBudgetWarning(
-            `Llegaste al límite de análisis de esta hora. El resto se procesará en ~${resetInMinutes} min.`
-          ),
-      }).catch(() => {});
+      runQueue(user.id);
     })();
     return () => {
       active = false;
@@ -134,13 +154,7 @@ export default function BurstCapture() {
       setQueueCount((n) => n + 1);
 
       // Fire and forget: procesa en background mientras el usuario sigue.
-      processPendingForUser(supabase, userId, {
-        onItemChange: () => refreshQueueCount(),
-        onBudgetExceeded: (resetInMinutes) =>
-          setBudgetWarning(
-            `Llegaste al límite de análisis de esta hora. El resto se procesará en ~${resetInMinutes} min.`
-          ),
-      }).catch(() => {});
+      runQueue(userId);
 
       // Intento de reabrir la cámara sin que el usuario tenga que tocar de
       // nuevo el botón. Algunos navegadores (sobre todo iOS Safari) bloquean
