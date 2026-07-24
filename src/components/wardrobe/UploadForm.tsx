@@ -229,6 +229,12 @@ export default function UploadForm() {
   // Motivo por el que Vision marcó la foto para reconstrucción con Gemini —
   // null = no hace falta. Se usa en handleSubmit para decidir el pipeline.
   const [reconstructionReason, setReconstructionReason] = useState<string | null>(null);
+  // Auditoría: valor crudo de `subcategoria` que devolvió Vision cuando NO
+  // matcheó contra SUBCATEGORIES (ver aiMapping.ts). El campo sigue siendo
+  // obligatorio acá — el usuario lo completa a mano si Vision falló — pero
+  // igual queremos saber que Vision se equivocó, para poder ampliar el
+  // diccionario de sinónimos con casos reales.
+  const [subcategoryAiRaw, setSubcategoryAiRaw] = useState<string | null>(null);
 
   // Eyedropper
   const [eyedropperActive, setEyedropperActive] = useState(false);
@@ -281,6 +287,7 @@ export default function UploadForm() {
     setAiConfidence(null);
     setAiDetectedLabel(null);
     setReconstructionReason(null);
+    setSubcategoryAiRaw(null);
     try {
       let forAI: File;
       try {
@@ -318,7 +325,12 @@ export default function UploadForm() {
         if (categoria && validCategories.includes(categoria as ClothingCategory)) {
           setCategory(categoria as ClothingCategory);
           const matchedSub = matchSubcategory(categoria, subcategoria ?? "");
-          if (matchedSub) setSubcategory(matchedSub);
+          if (matchedSub) {
+            setSubcategory(matchedSub);
+            setSubcategoryAiRaw(null);
+          } else if (subcategoria?.trim()) {
+            setSubcategoryAiRaw(subcategoria.trim());
+          }
         }
 
         if (color_principal || color_hex) {
@@ -372,6 +384,7 @@ export default function UploadForm() {
     setOccasions([]);
     setAiAnalyzed(false);
     setReconstructionReason(null);
+    setSubcategoryAiRaw(null);
     setEyedropperActive(false);
 
     // Paso 1: redimensionar a máx 1200px ANTES de cualquier otra operación.
@@ -413,6 +426,7 @@ export default function UploadForm() {
     setAiAnalyzed(false);
     setAiConfidence(null);
     setAiDetectedLabel(null);
+    setSubcategoryAiRaw(null);
     setEyedropperActive(false);
     if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
@@ -632,6 +646,7 @@ export default function UploadForm() {
           reconstructed,
           reconstruction_reason: reconstructionReason,
           background_removed: backgroundRemoved,
+          subcategory_ai_raw: subcategoryAiRaw,
         });
 
       if (insertError) {

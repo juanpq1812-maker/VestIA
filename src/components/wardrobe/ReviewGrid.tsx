@@ -53,8 +53,14 @@ function editsFromItem(item: BurstClothingItem): Edits {
   };
 }
 
+// Subcategoría NO es obligatoria: es un campo autocompletado por Vision que
+// puede fallar en silencio (colombianismos que no matchean el enum — ver
+// aiMapping.ts). Exigirlo acá convertía un fallo de autocompletado en una
+// prenda que nunca se guarda. La generación de outfits ya cae a `category`
+// cuando `subcategory` es null (generateOutfits.ts / outfits/actions.ts), así
+// que no perder nada funcional al hacerlo opcional.
 function isComplete(e: Edits): boolean {
-  return Boolean(e.category && e.subcategory && e.color && e.occasions.length > 0);
+  return Boolean(e.category && e.color && e.occasions.length > 0);
 }
 
 const PENDING_STATUSES = new Set(["draft", "processing"]);
@@ -66,6 +72,21 @@ const SLOW_PROCESSING_MS = 25_000;
 
 function msSince(iso: string): number {
   return Date.now() - new Date(iso).getTime();
+}
+
+/** Etiqueta legible para nombrar una prenda en el error de "Guardar todo" — nunca se persiste, solo para el mensaje. */
+function labelForItem(item: BurstClothingItem, e: Edits): string {
+  if (item.name?.trim()) return item.name.trim();
+  const catLabel = CLOTHING_CATEGORIES.find((c) => c.value === e.category)?.label;
+  return [catLabel, e.color].filter(Boolean).join(" ") || "Prenda sin categoría";
+}
+
+function missingFields(e: Edits): string[] {
+  const missing: string[] = [];
+  if (!e.category) missing.push("categoría");
+  if (!e.color) missing.push("color");
+  if (e.occasions.length === 0) missing.push("ocasión");
+  return missing;
 }
 
 export default function ReviewGrid({ userId }: Props) {
@@ -81,6 +102,11 @@ export default function ReviewGrid({ userId }: Props) {
   const [existingItems, setExistingItems] = useState<ExistingItem[]>([]);
   const [dismissedDuplicates, setDismissedDuplicates] = useState<Set<string>>(new Set());
   const [showingOriginal, setShowingOriginal] = useState<Set<string>>(new Set());
+  // Tarjetas marcadas como incompletas en el último intento de "Guardar
+  // todo" — se resaltan con borde de error hasta que el usuario las
+  // complete (el chequeo es reactivo: en cuanto isComplete vuelve a dar
+  // true para ese item, el resaltado desaparece solo, sin tocar este set).
+  const [invalidIds, setInvalidIds] = useState<Set<string>>(new Set());
   // Guard de re-entrancia para "Guardar todo" — mismo patrón que UploadForm:
   // se lee/escribe de forma síncrona para descartar un doble clic/tap antes
   // de que arranque un segundo batch de updates.
@@ -199,9 +225,27 @@ export default function ReviewGrid({ userId }: Props) {
     if (savingRef.current) return;
 
     setGeneralError(null);
-    const validos = readyItems.filter((i) => isComplete(edits[i.id] ?? editsFromItem(i)));
-    if (validos.length === 0) {
-      setGeneralError("Completa categoría, subcategoría, color y ocasión de al menos una prenda lista.");
+    setInvalidIds(new Set());
+
+    // No guardar parcial: si algo en 'ready' está incompleto, se bloquea el
+    // guardado ENTERO (ni siquiera las completas se guardan) — antes acá se
+    // filtraban las incompletas en silencio y el usuario perdía una prenda
+    // que ya costó una llamada real a Gemini sin enterarse. Señalamos
+    // exactamente cuáles faltan y qué les falta, resaltamos las tarjetas y
+    // hacemos scroll a la primera.
+    const incompletos = readyItems.filter((i) => !isComplete(edits[i.id] ?? editsFromItem(i)));
+    if (incompletos.length > 0) {
+      const detalle = incompletos
+        .map((i) => {
+          const e = edits[i.id] ?? editsFromItem(i);
+          return `${labelForItem(i, e)} (falta ${missingFields(e).join(", ")})`;
+        })
+        .join("; ");
+      setGeneralError(`Completa estos campos antes de guardar — ${detalle}.`);
+      setInvalidIds(new Set(incompletos.map((i) => i.id)));
+      document
+        .getElementById(`review-item-${incompletos[0].id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
 
@@ -209,14 +253,14 @@ export default function ReviewGrid({ userId }: Props) {
     setSaving(true);
     try {
       const results = await Promise.all(
-        validos.map(async (item) => {
+        readyItems.map(async (item) => {
           const e = edits[item.id] ?? editsFromItem(item);
           const { error } = await supabase
             .from("clothing_items")
             .update({
               status: CONFIRMED_STATUS,
               category: e.category,
-              subcategory: e.subcategory,
+              subcategory: e.subcategory || null,
               primary_color: e.color,
               occasions: e.occasions,
             })
@@ -341,9 +385,15 @@ export default function ReviewGrid({ userId }: Props) {
               ? findDuplicate(e)
               : null;
           const duplicateUrl = duplicate?.image_path ? imageUrls.get(duplicate.image_path) : undefined;
+          const invalid = invalidIds.has(item.id) && !isComplete(e);
 
           return (
-            <Card key={item.id} padding="sm">
+            <Card
+              key={item.id}
+              id={`review-item-${item.id}`}
+              padding="sm"
+              className={invalid ? "border-danger ring-2 ring-danger/40" : undefined}
+            >
               <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-surface-2">
                 {url ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -435,8 +485,13 @@ export default function ReviewGrid({ userId }: Props) {
               </div>
 
               {!isComplete(e) ? (
-                <p className="mt-2 text-xs text-text-faint">
-                  Completa categoría, subcategoría, color y ocasión.
+                <p
+                  className={[
+                    "mt-2 text-xs",
+                    invalid ? "font-medium text-danger" : "text-text-faint",
+                  ].join(" ")}
+                >
+                  Falta {missingFields(e).join(", ")}.
                 </p>
               ) : null}
 

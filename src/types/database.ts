@@ -159,6 +159,8 @@ export type ClothingItem = {
   reconstruction_reason: string | null;
   /** false = Gemini falló del todo y se guardó la foto original sin remover el fondo (reprocesable con "Mejora esta foto"). */
   background_removed: boolean;
+  /** Valor crudo de `subcategoria` que devolvió Vision cuando NO matcheó contra SUBCATEGORIES. Auditoría — null si matcheó bien o no hubo análisis. */
+  subcategory_ai_raw: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -188,6 +190,7 @@ export type ClothingItemInsert = {
   reconstructed?: boolean;
   reconstruction_reason?: string | null;
   background_removed?: boolean;
+  subcategory_ai_raw?: string | null;
   created_at?: string;
   updated_at?: string;
 };

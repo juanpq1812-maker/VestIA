@@ -34,6 +34,8 @@ async function enqueueDetectedOutfitGarment(
   if (!crop) return false;
 
   const subcategory = matchSubcategory(garment.categoria, garment.subcategoria) || null;
+  const subcategoryAiRaw =
+    !subcategory && garment.subcategoria?.trim() ? garment.subcategoria.trim() : null;
   const color = matchColorToPalette(garment.color_principal, garment.color_hex) || null;
   const occasions = mapFormalityToOccasions(garment.formalidad);
 
@@ -41,6 +43,7 @@ async function enqueueDetectedOutfitGarment(
     source: "outfit_extraction",
     category: garment.categoria,
     subcategory,
+    subcategory_ai_raw: subcategoryAiRaw,
     primary_color: color,
     occasions,
     // La decisión de reconstrucción ya se tomó en la detección grupal (1 sola

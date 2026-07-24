@@ -66,16 +66,48 @@ export function matchColorToPalette(colorName: string, colorHex: string): string
   return "";
 }
 
+// Colombianismos frecuentes que Vision devuelve y que no matchean por texto
+// contra SUBCATEGORIES (ni exacto ni substring) — confirmados en producción
+// ("buzo", "saco" categorizados como `top`, ver subcategory_ai_raw). Se
+// resuelven ANTES del match exacto/substring, uno por categoría porque el
+// mismo colombianismo puede significar cosas distintas según la prenda (ej.
+// "saco" en `top` es un suéter tejido; en `outerwear` ya matchea exacto
+// contra "Saco" sin necesitar sinónimo).
+const SUBCATEGORY_SYNONYMS: Partial<Record<ClothingCategory, Record<string, string>>> = {
+  top: {
+    buzo: "Suéter",
+    saco: "Suéter",
+    pulover: "Suéter", // normStr ya le quita el acento a "pulóver"
+    sudadera: "Hoodie",
+  },
+};
+
 export function matchSubcategory(category: string, aiSubcat: string): string {
   const opts = SUBCATEGORIES[category as ClothingCategory] ?? [];
   const n = normStr(aiSubcat);
+
+  const synonym = SUBCATEGORY_SYNONYMS[category as ClothingCategory]?.[n];
+  if (synonym && opts.includes(synonym)) return synonym;
+
   const exact = opts.find((o) => normStr(o) === n);
   if (exact) return exact;
   const partial = opts.find((o) => {
     const on = normStr(o);
     return n.includes(on) || on.includes(n);
   });
-  return partial ?? "";
+  if (partial) return partial;
+
+  // Nunca queda rastro de esto en ningún otro lado — el caller es quien
+  // tiene acceso a la fila de DB, así que este console.error es defensa
+  // best-effort para desarrollo local; la persistencia real de `aiSubcat`
+  // pasa por `subcategory_ai_raw` en cada call site (ver UploadForm.tsx,
+  // burstQueue.ts, outfitExtraction.ts).
+  if (aiSubcat.trim()) {
+    console.error(
+      `[aiMapping] subcategoria sin match — categoria="${category}" valor crudo de Vision="${aiSubcat}"`
+    );
+  }
+  return "";
 }
 
 export function mapAiOccasions(aiOccasions: string[]): string[] {
