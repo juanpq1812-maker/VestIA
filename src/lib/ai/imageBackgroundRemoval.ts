@@ -39,7 +39,6 @@
 // función declaran `maxDuration = 60`.
 
 import sharp from "sharp";
-import { removeBackground } from "@imgly/background-removal-node";
 
 const WHITE_THRESHOLD = 235; // por debajo de esto (más lejos de blanco): opaco
 const WHITE_FEATHER = 250; // entre threshold y feather: alpha gradual (bordes suaves)
@@ -85,6 +84,16 @@ async function removeBackgroundWithImgly(
   if (!IMGLY_MODEL_PUBLIC_PATH) return null;
 
   try {
+    // import() dinámico, NO estático a nivel de módulo: @imgly carga
+    // onnxruntime-node (su dependencia nativa) al evaluarse, y si ese
+    // require nativo falla (binario faltante, arquitectura equivocada), el
+    // fallo ocurre en tiempo de import — ANTES de que corra este try/catch.
+    // Con import estático eso tumbaba la request entera con 500 en vez de
+    // caer al fallback de threshold de color. Con import dinámico dentro
+    // del try, un fallo de carga del nativo se captura acá igual que un
+    // fallo de removeBackground().
+    const { removeBackground } = await import("@imgly/background-removal-node");
+
     // @imgly internamente envuelve un Buffer/Uint8Array crudo en
     // `new Blob([image])` SIN mimeType — con `blob.type === ""` su decoder
     // interno no matchea ningún formato y tira "Unsupported format: "
