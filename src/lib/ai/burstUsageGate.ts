@@ -1,16 +1,29 @@
 // Rate limiter de IA para el modo rafaga de subida de prendas.
 //
-// Límite: 40 llamadas de generación/edición de imagen con Gemini por usuario
-// por hora (detección de outfit, reconstrucción, remoción de fondo — un
-// crédito por cada una). Aplica a: el procesamiento en background de la cola
-// de fotos en src/lib/wardrobe/burstQueue.ts.
+// Límite: 40 créditos por usuario por hora, UNO por cada llamada a:
+//   - detectOutfitItemsAction (Claude Vision — 1 crédito por FOTO de outfit
+//     completo, sin importar cuántas prendas detecte)
+//   - reconstructGarmentImageAction (Gemini — 1 crédito por prenda)
+//   - removeBackgroundWithGemini (Gemini — 1 crédito por prenda)
+// Aplica a: el procesamiento en background de la cola de fotos en
+// src/lib/wardrobe/burstQueue.ts, y a la detección grupal en
+// outfitDetectionActions.ts.
 // Independiente de ai_uses/ai_uses_window_start (usageGate.ts), que gatean
 // generateOutfitsAction y analyzeInspirationPhotoAction — la rafaga tiene su
 // propio pool para no dejar sin cupo esas funciones.
 //
-// El análisis de Vision (Claude) NO consume de este pool — solo las llamadas
-// a Gemini. El gate previo en burstQueue.ts es un `peek` (no consume): cada
-// prenda cuesta exactamente 1 crédito, el de su llamada a Gemini.
+// OJO — esto es DISTINTO del análisis de Vision por prenda individual
+// (analyzeClothingImageAction, ráfaga/individual): ESE no consume de este
+// pool ni de ningún otro, es ilimitado. Pero detectOutfitItemsAction (Vision
+// también, pero para la foto de outfit completo) SÍ consume de este pool —
+// es fácil confundirlos porque los dos son llamadas a Claude Vision. Una
+// sola foto de outfit con 4 prendas gasta 1 (detección) + 4 (Gemini por
+// prenda) = 5 créditos de este pool, el doble de rápido que ráfaga foto por
+// foto — tenerlo en cuenta al pensar en el 40/hora como presupuesto.
+//
+// El gate previo en burstQueue.ts (peekBurstBudgetAction) es un `peek` (no
+// consume): cada prenda cuesta exactamente 1 crédito, el de su llamada a
+// Gemini — el consumo real pasa server-side en checkAndConsumeBurstUse.
 //
 // 40/hora en vez de 30: desde que Remove.bg se dio de baja, TODA prenda pasa
 // por Gemini (antes las fotos "buenas" salían gratis), así que subimos el
