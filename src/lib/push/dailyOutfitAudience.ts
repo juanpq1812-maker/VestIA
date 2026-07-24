@@ -7,14 +7,19 @@
 // calendario Bogota) no generó ningun outfit (pet_activity_log,
 // action_type='outfit_generated' — ver razonamiento en el PR: es la señal
 // real de "abrió la app y usó la IA", a diferencia de `outfits`, que solo
-// refleja outfits GUARDADOS) y que todavia no fue notificado hoy
-// (push_notifications_log). Este ultimo chequeo es un pre-filtro para no
-// desperdiciar envios — la barrera real contra doble-envio es la constraint
-// UNIQUE + el insert-claim que hace el route antes de enviar.
+// refleja outfits GUARDADOS), que todavia no fue notificado hoy POR NINGUN
+// TIPO (Fase 2 — cupo diario compartido, ver notifiedToday.ts) y que tiene
+// prendida la preferencia `recordatorio_diario`.
+//
+// El chequeo de "ya notificado hoy" es un pre-filtro para no desperdiciar
+// envios — la barrera real contra doble-envio del MISMO tipo es la
+// constraint UNIQUE + el insert-claim que hace el route antes de enviar.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PushSubscriptionRecord } from "./types";
 import { todayBogotaRangeUtc } from "./colombiaTime";
+import { getUsersNotifiedToday } from "./notifiedToday";
+import { getPushPreferencesMap, prefFor } from "./preferences";
 
 export type DailyOutfitCandidate = {
   userId: string;
@@ -28,7 +33,7 @@ export async function getDailyOutfitAudience(
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
 
-  const [subsRes, generatedRes, notifiedRes] = await Promise.all([
+  const [subsRes, generatedRes, yaNotificados] = await Promise.all([
     supabaseAdmin
       .from("push_subscriptions")
       .select("id, user_id, endpoint, p256dh, auth")
@@ -39,27 +44,25 @@ export async function getDailyOutfitAudience(
       .eq("action_type", "outfit_generated")
       .gte("created_at", startIso)
       .lt("created_at", endIso),
-    supabaseAdmin
-      .from("push_notifications_log")
-      .select("user_id")
-      .eq("tipo", "daily_outfit")
-      .gte("enviado_at", startIso)
-      .lt("enviado_at", endIso),
+    getUsersNotifiedToday(supabaseAdmin),
   ]);
 
   if (subsRes.error) throw subsRes.error;
   if (generatedRes.error) throw generatedRes.error;
-  if (notifiedRes.error) throw notifiedRes.error;
 
-  const excluidos = new Set<string>([
-    ...(generatedRes.data ?? []).map((r) => r.user_id as string),
-    ...(notifiedRes.data ?? []).map((r) => r.user_id as string),
-  ]);
+  const generaronHoy = new Set(
+    (generatedRes.data ?? []).map((r) => r.user_id as string)
+  );
+
+  const userIds = [...new Set((subsRes.data ?? []).map((s) => s.user_id as string))];
+  const prefs = await getPushPreferencesMap(supabaseAdmin, userIds);
 
   const porUsuario = new Map<string, PushSubscriptionRecord[]>();
   for (const sub of subsRes.data ?? []) {
     const userId = sub.user_id as string;
-    if (excluidos.has(userId)) continue;
+    if (generaronHoy.has(userId)) continue;
+    if (yaNotificados.has(userId)) continue;
+    if (!prefFor(prefs, userId, "recordatorio_diario")) continue;
     const lista = porUsuario.get(userId) ?? [];
     lista.push({ id: sub.id, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth });
     porUsuario.set(userId, lista);

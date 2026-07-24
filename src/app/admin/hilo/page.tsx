@@ -37,7 +37,7 @@ export default async function AdminHiloPage() {
 
   const { data: posts } = await supabase
     .from("editorial_posts")
-    .select("id, title, category, status, brand_name, created_at, published_at")
+    .select("id, title, category, status, brand_name, created_at, published_at, notificado_at")
     .order("created_at", { ascending: false });
 
   return (
@@ -108,6 +108,7 @@ export default async function AdminHiloPage() {
                     <EditorialPostRowActions
                       postId={p.id}
                       status={p.status as "draft" | "published"}
+                      notificadoAt={p.notificado_at}
                     />
                   </li>
                 ))}
