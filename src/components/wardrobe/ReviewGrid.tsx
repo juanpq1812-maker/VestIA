@@ -184,12 +184,29 @@ export default function ReviewGrid({ userId }: Props) {
   }, [supabase, userId]);
 
   // Sondeo mientras haya algo en draft/processing (no hay realtime en el proyecto).
+  // Cada tick también corre resumeStuckProcessing: si no, un item que se
+  // traba en 'processing' DESPUÉS del mount (ej. la pestaña que lo reclamó
+  // muere a mitad de Gemini) queda huérfano para siempre — nadie vuelve a
+  // liberarlo hasta que el usuario recarga la página. Reintentar el rescate
+  // en cada tick es barato (UPDATE condicionado, normalmente afecta 0 filas).
   const hasPending = items.some((i) => PENDING_STATUSES.has(i.status));
   useEffect(() => {
     if (!hasPending) return;
-    const id = setInterval(refresh, 2500);
+    const tick = async () => {
+      await resumeStuckProcessing(supabase, userId);
+      await refresh();
+      if (!processingRef.current) {
+        processingRef.current = true;
+        processPendingForUser(supabase, userId, { onItemChange: () => refresh() })
+          .catch(() => {})
+          .finally(() => {
+            processingRef.current = false;
+          });
+      }
+    };
+    const id = setInterval(tick, 2500);
     return () => clearInterval(id);
-  }, [hasPending, refresh]);
+  }, [hasPending, refresh, supabase, userId]);
 
   const readyItems = useMemo(() => items.filter((i) => i.status === "ready"), [items]);
   const errorItems = useMemo(() => items.filter((i) => i.status === "error"), [items]);

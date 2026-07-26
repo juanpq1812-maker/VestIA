@@ -38,8 +38,33 @@ import { base64ToBlob } from "@/lib/wardrobe/imageUtils";
 import type { BurstClothingItem, ClothingCategory } from "@/types/database";
 
 const MAX_RETRIES = 1;
+// Los errores de red (conexión cortada a mitad de una llamada — típico en
+// captura en ráfaga desde el celular, moviéndose o cambiando de wifi a
+// datos) son transitorios por naturaleza: vale la pena darles una chance más
+// que a un error real del pipeline (ej. Vision/Gemini rechazando la imagen).
+const MAX_RETRIES_NETWORK = 2;
 const DEFAULT_CONCURRENCY = 2;
 const STALE_DRAFT_DAYS = 7;
+
+// Mensajes crudos que distintos navegadores tiran cuando un `fetch` se corta
+// a mitad de camino por la red (WebKit: "Load failed", Chrome: "Failed to
+// fetch", Firefox: "NetworkError..."). Sin esto, el usuario ve el string
+// interno del browser tal cual en la UI.
+const NETWORK_ERROR_PATTERNS = [
+  /load failed/i,
+  /failed to fetch/i,
+  /networkerror/i,
+  /network error/i,
+  /network request failed/i,
+  /the network connection was lost/i,
+];
+
+function isNetworkError(message: string): boolean {
+  return NETWORK_ERROR_PATTERNS.some((re) => re.test(message));
+}
+
+const NETWORK_ERROR_MESSAGE =
+  "No pudimos completar la subida por un problema de conexión. Revisá tu señal y volvé a intentar.";
 
 const VALID_CATEGORIES: ClothingCategory[] = [
   "top",
@@ -373,8 +398,11 @@ async function processOne(
     return "ok";
   } catch (err) {
     console.error("[burstQueue] error procesando item", item.id, err);
+    const rawMessage = err instanceof Error ? err.message : "Error desconocido";
+    const network = isNetworkError(rawMessage);
     const retryCount = item.retry_count + 1;
-    if (retryCount <= MAX_RETRIES) {
+    const maxRetries = network ? MAX_RETRIES_NETWORK : MAX_RETRIES;
+    if (retryCount <= maxRetries) {
       const requeued = await updateItem(supabase, item.id, {
         status: "draft",
         retry_count: retryCount,
@@ -384,7 +412,7 @@ async function processOne(
       const failed = await updateItem(supabase, item.id, {
         status: "error",
         retry_count: retryCount,
-        error_message: err instanceof Error ? err.message : "Error desconocido",
+        error_message: network ? NETWORK_ERROR_MESSAGE : rawMessage,
       });
       if (failed) callbacks.onItemChange?.(failed);
     }
