@@ -54,14 +54,16 @@ function editsFromItem(item: BurstClothingItem): Edits {
   };
 }
 
-// Subcategoría NO es obligatoria: es un campo autocompletado por Vision que
-// puede fallar en silencio (colombianismos que no matchean el enum — ver
-// aiMapping.ts). Exigirlo acá convertía un fallo de autocompletado en una
-// prenda que nunca se guarda. La generación de outfits ya cae a `category`
-// cuando `subcategory` es null (generateOutfits.ts / outfits/actions.ts), así
-// que no perder nada funcional al hacerlo opcional.
+// Subcategoría obligatoria — mismo criterio que UploadForm.tsx (individual)
+// y EditItemForm.tsx (editar prenda). Antes era opcional acá porque Vision
+// puede fallar en autocompletarla (ver matchSubcategory en aiMapping.ts) y
+// eso dejaba prendas guardadas con subcategory=null ("Sin cat." en el
+// armario) — decisión consciente: gana la regla estricta, consistente en los
+// tres flujos de subida. Para que esto sea usable en ráfaga (muchas prendas,
+// no una a la vez), aiMapping.ts tiene sinónimos/reglas por palabra clave
+// que reducen cuántas veces Vision falla el auto-match en primer lugar.
 function isComplete(e: Edits): boolean {
-  return Boolean(e.category && e.color && e.occasions.length > 0);
+  return Boolean(e.category && e.subcategory && e.color && e.occasions.length > 0);
 }
 
 const PENDING_STATUSES = new Set(["draft", "processing"]);
@@ -85,6 +87,7 @@ function labelForItem(item: BurstClothingItem, e: Edits): string {
 function missingFields(e: Edits): string[] {
   const missing: string[] = [];
   if (!e.category) missing.push("categoría");
+  if (!e.subcategory) missing.push("subcategoría");
   if (!e.color) missing.push("color");
   if (e.occasions.length === 0) missing.push("ocasión");
   return missing;

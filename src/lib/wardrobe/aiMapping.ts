@@ -66,9 +66,12 @@ export function matchColorToPalette(colorName: string, colorHex: string): string
   return "";
 }
 
-// Colombianismos frecuentes que Vision devuelve y que no matchean por texto
-// contra SUBCATEGORIES (ni exacto ni substring) — confirmados en producción
-// ("buzo", "saco" categorizados como `top`, ver subcategory_ai_raw). Se
+// Colombianismos que Vision puede devolver y que no matchean por texto
+// contra SUBCATEGORIES (ni exacto ni substring) — reportados en el bug
+// original (foto de un "buzo blanco" y un "saco negro" que quedaron sin
+// subcategoría), pero OJO: son hipótesis, no confirmados con datos reales de
+// `subcategory_ai_raw` (esa columna se agregó después de esos casos, nunca
+// quedó registrado el string exacto que devolvió Vision para ellos). Se
 // resuelven ANTES del match exacto/substring, uno por categoría porque el
 // mismo colombianismo puede significar cosas distintas según la prenda (ej.
 // "saco" en `top` es un suéter tejido; en `outerwear` ya matchea exacto
@@ -82,12 +85,31 @@ const SUBCATEGORY_SYNONYMS: Partial<Record<ClothingCategory, Record<string, stri
   },
 };
 
+// Reglas por palabra clave (substring, no string exacto) — para cuando
+// Vision devuelve una frase descriptiva distinta cada vez pero que casi
+// siempre incluye una palabra reconocible. A diferencia de
+// SUBCATEGORY_SYNONYMS, esto SÍ está confirmado con datos reales de
+// `subcategory_ai_raw`: las 3 menciones de "zapatilla" vistas en producción
+// (footwear) las corrigió el usuario a mano a "Tenis" las 3 veces. No se
+// agregó una regla equivalente para `top` — ahí Vision genera frases ad-hoc
+// ("crop top sin mangas", "top fruncido con volantes", "corset"...) que no
+// comparten una palabra clave estable, y el criterio humano al corregirlas
+// fue inconsistente entre sí — cualquier regla ahí sería adivinar, no datos.
+const SUBCATEGORY_KEYWORD_RULES: Partial<Record<ClothingCategory, Array<{ keyword: string; result: string }>>> = {
+  footwear: [{ keyword: "zapatilla", result: "Tenis" }],
+};
+
 export function matchSubcategory(category: string, aiSubcat: string): string {
   const opts = SUBCATEGORIES[category as ClothingCategory] ?? [];
   const n = normStr(aiSubcat);
 
   const synonym = SUBCATEGORY_SYNONYMS[category as ClothingCategory]?.[n];
   if (synonym && opts.includes(synonym)) return synonym;
+
+  const keywordRule = SUBCATEGORY_KEYWORD_RULES[category as ClothingCategory]?.find((r) =>
+    n.includes(normStr(r.keyword))
+  );
+  if (keywordRule && opts.includes(keywordRule.result)) return keywordRule.result;
 
   const exact = opts.find((o) => normStr(o) === n);
   if (exact) return exact;
