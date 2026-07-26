@@ -12,6 +12,7 @@ import Card from "@/components/ui/Card";
 import Chip from "@/components/onboarding/Chip";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import { CONFIRMED_STATUS, COLOR_PALETTE, ITEM_OCCASIONS, SUBCATEGORIES } from "@/lib/wardrobe/constants";
 import { recordPetAction } from "@/lib/pet/actions";
 import {
@@ -92,6 +93,7 @@ function missingFields(e: Edits): string[] {
 export default function ReviewGrid({ userId }: Props) {
   const router = useRouter();
   const [supabase] = useState(() => createSupabaseBrowserClient());
+  const online = useOnlineStatus();
 
   const [items, setItems] = useState<BurstClothingItem[]>([]);
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
@@ -193,6 +195,10 @@ export default function ReviewGrid({ userId }: Props) {
   useEffect(() => {
     if (!hasPending) return;
     const tick = async () => {
+      // Offline: no tiene sentido pegarle a Supabase/Vision/Gemini, solo
+      // quemaríamos reintentos contra una conexión que sabemos caída. Se
+      // retoma solo en el próximo tick (2.5s) una vez que vuelva la señal.
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
       await resumeStuckProcessing(supabase, userId);
       await refresh();
       if (!processingRef.current) {
@@ -329,6 +335,18 @@ export default function ReviewGrid({ userId }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {!online ? (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-md bg-warning-light px-4 py-3 text-sm font-medium text-warning motion-safe:animate-[fadeInUp_180ms_ease-out]"
+        >
+          <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
+            wifi_off
+          </span>
+          Sin conexión — el análisis de tus fotos está en pausa hasta que vuelva la señal.
+        </div>
+      ) : null}
+
       {pendingItems.length > 0 ? (
         <div
           role="status"

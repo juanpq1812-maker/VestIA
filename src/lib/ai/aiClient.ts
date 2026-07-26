@@ -27,6 +27,40 @@ function getAnthropicApiKey(): string {
   return key;
 }
 
+// Mismo patrón que geminiClient.ts: sin esto, si Anthropic se cuelga o
+// degrada por rate-limit propio, el fetch queda esperando hasta que Vercel
+// mate la función serverless a los 60s (maxDuration de las rutas que llaman
+// acá) — y el navegador ve eso como una falla cruda de red ("Load failed"/
+// "Failed to fetch") en vez de un error claro. Timeout corto y propio evita
+// llegar a ese límite.
+const TIMEOUT_MS = 25_000;
+
+async function fetchAnthropic(body: unknown): Promise<Response> {
+  const apiKey = getAnthropicApiKey();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  try {
+    return await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error(`Anthropic tardó más de ${TIMEOUT_MS / 1000}s en responder.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 type AnthropicContentBlock = { type: string; text: string };
 
 type AnthropicApiResponse = {
@@ -51,23 +85,12 @@ export async function callAnthropicApi(args: {
   maxTokens?: number;
   temperature?: number;
 }): Promise<string> {
-  const apiKey = getAnthropicApiKey();
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: getAiModelName(),
-      max_tokens: args.maxTokens ?? 1024,
-      system: args.systemPrompt,
-      messages: [{ role: "user", content: args.userPrompt }],
-      ...(args.temperature !== undefined ? { temperature: args.temperature } : {}),
-    }),
+  const response = await fetchAnthropic({
+    model: getAiModelName(),
+    max_tokens: args.maxTokens ?? 1024,
+    system: args.systemPrompt,
+    messages: [{ role: "user", content: args.userPrompt }],
+    ...(args.temperature !== undefined ? { temperature: args.temperature } : {}),
   });
 
   if (!response.ok) {
@@ -109,23 +132,12 @@ export async function callAnthropicChatApi(args: {
   maxTokens?: number;
   temperature?: number;
 }): Promise<string> {
-  const apiKey = getAnthropicApiKey();
-
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: getAiModelName(),
-      max_tokens: args.maxTokens ?? 1024,
-      system: args.systemPrompt,
-      messages: args.messages,
-      ...(args.temperature !== undefined ? { temperature: args.temperature } : {}),
-    }),
+  const response = await fetchAnthropic({
+    model: getAiModelName(),
+    max_tokens: args.maxTokens ?? 1024,
+    system: args.systemPrompt,
+    messages: args.messages,
+    ...(args.temperature !== undefined ? { temperature: args.temperature } : {}),
   });
 
   if (!response.ok) {
@@ -162,36 +174,25 @@ export async function callAnthropicVisionApi(args: {
   imageMimeType: string;
   maxTokens?: number;
 }): Promise<string> {
-  const apiKey = getAnthropicApiKey();
-
   const imageSource: AnthropicImageSource = {
     type: "base64",
     media_type: args.imageMimeType,
     data: args.imageBase64,
   };
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    cache: "no-store",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: getAiModelName(),
-      max_tokens: args.maxTokens ?? 512,
-      system: args.systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "image", source: imageSource },
-            { type: "text", text: args.userText },
-          ],
-        },
-      ],
-    }),
+  const response = await fetchAnthropic({
+    model: getAiModelName(),
+    max_tokens: args.maxTokens ?? 512,
+    system: args.systemPrompt,
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: imageSource },
+          { type: "text", text: args.userText },
+        ],
+      },
+    ],
   });
 
   if (!response.ok) {

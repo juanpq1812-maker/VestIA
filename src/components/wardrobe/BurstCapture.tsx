@@ -14,6 +14,7 @@ import CameraTipsModal from "@/components/wardrobe/CameraTipsModal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import { downscaleToMaxPx, CAMERA_DOWNSCALE_MAX_PX } from "@/lib/wardrobe/imageUtils";
 import { ALLOWED_MIME_TYPES } from "@/lib/wardrobe/constants";
+import { useOnlineStatus } from "@/lib/useOnlineStatus";
 import { peekBurstBudgetAction } from "@/app/wardrobe/upload/burstActions";
 import {
   cleanupStaleDrafts,
@@ -43,6 +44,7 @@ export default function BurstCapture() {
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   const [supabase] = useState(() => createSupabaseBrowserClient());
+  const online = useOnlineStatus();
   // Defensa en profundidad, NO el fix: el candado real es el claim atómico
   // en burstQueue.ts (UPDATE ... WHERE status='draft'). Esto solo evita
   // lanzar una pasada completa de `processPendingForUser` si ya hay una en
@@ -60,6 +62,10 @@ export default function BurstCapture() {
   const runQueue = useCallback(
     (uid: string) => {
       if (processingRef.current) return;
+      // Offline: no arrancamos el pipeline solo para que queme el reintento
+      // contra una conexión caída. Se retoma cuando ReviewGrid haga polling
+      // (o esta misma pantalla vuelva a llamar runQueue) con conexión de vuelta.
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
       processingRef.current = true;
       processPendingForUser(supabase, uid, {
         onItemChange: () => refreshQueueCount(),
@@ -100,6 +106,14 @@ export default function BurstCapture() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
+
+  // Retoma la cola apenas vuelve la señal — esta pantalla no tiene polling
+  // propio (a diferencia de ReviewGrid), así que sin esto un draft que quedó
+  // pendiente por caída de red no se procesa hasta la próxima foto o hasta
+  // que el usuario pase a la revisión.
+  useEffect(() => {
+    if (online && userId) runQueue(userId);
+  }, [online, userId, runQueue]);
 
   function flyThumbToCounter(srcUrl: string) {
     const badgeEl = badgeRef.current;
@@ -197,6 +211,18 @@ export default function BurstCapture() {
           }}
           onClose={() => setShowCameraTips(false)}
         />
+      ) : null}
+
+      {!online ? (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-md bg-warning-light px-4 py-3 text-sm font-medium text-warning motion-safe:animate-[fadeInUp_180ms_ease-out]"
+        >
+          <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
+            wifi_off
+          </span>
+          Sin conexión — no vamos a poder guardar las fotos que tomes hasta que vuelva la señal.
+        </div>
       ) : null}
 
       {budgetWarning ? (
