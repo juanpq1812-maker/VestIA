@@ -12,9 +12,36 @@ import type { ClothingCategory } from "@/types/database";
 // columna `clothing_items.subcategory` (text), asi que es legible y en
 // espanol — el modelo de IA tambien lo va a leer asi.
 // ---------------------------------------------------------------------------
+// El orden de cada array es el orden en que se pintan los chips en el
+// formulario — de lo mas comun a lo menos comun. NO es el orden que usa el
+// match de la IA: `matchSubcategory` resuelve empates por opcion mas larga
+// (ver aiMapping.ts), justamente para poder mantener este orden pensado para
+// el usuario sin que "Falda" le gane a "Falda denim".
 export const SUBCATEGORIES: Record<ClothingCategory, readonly string[]> = {
-  top: ["Camisa", "Camiseta", "Blusa", "Suéter", "Hoodie", "Tank top"],
-  bottom: ["Jean", "Pantalón", "Short", "Falda", "Leggings"],
+  top: [
+    "Camiseta",
+    "Camisa",
+    "Blusa",
+    "Polo",
+    "Suéter",
+    "Hoodie",
+    "Tank top",
+    "Crop Top",
+    "Body",
+    "Corset",
+  ],
+  bottom: [
+    "Jean",
+    "Pantalón",
+    "Short",
+    "Falda",
+    "Leggings",
+    "Cargo",
+    "Jogger",
+    "Bermuda",
+    "Falda cargo",
+    "Falda denim",
+  ],
   dress: ["Vestido corto", "Vestido largo", "Enterizo"],
   outerwear: [
     "Chaqueta",
@@ -29,13 +56,31 @@ export const SUBCATEGORIES: Record<ClothingCategory, readonly string[]> = {
     "Cortavientos",
     "Gabardina",
   ],
-  footwear: ["Tenis", "Zapatos formales", "Sandalias", "Botas", "Tacones"],
-  accessory: ["Gorra", "Bolso", "Cinturón", "Bufanda", "Joyería", "Reloj"],
-  body: [
-    "Body manga larga",
-    "Body manga corta",
-    "Body sin mangas",
-    "Body escotado",
+  footwear: [
+    "Tenis",
+    "Zapatos formales",
+    "Sandalias",
+    "Botas",
+    "Tacones",
+    "Mocasines",
+    "Zuecos",
+    "Chanclas",
+  ],
+  accessory: [
+    "Gorra",
+    "Bolso",
+    "Cinturón",
+    "Bufanda",
+    "Reloj",
+    "Pañuelo",
+    "Sombrero",
+    "Gorro",
+    "Guantes",
+    "Gafas de sol",
+    "Collar",
+    "Pulsera",
+    "Aretes",
+    "Anillo",
   ],
 };
 

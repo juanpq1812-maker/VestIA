@@ -14,7 +14,6 @@ const VALID_CATEGORIES: readonly ClothingCategory[] = [
   "outerwear",
   "footwear",
   "accessory",
-  "body",
 ];
 
 export type DetectedOutfitGarment = {

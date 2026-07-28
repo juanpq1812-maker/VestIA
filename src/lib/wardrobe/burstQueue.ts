@@ -73,7 +73,6 @@ const VALID_CATEGORIES: ClothingCategory[] = [
   "outerwear",
   "footwear",
   "accessory",
-  "body",
 ];
 
 export type BurstQueueCallbacks = {

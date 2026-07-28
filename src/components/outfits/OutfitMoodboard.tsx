@@ -24,7 +24,6 @@ const ZONES: Record<ClothingCategory, Zone> = {
   outerwear: { w: 52, h: 46, top: 10, left: 3, z: 10, rot: -5 },
   top: { w: 50, h: 36, top: 8, left: 26, z: 20, rot: 3 },
   dress: { w: 54, h: 64, top: 10, left: 23, z: 20, rot: -2 },
-  body: { w: 48, h: 46, top: 10, left: 27, z: 20, rot: 2 },
   bottom: { w: 46, h: 38, top: 40, left: 30, z: 15, rot: -4 },
   footwear: { w: 34, h: 22, top: 73, left: 36, z: 30, rot: 6 },
   accessory: { w: 26, h: 22, top: 5, left: 64, z: 40, rot: -8 },
@@ -37,7 +36,6 @@ const CATEGORIA_LABELS: Record<ClothingCategory, string> = {
   outerwear: "Abrigo",
   footwear: "Calzado",
   accessory: "Accesorio",
-  body: "Body",
 };
 
 // Hash estable del id → jitter en [-span, span]. Determinista: mismo id, misma

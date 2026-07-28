@@ -214,7 +214,6 @@ function tituloDe(item: ClothingItem): string {
     outerwear: "Abrigo",
     footwear: "Calzado",
     accessory: "Accesorio",
-    body: "Body",
   };
   return item.name?.trim() || item.subcategory?.trim() || labels[item.category];
 }

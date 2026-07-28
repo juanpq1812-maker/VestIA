@@ -15,8 +15,7 @@ export type ClothingCategory =
   | "dress"
   | "outerwear"
   | "footwear"
-  | "accessory"
-  | "body";
+  | "accessory";
 
 // Etiquetas que ofrecemos en el onboarding (tarjetas visuales multi-select).
 // Orden = orden de aparicion en la UI (de mas a menos mainstream para el
@@ -550,5 +549,4 @@ export const CLOTHING_CATEGORIES: readonly {
   { value: "outerwear", label: "Abrigos" },
   { value: "footwear", label: "Calzado" },
   { value: "accessory", label: "Accesorios" },
-  { value: "body", label: "Body" },
 ] as const;

@@ -113,10 +113,33 @@ export function matchSubcategory(category: string, aiSubcat: string): string {
 
   const exact = opts.find((o) => normStr(o) === n);
   if (exact) return exact;
-  const partial = opts.find((o) => {
+
+  // Entre todas las opciones que matchean parcialmente gana la MAS LARGA, no
+  // la primera del array. Con subcategorias compuestas ("Falda denim",
+  // "Abrigo largo") un `find` normal devolvia siempre la generica, porque
+  // "Falda"/"Abrigo" aparecen antes en la lista: Vision decia "falda denim" y
+  // la prenda terminaba como "Falda". Asi el orden de SUBCATEGORIES sigue
+  // siendo el orden de los chips en el formulario, sin afectar al match.
+  //
+  // OJO — esto NO resuelve el caso inverso, cuando la generica es la cadena
+  // mas larga que la especifica: "pantalon cargo" sigue cayendo en "Pantalon"
+  // (8) y no en "Cargo" (5). Es el unico par conocido con ese problema —
+  // "short bermuda" si resuelve bien porque "Bermuda" (7) le gana a "Short"
+  // (5). No agrego una regla a SUBCATEGORY_KEYWORD_RULES para forzarlo
+  // porque no hay datos de `subcategory_ai_raw` que confirmen que Vision
+  // devuelve esa frase — mismo criterio que el resto del archivo: reglas con
+  // datos, no por intuicion.
+  let partial = "";
+  let partialLen = 0;
+  for (const o of opts) {
     const on = normStr(o);
-    return n.includes(on) || on.includes(n);
-  });
+    if (n.includes(on) || on.includes(n)) {
+      if (on.length > partialLen) {
+        partial = o;
+        partialLen = on.length;
+      }
+    }
+  }
   if (partial) return partial;
 
   // Nunca queda rastro de esto en ningún otro lado — el caller es quien
