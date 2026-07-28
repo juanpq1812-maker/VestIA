@@ -324,7 +324,7 @@ function buildPrompt(args: {
     `Reglas de composición (importantes):`,
     `- Cada outfit debe incluir entre 3 y 6 prendas en total.`,
     `- Base mínima obligatoria (siempre que existan en el armario): 1 prenda superior (top) + 1 prenda inferior (bottom), O bien 1 vestido/jumpsuit (dress); más 1 calzado (footwear).`,
-    `- Si el armario lo permite, enriquece el outfit con prendas opcionales: outerwear (chaqueta, abrigo, blazer), accesorios (bolso, cinturón, gafas, bufanda, joyería), gorra o sombrero (hat/cap).`,
+    `- Si el armario lo permite, enriquece el outfit con prendas opcionales: outerwear (chaqueta, abrigo, blazer), accesorios (bolso, cinturón, gafas de sol, bufanda, collar, pulsera, aretes, anillo), gorra o sombrero (hat/cap).`,
     `- Adapta la cantidad al armario real: si hay accesorios, gorras u outerwear disponibles y tienen sentido estético, úsalos. No fuerces prendas que no combinen.`,
     `- No repitas IDs dentro del mismo outfit.`,
     ...(count === 2

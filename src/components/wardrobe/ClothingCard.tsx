@@ -18,7 +18,6 @@ const CATEGORY_LABELS: Record<ClothingCategory, string> = {
   outerwear: "Abrigo",
   footwear: "Calzado",
   accessory: "Accesorio",
-  body: "Body",
 };
 
 type Props = {

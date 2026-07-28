@@ -320,7 +320,7 @@ export default function UploadForm() {
         } = result.data;
 
         const validCategories: ClothingCategory[] = [
-          "top", "bottom", "dress", "outerwear", "footwear", "accessory", "body",
+          "top", "bottom", "dress", "outerwear", "footwear", "accessory",
         ];
         if (categoria && validCategories.includes(categoria as ClothingCategory)) {
           setCategory(categoria as ClothingCategory);

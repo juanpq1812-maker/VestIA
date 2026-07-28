@@ -23,7 +23,7 @@ const DETECTION_PROMPT = `Analiza esta foto de un outfit completo (puede ser una
 {
   "prendas": [
     {
-      "categoria": "top|bottom|dress|outerwear|footwear|accessory|body",
+      "categoria": "top|bottom|dress|outerwear|footwear|accessory",
       "subcategoria": "string (nombre específico en español, ej: 'Camisa', 'Jean', 'Vestido corto')",
       "color_principal": "string (nombre del color en español, ej: 'Azul marino', 'Blanco', 'Negro')",
       "color_hex": "string (código hex del color más prominente, ej: '#1B3A6B')",
