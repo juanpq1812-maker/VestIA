@@ -49,7 +49,13 @@ export default function GarmentIconTile({
         "group flex flex-col items-center justify-center gap-1 rounded-xl border p-2",
         "transition-[background-color,border-color,opacity,transform] duration-200 ease-out",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-        "motion-safe:animate-[fadeInUp_200ms_ease-out_both]",
+        // `backwards`, NO `both`: con `both` el fill-mode deja pegado el
+        // `opacity: 1` del último keyframe de fadeInUp para siempre, y eso le
+        // gana al `opacity-25` de `dimmed` — el fade-out al seleccionar no se
+        // veía nunca y el paso parecía saltar de una. Con `backwards` el
+        // keyframe inicial solo aplica durante el animationDelay del stagger, y
+        // al terminar la animación la opacidad vuelve a mandarla la clase.
+        "motion-safe:animate-[fadeInUp_200ms_ease-out_backwards]",
         selected
           ? "border-primary bg-primary shadow-sm"
           : hinted

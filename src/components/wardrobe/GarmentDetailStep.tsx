@@ -1,9 +1,15 @@
 // Paso final del flujo visual: confirmar la prenda detectada y completar
 // color, ocasiones y nombre.
 //
-// Cuando Vision viene con confianza alta el usuario aterriza directo acá, con
-// todo pre-seleccionado — de ahí que "Cambiar categoría" esté SIEMPRE visible,
-// incluso en ese caso: es la única forma de corregir a la IA.
+// Es UNA sola card, no un scroll de cards separadas: el ícono grande de la
+// prenda, la paleta de colores justo debajo, y ocasiones + nombre como
+// secciones compactas separadas por divisores en el MISMO contenedor. La idea
+// es que se lea como una pantalla de confirmación, no como un formulario —
+// cuando Vision viene con confianza alta, esto es lo único que ve el usuario
+// antes de guardar.
+//
+// De ahí también que "Cambiar categoría" esté SIEMPRE visible, incluso en el
+// caso feliz: es la única forma de corregir a la IA.
 
 "use client";
 
@@ -32,6 +38,10 @@ type Props = {
   errors: { color?: string; occasions?: string; name?: string };
 };
 
+// Separador entre secciones de la card. Un divisor sutil en vez de cortar en
+// cards distintas: mantiene todo como un solo bloque visual.
+const SECTION = "mt-7 border-t border-divider pt-6";
+
 export default function GarmentDetailStep({
   category,
   subcategory,
@@ -51,11 +61,11 @@ export default function GarmentDetailStep({
     CLOTHING_CATEGORIES.find((c) => c.value === category)?.label ?? "";
 
   return (
-    <div className="flex flex-col gap-6 motion-safe:animate-[fadeIn_200ms_ease-out]">
-      {/* Prenda identificada */}
-      <Card padding="md">
-        <div className="flex items-center gap-4">
-          <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-border bg-surface-2 p-2">
+    <Card padding="lg">
+      <div className="motion-safe:animate-[fadeIn_200ms_ease-out]">
+        {/* ── Prenda identificada ─────────────────────────────────────────── */}
+        <div className="flex flex-col items-center text-center">
+          <span className="flex h-28 w-28 items-center justify-center sm:h-32 sm:w-32">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={getSubcategoryIcon(subcategory, category)}
@@ -65,94 +75,95 @@ export default function GarmentDetailStep({
               className="h-full w-full object-contain"
             />
           </span>
-          <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-widest text-primary">
-              {categoryLabel}
+
+          <p className="mt-3 text-xs font-bold uppercase tracking-widest text-primary">
+            {categoryLabel}
+          </p>
+          <h2 className="mt-1 font-display text-3xl font-bold text-text">
+            {subcategory}
+          </h2>
+
+          {aiDetectedLabel ? (
+            <p className="mt-3 flex items-center gap-2 rounded-full border border-success/30 bg-success-light px-4 py-2 text-sm font-medium text-success">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="shrink-0"
+                aria-hidden="true"
+              >
+                <path d="M12 2l2.09 6.26L20.18 10l-5.09 3.74 1.91 6.26L12 16.27l-5 3.73 1.91-6.26L3.82 10l6.09-1.74z" />
+              </svg>
+              Detectado por IA: {aiDetectedLabel}
             </p>
-            <h2 className="mt-0.5 font-display text-2xl font-bold text-text">
-              {subcategory}
-            </h2>
-            <button
-              type="button"
-              onClick={onChangeCategory}
-              className="mt-1 rounded text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              Cambiar categoría
-            </button>
-          </div>
-        </div>
+          ) : null}
 
-        {aiDetectedLabel ? (
-          <p className="mt-4 flex items-center gap-2 rounded-full border border-success/30 bg-success-light px-4 py-2 text-sm font-medium text-success">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              className="shrink-0"
-              aria-hidden="true"
-            >
-              <path d="M12 2l2.09 6.26L20.18 10l-5.09 3.74 1.91 6.26L12 16.27l-5 3.73 1.91-6.26L3.82 10l6.09-1.74z" />
-            </svg>
-            Detectado por IA: {aiDetectedLabel}
-          </p>
-        ) : null}
-      </Card>
-
-      {/* Color */}
-      <Card padding="md">
-        <ColorPicker
-          value={color}
-          onChange={onColorChange}
-          onActivateEyedropper={onActivateEyedropper}
-          eyedropperActive={eyedropperActive}
-          error={errors.color}
-        />
-      </Card>
-
-      {/* Ocasiones */}
-      <Card padding="md">
-        <h2 className="font-display text-lg font-semibold text-text">
-          ¿Para qué ocasiones sirve?
-        </h2>
-        <p className="mt-1 text-xs text-text-muted">
-          Marca todas las que apliquen (mínimo 1). Esto ayuda a la IA a
-          combinarla mejor.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {ITEM_OCCASIONS.map((o) => (
-            <Chip
-              key={o}
-              active={occasions.includes(o)}
-              onClick={() => onToggleOccasion(o)}
-            >
-              {o}
-            </Chip>
-          ))}
-        </div>
-        {errors.occasions ? (
-          <p
-            role="alert"
-            className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+          <button
+            type="button"
+            onClick={onChangeCategory}
+            className="mt-3 rounded text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            {errors.occasions}
-          </p>
-        ) : null}
-      </Card>
+            Cambiar categoría
+          </button>
+        </div>
 
-      {/* Nombre opcional */}
-      <Card padding="md">
-        <Input
-          label="Nombre (opcional)"
-          type="text"
-          maxLength={NAME_MAX_LENGTH}
-          placeholder="Camisa azul oxford"
-          value={name}
-          onChange={(e) => onNameChange(e.target.value)}
-          hint={`${name.length}/${NAME_MAX_LENGTH} caracteres`}
-          error={errors.name}
-        />
-      </Card>
-    </div>
+        {/* ── Color ───────────────────────────────────────────────────────── */}
+        <div className={SECTION}>
+          <ColorPicker
+            align="center"
+            value={color}
+            onChange={onColorChange}
+            onActivateEyedropper={onActivateEyedropper}
+            eyedropperActive={eyedropperActive}
+            error={errors.color}
+          />
+        </div>
+
+        {/* ── Ocasiones ───────────────────────────────────────────────────── */}
+        <div className={SECTION}>
+          <h3 className="text-sm font-semibold text-text">
+            ¿Para qué ocasiones sirve?
+          </h3>
+          <p className="mt-1 text-xs text-text-muted">
+            Marca todas las que apliquen (mínimo 1). Esto ayuda a la IA a
+            combinarla mejor.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ITEM_OCCASIONS.map((o) => (
+              <Chip
+                key={o}
+                active={occasions.includes(o)}
+                onClick={() => onToggleOccasion(o)}
+              >
+                {o}
+              </Chip>
+            ))}
+          </div>
+          {errors.occasions ? (
+            <p
+              role="alert"
+              className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
+            >
+              {errors.occasions}
+            </p>
+          ) : null}
+        </div>
+
+        {/* ── Nombre opcional ─────────────────────────────────────────────── */}
+        <div className={SECTION}>
+          <Input
+            label="Nombre (opcional)"
+            type="text"
+            maxLength={NAME_MAX_LENGTH}
+            placeholder="Camisa azul oxford"
+            value={name}
+            onChange={(e) => onNameChange(e.target.value)}
+            hint={`${name.length}/${NAME_MAX_LENGTH} caracteres`}
+            error={errors.name}
+          />
+        </div>
+      </div>
+    </Card>
   );
 }

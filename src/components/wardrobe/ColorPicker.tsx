@@ -86,6 +86,13 @@ type Props = {
   /** true mientras el usuario está eligiendo el color sobre la foto. */
   eyedropperActive?: boolean;
   error?: string;
+  /**
+   * "center" centra el título y la fila de colores, y baja el botón "De la
+   * foto" debajo de la paleta — es el layout del paso de detalle, donde el
+   * color va centrado bajo el ícono grande de la prenda. "left" (default) es
+   * el layout de formulario, para cualquier otro consumidor.
+   */
+  align?: "left" | "center";
 };
 
 export default function ColorPicker({
@@ -94,12 +101,32 @@ export default function ColorPicker({
   onActivateEyedropper,
   eyedropperActive = false,
   error,
+  align = "left",
 }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const centered = align === "center";
+
+  const eyedropperButton =
+    onActivateEyedropper && !eyedropperActive ? (
+      <button
+        type="button"
+        onClick={onActivateEyedropper}
+        className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        title="Seleccionar color directamente de la foto"
+      >
+        De la foto
+      </button>
+    ) : null;
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-4">
+      <div
+        className={
+          centered
+            ? "flex flex-col items-center text-center"
+            : "flex items-start justify-between gap-4"
+        }
+      >
         <div>
           <h2 className="font-display text-lg font-semibold text-text">
             ¿De qué color es tu prenda?
@@ -108,23 +135,19 @@ export default function ColorPicker({
             Elige el color que más predomina en la prenda.
           </p>
         </div>
-        {onActivateEyedropper && !eyedropperActive ? (
-          <button
-            type="button"
-            onClick={onActivateEyedropper}
-            className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            title="Seleccionar color directamente de la foto"
-          >
-            De la foto
-          </button>
-        ) : null}
+        {centered ? null : eyedropperButton}
       </div>
 
       {/* Fila horizontal de colores básicos con scroll invisible */}
       <div
         role="radiogroup"
         aria-label="Color principal"
-        className="mt-4 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+        className={[
+          "mt-4 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]",
+          // `justify-center` solo cuando caben sin scroll; si desbordan, el
+          // scroll horizontal tiene que arrancar desde el primero.
+          centered ? "justify-center" : "",
+        ].join(" ")}
       >
         {COLOR_PALETTE.filter((c) => BASIC_COLORS.includes(c.name)).map((c) => (
           <ColorCircle
@@ -138,25 +161,44 @@ export default function ColorPicker({
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="mt-3 w-full rounded-xl border border-border py-2.5 text-sm font-medium text-primary transition-colors duration-200 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      <div
+        className={[
+          "mt-3 flex items-center gap-2",
+          centered ? "justify-center" : "",
+        ].join(" ")}
       >
-        {expanded ? "Ver menos colores −" : "Ver más colores +"}
-      </button>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className={[
+            "rounded-xl border border-border py-2.5 text-sm font-medium text-primary transition-colors duration-200 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+            centered ? "px-5" : "w-full",
+          ].join(" ")}
+        >
+          {expanded ? "Ver menos colores −" : "Ver más colores +"}
+        </button>
+        {centered ? eyedropperButton : null}
+      </div>
 
       {expanded ? (
         <div className="mt-5 space-y-5 motion-safe:animate-[fadeInUp_180ms_ease-out]">
           {COLOR_GROUPS_EXPANDED.map((group) => (
             <div key={group.label}>
-              <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-text-muted">
+              <p
+                className={[
+                  "mb-3 text-[11px] font-bold uppercase tracking-widest text-text-muted",
+                  centered ? "text-center" : "",
+                ].join(" ")}
+              >
                 {group.label}
               </p>
               <div
                 role="radiogroup"
                 aria-label={group.label}
-                className="flex flex-wrap gap-2"
+                className={[
+                  "flex flex-wrap gap-2",
+                  centered ? "justify-center" : "",
+                ].join(" ")}
               >
                 {COLOR_PALETTE.filter((c) => group.colors.includes(c.name)).map(
                   (c) => (
