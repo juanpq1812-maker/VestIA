@@ -6,12 +6,17 @@
 //
 // Tras seleccionar la foto, analiza automáticamente con Claude Vision y
 // pre-llena categoría, subcategoría, color y ocasiones.
+//
+// El flujo es por pasos, no un formulario largo: la idea es que Vision haga el
+// trabajo y el usuario solo confirme. Si la detección viene con confianza
+// alta, se salta directo al paso de detalle con todo puesto; si no, el usuario
+// recorre los grids de íconos con lo detectado pre-marcado. Ver `step` más
+// abajo.
 
 "use client";
 
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ChangeEvent,
@@ -22,9 +27,10 @@ import { useRouter } from "next/navigation";
 import imageCompression from "browser-image-compression";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Input from "@/components/ui/Input";
-import Chip from "@/components/onboarding/Chip";
 import CameraTipsModal from "@/components/wardrobe/CameraTipsModal";
+import CategoryGrid from "@/components/wardrobe/CategoryGrid";
+import SubcategoryGrid from "@/components/wardrobe/SubcategoryGrid";
+import GarmentDetailStep from "@/components/wardrobe/GarmentDetailStep";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import { recordPetAction } from "@/lib/pet/actions";
 import {
@@ -34,14 +40,10 @@ import {
 import {
   ALLOWED_EXTENSIONS,
   ALLOWED_MIME_TYPES,
-  BASIC_COLORS,
-  COLOR_PALETTE,
   COMPRESS_MAX_WIDTH_OR_HEIGHT,
   COMPRESS_QUALITY,
-  ITEM_OCCASIONS,
   MAX_COMPRESSED_BYTES,
   NAME_MAX_LENGTH,
-  SUBCATEGORIES,
 } from "@/lib/wardrobe/constants";
 import {
   CAMERA_DOWNSCALE_MAX_PX,
@@ -55,10 +57,7 @@ import {
   matchColorToPalette,
   matchSubcategory,
 } from "@/lib/wardrobe/aiMapping";
-import {
-  CLOTHING_CATEGORIES,
-  type ClothingCategory,
-} from "@/types/database";
+import type { ClothingCategory } from "@/types/database";
 import { analyzeClothingImageAction } from "@/app/wardrobe/upload/actions";
 import { reconstructGarmentImageAction } from "@/app/wardrobe/upload/garmentReconstructionActions";
 import { removeBackgroundWithGemini } from "@/app/wardrobe/upload/backgroundRemovalActions";
@@ -129,72 +128,17 @@ const SAVE_PROGRESS_STAGES: Record<string, number> = {
   "¡Listo!": 100,
 };
 
-// ── Grupos de color para la sección expandible ────────────────────────────────
-
-const COLOR_GROUPS_EXPANDED = [
-  { label: "Neutros", colors: ["negro", "blanco", "gris", "beige", "café"] },
-  { label: "Colores", colors: ["azul", "rojo", "verde", "amarillo", "naranja", "rosa", "morado"] },
-  { label: "Especial", colors: ["multicolor"] },
-];
-
-// ── Círculo de color (sub-componente) ─────────────────────────────────────────
-
-function ColorCircle({
-  name,
-  swatch,
-  contrastText,
-  selected,
-  onSelect,
-}: {
-  name: string;
-  swatch: string;
-  contrastText: "light" | "dark";
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      aria-label={name}
-      title={name}
-      onClick={onSelect}
-      className={[
-        "group flex flex-col items-center gap-1.5 rounded-md p-1 transition-transform",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-        selected ? "scale-105" : "hover:scale-105",
-      ].join(" ")}
-    >
-      <span
-        className={[
-          "flex h-10 w-10 items-center justify-center rounded-full transition-shadow",
-          selected
-            ? "ring-2 ring-primary ring-offset-2 ring-offset-surface shadow-md"
-            : name === "blanco"
-              ? "ring-1 ring-border"
-              : "shadow-sm",
-        ].join(" ")}
-        style={{ background: swatch }}
-        aria-hidden="true"
-      >
-        {selected ? (
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={contrastText === "light" ? "#fff" : "#111"}
-            strokeWidth="3"
-          >
-            <path d="M5 12l5 5L20 7" />
-          </svg>
-        ) : null}
-      </span>
-      <span className="text-[11px] capitalize text-text-muted">{name}</span>
-    </button>
-  );
-}
+// ── Pasos del flujo ───────────────────────────────────────────────────────────
+//
+//   photo      → todavía no hay foto
+//   analyzing  → Vision está mirando la foto
+//   category   → grid de las 6 categorías
+//   subcategory→ grid de subcategorías de la categoría elegida
+//   detail     → confirmar prenda + color, ocasiones y nombre
+//
+// De `analyzing` se salta directo a `detail` cuando Vision viene con confianza
+// alta (ver analyzeImage). El guardado solo se ofrece en `detail`.
+type Step = "photo" | "analyzing" | "category" | "subcategory" | "detail";
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -212,6 +156,7 @@ export default function UploadForm() {
   // que de verdad evita la prenda duplicada.
   const submittingRef = useRef(false);
 
+  const [step, setStep] = useState<Step>("photo");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [eyedropperSrc, setEyedropperSrc] = useState<string | null>(null);
@@ -222,10 +167,14 @@ export default function UploadForm() {
   const [name, setName] = useState<string>("");
 
   // IA analysis
-  const [aiAnalyzing, setAiAnalyzing] = useState(false);
-  const [aiAnalyzed, setAiAnalyzed] = useState(false);
   const [aiConfidence, setAiConfidence] = useState<AIClothingAnalysis["confianza"] | null>(null);
   const [aiDetectedLabel, setAiDetectedLabel] = useState<string | null>(null);
+  // Lo que detectó Vision, guardado aparte de `category`/`subcategory`. Con
+  // confianza media/baja NO damos la detección por elegida — solo la
+  // pre-marcamos en el grid (estado `hinted` del tile) y el usuario confirma.
+  // Por eso hacen falta las dos parejas de estado y no una sola.
+  const [aiCategory, setAiCategory] = useState<ClothingCategory | "">("");
+  const [aiSubcategory, setAiSubcategory] = useState<string>("");
   // Motivo por el que Vision marcó la foto para reconstrucción con Gemini —
   // null = no hace falta. Se usa en handleSubmit para decidir el pipeline.
   const [reconstructionReason, setReconstructionReason] = useState<string | null>(null);
@@ -241,7 +190,6 @@ export default function UploadForm() {
   const [colorBeforeEyedropper, setColorBeforeEyedropper] = useState<string>("");
 
   // UI state
-  const [coloresExpanded, setColoresExpanded] = useState(false);
   const [showCameraTips, setShowCameraTips] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -268,10 +216,6 @@ export default function UploadForm() {
   }, []);
   const [progress, setProgress] = useState<string | null>(null);
 
-  const subcategoryOptions = useMemo<readonly string[]>(() => {
-    return category ? SUBCATEGORIES[category] : [];
-  }, [category]);
-
   function clearFieldError(key: keyof FieldErrors) {
     setFieldErrors((prev) => {
       if (!prev[key]) return prev;
@@ -282,12 +226,16 @@ export default function UploadForm() {
   }
 
   async function analyzeImage(selectedFile: File) {
-    setAiAnalyzing(true);
-    setAiAnalyzed(false);
+    setStep("analyzing");
     setAiConfidence(null);
     setAiDetectedLabel(null);
+    setAiCategory("");
+    setAiSubcategory("");
     setReconstructionReason(null);
     setSubcategoryAiRaw(null);
+    // Paso al que se cae si Vision falla o no alcanza para dar la prenda por
+    // identificada: el flujo manual completo, desde categorías.
+    let nextStep: Step = "category";
     try {
       let forAI: File;
       try {
@@ -322,13 +270,20 @@ export default function UploadForm() {
         const validCategories: ClothingCategory[] = [
           "top", "bottom", "dress", "outerwear", "footwear", "accessory",
         ];
+        let detectedCategory: ClothingCategory | "" = "";
+        let detectedSubcategory = "";
         if (categoria && validCategories.includes(categoria as ClothingCategory)) {
-          setCategory(categoria as ClothingCategory);
+          detectedCategory = categoria as ClothingCategory;
+          setAiCategory(detectedCategory);
           const matchedSub = matchSubcategory(categoria, subcategoria ?? "");
           if (matchedSub) {
-            setSubcategory(matchedSub);
+            detectedSubcategory = matchedSub;
+            setAiSubcategory(matchedSub);
             setSubcategoryAiRaw(null);
           } else if (subcategoria?.trim()) {
+            // Auditoría: Vision devolvió algo que no matchea la lista. La
+            // prenda se guarda igual (el usuario elige a mano) pero queremos el
+            // string crudo para poder ampliar los sinónimos con casos reales.
             setSubcategoryAiRaw(subcategoria.trim());
           }
         }
@@ -346,12 +301,26 @@ export default function UploadForm() {
 
         const parts = [subcategoria, color_principal].filter(Boolean);
         if (parts.length > 0) setAiDetectedLabel(parts.join(" · "));
+
+        // Caso feliz: Vision está segura y logramos mapear la prenda a la
+        // taxonomía. Se da por elegida y el usuario aterriza en el paso final,
+        // donde igual puede corregirla con "Cambiar categoría".
+        //
+        // El color NO entra en la condición a propósito: si Vision identificó
+        // bien la prenda pero no le atinó al color, mandar al usuario a
+        // recorrer los grids de categoría es peor que dejarlo en el detalle
+        // eligiendo solo el color (que es un campo visible ahí mismo, y
+        // `validar()` lo exige antes de guardar).
+        if (confianza === "alta" && detectedCategory && detectedSubcategory) {
+          setCategory(detectedCategory);
+          setSubcategory(detectedSubcategory);
+          nextStep = "detail";
+        }
       }
     } catch {
-      // Falla silenciosa — el formulario queda en blanco para que el usuario llene
+      // Falla silenciosa — se cae al flujo manual desde `category`
     } finally {
-      setAiAnalyzing(false);
-      setAiAnalyzed(true);
+      setStep(nextStep);
     }
   }
 
@@ -382,10 +351,10 @@ export default function UploadForm() {
     setSubcategory("");
     setColor("");
     setOccasions([]);
-    setAiAnalyzed(false);
     setReconstructionReason(null);
     setSubcategoryAiRaw(null);
     setEyedropperActive(false);
+    setFieldErrors({});
 
     // Paso 1: redimensionar a máx 1200px ANTES de cualquier otra operación.
     // Las fotos de cámara Android llegan en full resolution (12-50 MP). Cargarlas
@@ -419,13 +388,14 @@ export default function UploadForm() {
   function handleCambiarFoto() {
     if (preview) URL.revokeObjectURL(preview);
     if (eyedropperSrc) URL.revokeObjectURL(eyedropperSrc);
+    setStep("photo");
     setFile(null);
     setPreview(null);
     setEyedropperSrc(null);
-    setAiAnalyzing(false);
-    setAiAnalyzed(false);
     setAiConfidence(null);
     setAiDetectedLabel(null);
+    setAiCategory("");
+    setAiSubcategory("");
     setSubcategoryAiRaw(null);
     setEyedropperActive(false);
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -434,11 +404,19 @@ export default function UploadForm() {
   }
 
   function handleCategoria(cat: ClothingCategory) {
-    if (cat === category) return;
+    // Cambiar de categoría invalida la subcategoría elegida: las listas no se
+    // solapan entre categorías.
+    if (cat !== category) setSubcategory("");
     setCategory(cat);
-    setSubcategory("");
     clearFieldError("category");
     clearFieldError("subcategory");
+    setStep("subcategory");
+  }
+
+  function handleSubcategoria(sub: string) {
+    setSubcategory(sub);
+    clearFieldError("subcategory");
+    setStep("detail");
   }
 
   function handleActivateEyedropper() {
@@ -699,6 +677,12 @@ export default function UploadForm() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  // La foto va grande mientras no haya prenda elegida, y se reduce a
+  // miniatura en los pasos siguientes para dejarle la pantalla al flujo. La
+  // excepción es el gotero: leer un color de una miniatura de 64px es
+  // imposible, así que mientras está activo la foto vuelve a tamaño completo.
+  const showLargePhoto = step === "photo" || eyedropperActive;
+
   return (
     <div className="flex flex-col gap-6">
       {showCameraTips && userId ? (
@@ -713,6 +697,22 @@ export default function UploadForm() {
       ) : null}
 
       {/* ── Foto ─────────────────────────────────────────────────────────── */}
+      {!showLargePhoto ? (
+        <div className="flex items-center gap-3">
+          <span className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={preview ?? ""}
+              alt="Vista previa de la prenda"
+              className="h-full w-full object-cover"
+              draggable={false}
+            />
+          </span>
+          <Button variant="ghost" onClick={handleCambiarFoto} disabled={submitting}>
+            Cambiar foto
+          </Button>
+        </div>
+      ) : (
       <Card padding="sm">
         {/* Contenedor con aspect ratio fijo — portrait como la prenda */}
         <div
@@ -772,18 +772,6 @@ export default function UploadForm() {
             </div>
           )}
         </div>
-
-        {/* Imagen oculta (max 800×800) usada exclusivamente por el eyedropper */}
-        {eyedropperSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            ref={eyedropperImgRef}
-            src={eyedropperSrc}
-            alt=""
-            aria-hidden="true"
-            className="sr-only"
-          />
-        ) : null}
 
         {/* Controles bajo la foto */}
         {!preview ? (
@@ -899,261 +887,85 @@ export default function UploadForm() {
           </p>
         ) : null}
       </Card>
+      )}
 
-      {/* ── Chip de análisis IA ───────────────────────────────────────────── */}
-      {(aiAnalyzing || (aiAnalyzed && aiDetectedLabel)) ? (
+      {/* Imagen oculta (max 800×800) que usa el eyedropper para leer el píxel.
+          Va fuera del bloque de la foto a propósito: así ya está cargada
+          cuando el usuario activa el gotero, sin depender de que la tarjeta
+          grande se acabe de montar. */}
+      {eyedropperSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          ref={eyedropperImgRef}
+          src={eyedropperSrc}
+          alt=""
+          aria-hidden="true"
+          className="sr-only"
+        />
+      ) : null}
+
+      {/* ── Análisis IA en curso ──────────────────────────────────────────── */}
+      {step === "analyzing" ? (
         <div className="flex justify-center">
-          {aiAnalyzing ? (
-            <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary-light px-4 py-2.5 text-sm font-medium text-primary animate-pulse">
-              <div
-                className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
-                aria-hidden="true"
-              />
-              Detectando prenda…
-            </div>
-          ) : (
+          <div className="flex items-center gap-2 rounded-full border border-primary/30 bg-primary-light px-4 py-2.5 text-sm font-medium text-primary animate-pulse">
             <div
-              className={[
-                "flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium",
-                aiConfidence === "alta"
-                  ? "border-success/30 bg-success-light text-success"
-                  : "border-warning/30 bg-warning-light text-warning",
-              ].join(" ")}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                aria-hidden="true"
-              >
-                <path d="M12 2l2.09 6.26L20.18 10l-5.09 3.74 1.91 6.26L12 16.27l-5 3.73 1.91-6.26L3.82 10l6.09-1.74z" />
-              </svg>
-              Detectado: {aiDetectedLabel}
-            </div>
-          )}
+              className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
+              aria-hidden="true"
+            />
+            Detectando prenda…
+          </div>
         </div>
       ) : null}
 
-      {/* ── Formulario (visible solo cuando hay foto y terminó el análisis) ── */}
-      {preview && !aiAnalyzing ? (
+      {/* ── Paso: categoría ──────────────────────────────────────────────── */}
+      {step === "category" ? (
+        <CategoryGrid
+          selected={category}
+          hinted={aiCategory}
+          onSelect={handleCategoria}
+        />
+      ) : null}
+
+      {/* ── Paso: subcategoría ───────────────────────────────────────────── */}
+      {step === "subcategory" && category ? (
+        <SubcategoryGrid
+          category={category}
+          selected={subcategory}
+          // El hint solo aplica si el usuario está en la categoría que detectó
+          // la IA: la subcategoría detectada no existe en las otras listas.
+          hinted={category === aiCategory ? aiSubcategory : undefined}
+          onSelect={handleSubcategoria}
+          onBack={() => setStep("category")}
+        />
+      ) : null}
+
+      {/* ── Paso: detalle ────────────────────────────────────────────────── */}
+      {step === "detail" && category && subcategory ? (
         <>
-          {/* Categoría */}
-          <Card padding="md">
-            <h2 className="font-display text-lg font-semibold text-text">Categoría</h2>
-            <p className="mt-1 text-xs text-text-muted">Elige el tipo amplio de prenda.</p>
-            <div
-              role="radiogroup"
-              aria-label="Categoría"
-              className="mt-3 flex flex-wrap gap-2"
-            >
-              {CLOTHING_CATEGORIES.map((cat) => (
-                <Chip
-                  key={cat.value}
-                  role="radio"
-                  aria-checked={category === cat.value}
-                  active={category === cat.value}
-                  onClick={() => handleCategoria(cat.value)}
-                >
-                  {cat.label}
-                </Chip>
-              ))}
-            </div>
-            {fieldErrors.category ? (
-              <p
-                role="alert"
-                className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-              >
-                {fieldErrors.category}
-              </p>
-            ) : null}
-          </Card>
-
-          {/* Subcategoría */}
-          <Card padding="md">
-            <h2 className="font-display text-lg font-semibold text-text">Subcategoría</h2>
-            <p className="mt-1 text-xs text-text-muted">
-              {category
-                ? "Especifica qué tipo de prenda es dentro de la categoría."
-                : "Primero elige una categoría arriba."}
-            </p>
-            <div
-              role="radiogroup"
-              aria-label="Subcategoría"
-              className="mt-3 flex flex-wrap gap-2"
-            >
-              {subcategoryOptions.length === 0 ? (
-                <p className="text-sm text-text-faint">
-                  Las opciones aparecen al elegir la categoría.
-                </p>
-              ) : (
-                subcategoryOptions.map((opt) => (
-                  <Chip
-                    key={opt}
-                    role="radio"
-                    aria-checked={subcategory === opt}
-                    active={subcategory === opt}
-                    onClick={() => {
-                      setSubcategory(opt);
-                      clearFieldError("subcategory");
-                    }}
-                  >
-                    {opt}
-                  </Chip>
-                ))
-              )}
-            </div>
-            {fieldErrors.subcategory ? (
-              <p
-                role="alert"
-                className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-              >
-                {fieldErrors.subcategory}
-              </p>
-            ) : null}
-          </Card>
-
-          {/* Color */}
-          <Card padding="md">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="font-display text-lg font-semibold text-text">Color principal</h2>
-                <p className="mt-1 text-xs text-text-muted">
-                  Elige el color que más predomina en la prenda.
-                </p>
-              </div>
-              {!eyedropperActive ? (
-                <button
-                  type="button"
-                  onClick={handleActivateEyedropper}
-                  className="shrink-0 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:border-primary-mid hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                  title="Seleccionar color directamente de la foto"
-                >
-                  De la foto
-                </button>
-              ) : null}
-            </div>
-
-            {/* Fila horizontal de colores básicos con scroll invisible */}
-            <div
-              role="radiogroup"
-              aria-label="Color principal"
-              className="mt-4 flex gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            >
-              {COLOR_PALETTE.filter((c) => BASIC_COLORS.includes(c.name)).map((c) => (
-                <ColorCircle
-                  key={c.name}
-                  name={c.name}
-                  swatch={c.swatch}
-                  contrastText={c.contrastText}
-                  selected={color === c.name}
-                  onSelect={() => {
-                    setColor(c.name);
-                    clearFieldError("color");
-                  }}
-                />
-              ))}
-            </div>
-
-            {/* Botón para expandir todos los colores */}
-            <button
-              type="button"
-              onClick={() => setColoresExpanded((v) => !v)}
-              className="mt-3 w-full rounded-xl border border-border py-2.5 text-sm font-medium text-primary transition-colors duration-200 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              {coloresExpanded ? "Ver menos colores −" : "Ver más colores +"}
-            </button>
-
-            {/* Todos los colores agrupados */}
-            {coloresExpanded ? (
-              <div className="mt-5 space-y-5 motion-safe:animate-[fadeInUp_180ms_ease-out]">
-                {COLOR_GROUPS_EXPANDED.map((group) => (
-                  <div key={group.label}>
-                    <p className="mb-3 text-[11px] font-bold uppercase tracking-widest text-text-muted">
-                      {group.label}
-                    </p>
-                    <div
-                      role="radiogroup"
-                      aria-label={group.label}
-                      className="flex flex-wrap gap-2"
-                    >
-                      {COLOR_PALETTE.filter((c) => group.colors.includes(c.name)).map((c) => (
-                        <ColorCircle
-                          key={c.name}
-                          name={c.name}
-                          swatch={c.swatch}
-                          contrastText={c.contrastText}
-                          selected={color === c.name}
-                          onSelect={() => {
-                            setColor(c.name);
-                            clearFieldError("color");
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {fieldErrors.color ? (
-              <p
-                role="alert"
-                className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-              >
-                {fieldErrors.color}
-              </p>
-            ) : null}
-          </Card>
-
-          {/* Ocasiones */}
-          <Card padding="md">
-            <h2 className="font-display text-lg font-semibold text-text">
-              ¿Para qué ocasiones sirve?
-            </h2>
-            <p className="mt-1 text-xs text-text-muted">
-              Marca todas las que apliquen (mínimo 1). Esto ayuda a la IA a combinarla mejor.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {ITEM_OCCASIONS.map((o) => (
-                <Chip
-                  key={o}
-                  active={occasions.includes(o)}
-                  onClick={() => {
-                    setOccasions((arr) => toggle(arr, o));
-                    clearFieldError("occasions");
-                  }}
-                >
-                  {o}
-                </Chip>
-              ))}
-            </div>
-            {fieldErrors.occasions ? (
-              <p
-                role="alert"
-                className="mt-3 rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger"
-              >
-                {fieldErrors.occasions}
-              </p>
-            ) : null}
-          </Card>
-
-          {/* Nombre opcional */}
-          <Card padding="md">
-            <Input
-              label="Nombre (opcional)"
-              type="text"
-              maxLength={NAME_MAX_LENGTH}
-              placeholder="Camisa azul oxford"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                clearFieldError("name");
-              }}
-              hint={`${name.length}/${NAME_MAX_LENGTH} caracteres`}
-              error={fieldErrors.name}
-            />
-          </Card>
+          <GarmentDetailStep
+            category={category}
+            subcategory={subcategory}
+            aiDetectedLabel={aiConfidence === "alta" ? aiDetectedLabel : null}
+            color={color}
+            onColorChange={(c) => {
+              setColor(c);
+              clearFieldError("color");
+            }}
+            onActivateEyedropper={handleActivateEyedropper}
+            eyedropperActive={eyedropperActive}
+            occasions={occasions}
+            onToggleOccasion={(o) => {
+              setOccasions((arr) => toggle(arr, o));
+              clearFieldError("occasions");
+            }}
+            name={name}
+            onNameChange={(v) => {
+              setName(v);
+              clearFieldError("name");
+            }}
+            onChangeCategory={() => setStep("category")}
+            errors={fieldErrors}
+          />
 
           {submitting || saveFailed ? (
             <SaveProgressPanel
@@ -1185,7 +997,7 @@ export default function UploadForm() {
       ) : null}
 
       {/* Cancelar cuando todavía no hay foto */}
-      {!preview ? (
+      {step === "photo" ? (
         <div className="flex justify-start">
           <Button variant="ghost" onClick={() => router.push("/wardrobe")}>
             Cancelar

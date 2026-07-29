@@ -6,6 +6,10 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    // Los scripts de `scripts/*.mts` corren con el type stripping de node, que
+    // exige la extensión `.ts` explícita en los imports relativos (node no
+    // resuelve extensiones ni el alias `@/`). Legal solo con noEmit.
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",

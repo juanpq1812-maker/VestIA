@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run verify:icons && next build",
     "start": "next start",
     "lint": "eslint",
+    "verify:icons": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-garment-icons.mts",
+    "icons:import": "node scripts/import-garment-icons.mjs",
     "postinstall": "node scripts/prune-imgly-assets.js"
   },
   "dependencies": {

@@ -2,6 +2,8 @@
 
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
 import { parseClothingAnalysis, type AIClothingAnalysis } from "@/lib/wardrobe/clothingAnalysisSchema";
+import { SUBCATEGORIES } from "@/lib/wardrobe/constants";
+import type { ClothingCategory } from "@/types/database";
 
 // No reexportar el tipo desde acá: un archivo "use server" solo puede
 // exportar funciones async — reexportar un type rompe en runtime dev (no en
@@ -11,10 +13,25 @@ export type AnalyzeResult =
   | { ok: true; data: AIClothingAnalysis }
   | { ok: false };
 
+// Lista cerrada de subcategorías válidas por categoría, generada desde
+// SUBCATEGORIES en vez de escrita a mano: así agregar una subcategoría a la
+// constante actualiza el prompt solo, sin que se desincronicen.
+//
+// Antes `subcategoria` era string libre con tres ejemplos, y Vision devolvía
+// frases ad-hoc ("crop top sin mangas", "zapatilla deportiva") que el match de
+// aiMapping.ts tenía que adivinar. Con la lista completa el modelo elige de un
+// menú. La red de seguridad (SUBCATEGORY_SYNONYMS + subcategory_ai_raw) sigue
+// intacta: esto reduce los fallos, no los elimina.
+const SUBCATEGORY_LIST = (
+  Object.entries(SUBCATEGORIES) as [ClothingCategory, readonly string[]][]
+)
+  .map(([category, subs]) => `- ${category}: ${subs.join(" | ")}`)
+  .join("\n");
+
 const ANALYSIS_PROMPT = `Analiza esta foto de una prenda de ropa y responde ÚNICAMENTE en JSON válido con este formato exacto:
 {
   "categoria": "top|bottom|dress|outerwear|footwear|accessory",
-  "subcategoria": "string (nombre específico en español, ej: 'Camisa', 'Jean', 'Vestido corto')",
+  "subcategoria": "string — elige EXACTAMENTE UNA de la lista de abajo que corresponda a la categoría que elegiste. Cópiala tal cual, con sus acentos y mayúsculas. No inventes valores nuevos ni agregues adjetivos.",
   "color_principal": "string (nombre del color en español, ej: 'Azul marino', 'Blanco', 'Negro')",
   "color_hex": "string (código hex del color más prominente, ej: '#1B3A6B')",
   "ocasiones": ["casual","formal","deportivo","fiesta","trabajo","universidad"],
@@ -27,6 +44,10 @@ const ANALYSIS_PROMPT = `Analiza esta foto de una prenda de ropa y responde ÚNI
     Si la prenda se ve razonablemente extendida y completa, aunque la foto no sea perfecta, responde false. ANTE LA DUDA, responde false.",
   "reconstruction_reason": "string corto en español si needs_reconstruction=true (ej: 'persona visible', 'fondo cargado', 'prenda arrugada'), o null si needs_reconstruction=false"
 }
+
+Subcategorías válidas por categoría (elige una de la lista de la categoría que hayas elegido):
+${SUBCATEGORY_LIST}
+
 Solo responde el JSON, sin texto adicional.`;
 
 export async function analyzeClothingImageAction(
