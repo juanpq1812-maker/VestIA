@@ -945,7 +945,17 @@ export default function UploadForm() {
           <GarmentDetailStep
             category={category}
             subcategory={subcategory}
-            aiDetectedLabel={aiConfidence === "alta" ? aiDetectedLabel : null}
+            // El chip solo tiene sentido mientras la prenda mostrada SIGA
+            // siendo la que detectó la IA: si el usuario la corrigió a mano,
+            // seguir diciendo "Detectado por IA: Camiseta" arriba de un
+            // "Blazer" es simplemente falso.
+            aiDetectedLabel={
+              aiConfidence === "alta" &&
+              category === aiCategory &&
+              subcategory === aiSubcategory
+                ? aiDetectedLabel
+                : null
+            }
             color={color}
             onColorChange={(c) => {
               setColor(c);
