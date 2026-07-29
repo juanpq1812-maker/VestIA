@@ -35,6 +35,9 @@ type Props = {
   name: string;
   onNameChange: (name: string) => void;
   onChangeCategory: () => void;
+  /** Flecha de back: vuelve al paso del que se llegó (subcategorías o categorías). */
+  onBack: () => void;
+  backLabel: string;
   errors: { color?: string; occasions?: string; name?: string };
 };
 
@@ -55,6 +58,8 @@ export default function GarmentDetailStep({
   name,
   onNameChange,
   onChangeCategory,
+  onBack,
+  backLabel,
   errors,
 }: Props) {
   const categoryLabel =
@@ -62,7 +67,28 @@ export default function GarmentDetailStep({
 
   return (
     <Card padding="lg">
-      <div className="motion-safe:animate-[fadeIn_200ms_ease-out]">
+      <div className="relative motion-safe:animate-[fadeIn_200ms_ease-out]">
+        {/* Flecha de back — mismo patrón que la del grid de subcategorías.
+            Absoluta para no descentrar el bloque del ícono. */}
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={backLabel}
+          className="absolute left-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-text-muted transition-colors duration-150 hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <path d="M15 18l-6-6 6-6" />
+          </svg>
+        </button>
+
         {/* ── Prenda identificada ─────────────────────────────────────────── */}
         <div className="flex flex-col items-center text-center">
           <span className="flex h-28 w-28 items-center justify-center sm:h-32 sm:w-32">

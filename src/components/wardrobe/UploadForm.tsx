@@ -115,6 +115,23 @@ function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
 }
 
+// Traduce el `reason` tipado que devuelven las acciones de imagen a algo
+// diagnosticable. Va al console.error y al aviso que ve el usuario — antes
+// estos valores se descartaban por completo y un fallo del pipeline era
+// indistinguible de un éxito.
+function describeImageFailure(
+  stage: string,
+  result: { reason: string; resetInMinutes?: number }
+): string {
+  const { reason } = result;
+  if (reason === "rate_limited") {
+    return `${stage}: se agotó el cupo de IA de esta hora (se restablece en ${result.resetInMinutes ?? 60} min)`;
+  }
+  if (reason === "no_session") return `${stage}: la sesión expiró`;
+  if (reason === "no_image") return `${stage}: la imagen no llegó al servidor`;
+  return `${stage}: falló la generación (${reason})`;
+}
+
 // Etapas reales del pipeline de guardado, en orden — cada mensaje mapea a un
 // % fijo del progreso. No es una barra falsa que avanza sola: solo se mueve
 // cuando la etapa correspondiente realmente terminó, así que el % siempre
@@ -157,6 +174,11 @@ export default function UploadForm() {
   const submittingRef = useRef(false);
 
   const [step, setStep] = useState<Step>("photo");
+  // A dónde vuelve la flecha de back del paso `detail`: al paso del que se
+  // llegó. Si el usuario recorrió el flujo manual, vuelve a `subcategory`; si
+  // aterrizó directo por confianza alta, ese paso nunca existió y volver ahí
+  // sería inventarle un paso que no vio — vuelve a `category`.
+  const [detailBackStep, setDetailBackStep] = useState<"category" | "subcategory">("category");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [eyedropperSrc, setEyedropperSrc] = useState<string | null>(null);
@@ -178,6 +200,10 @@ export default function UploadForm() {
   // Motivo por el que Vision marcó la foto para reconstrucción con Gemini —
   // null = no hace falta. Se usa en handleSubmit para decidir el pipeline.
   const [reconstructionReason, setReconstructionReason] = useState<string | null>(null);
+  // El booleano va aparte del motivo: es el que decide el pipeline. Vision
+  // puede marcar needs_reconstruction=true y dejar el motivo en null, y en ese
+  // caso la reconstrucción SÍ tiene que correr (ver handleSubmit).
+  const [needsReconstruction, setNeedsReconstruction] = useState(false);
   // Auditoría: valor crudo de `subcategoria` que devolvió Vision cuando NO
   // matcheó contra SUBCATEGORIES (ver aiMapping.ts). El campo sigue siendo
   // obligatorio acá — el usuario lo completa a mano si Vision falló — pero
@@ -232,6 +258,7 @@ export default function UploadForm() {
     setAiCategory("");
     setAiSubcategory("");
     setReconstructionReason(null);
+    setNeedsReconstruction(false);
     setSubcategoryAiRaw(null);
     // Paso al que se cae si Vision falla o no alcanza para dar la prenda por
     // identificada: el flujo manual completo, desde categorías.
@@ -297,6 +324,7 @@ export default function UploadForm() {
         if (mappedOcasiones.length > 0) setOccasions(mappedOcasiones);
 
         setAiConfidence(confianza ?? "baja");
+        setNeedsReconstruction(Boolean(needs_reconstruction));
         setReconstructionReason(needs_reconstruction ? reconstruction_reason : null);
 
         const parts = [subcategoria, color_principal].filter(Boolean);
@@ -314,6 +342,7 @@ export default function UploadForm() {
         if (confianza === "alta" && detectedCategory && detectedSubcategory) {
           setCategory(detectedCategory);
           setSubcategory(detectedSubcategory);
+          setDetailBackStep("category");
           nextStep = "detail";
         }
       }
@@ -352,6 +381,7 @@ export default function UploadForm() {
     setColor("");
     setOccasions([]);
     setReconstructionReason(null);
+    setNeedsReconstruction(false);
     setSubcategoryAiRaw(null);
     setEyedropperActive(false);
     setFieldErrors({});
@@ -414,6 +444,7 @@ export default function UploadForm() {
   }
 
   function handleSubcategoria(sub: string) {
+    setDetailBackStep("subcategory");
     setSubcategory(sub);
     clearFieldError("subcategory");
     setStep("detail");
@@ -520,21 +551,45 @@ export default function UploadForm() {
         return;
       }
 
-      // Un solo crédito de Gemini por prenda: si Vision marcó la foto como
-      // necesitada de reconstrucción, subimos la cruda primero (para el
-      // toggle "Ver original") e intentamos Gemini — ese resultado YA viene
-      // con el fondo removido, no hace falta una segunda llamada. Si no
-      // necesita reconstrucción, se le remueve el fondo con una edición
-      // mínima. Si Gemini falla del todo (sin cupo, error, timeout),
-      // fallback de última línea: se sube la foto comprimida original tal
-      // cual — la prenda nunca se pierde, queda marcada para reprocesar con
-      // "Mejora esta foto".
+      // Pipeline de imagen, en cascada de más a menos ambicioso:
+      //
+      //   1. Si Vision marcó la foto como necesitada de reconstrucción,
+      //      subimos la cruda primero (para el toggle "Ver original") e
+      //      intentamos reconstruirla con Gemini. Ese resultado YA viene con
+      //      el fondo removido.
+      //   2. Si la reconstrucción falla —o si nunca hizo falta— se intenta la
+      //      remoción de fondo simple, que es una edición mínima y mucho más
+      //      barata de acertar.
+      //   3. Si TODO falla, se sube la foto comprimida original tal cual: la
+      //      prenda nunca se pierde y queda reprocesable con "Mejora esta
+      //      foto" desde el armario.
+      //
+      // El paso 2 como fallback del 1 es la corrección de un bug real: antes
+      // las dos ramas eran EXCLUYENTES, así que una prenda marcada para
+      // reconstrucción cuya reconstrucción fallaba caía directo al paso 3 y
+      // terminaba en el armario con el fondo completo, sin haber intentado
+      // siquiera la remoción simple. Cuesta un segundo crédito de Gemini,
+      // pero solo en el camino de fallo.
       let rawPath: string | null = null;
       let reconstructed = false;
       let backgroundRemoved = false;
       let toUpload: File = comprimido;
+      // Motivo por el que el pipeline no pudo limpiar la foto, para el log.
+      // null = salió bien.
+      let imageFailure: string | null = null;
+      // Desenlace de la foto, para decidir qué avisarle al usuario:
+      //   ok      → quedó como se esperaba, nada que avisar.
+      //   parcial → hacía falta reconstruir (persona/gancho en la foto) pero
+      //             solo se pudo quitar el fondo: la prenda es usable, aunque
+      //             la mano o el gancho siguen ahí.
+      //   falla   → no se pudo hacer nada, quedó la foto original.
+      let photoOutcome: "ok" | "parcial" | "falla" = "ok";
 
-      if (reconstructionReason) {
+      // OJO: la condición es el booleano, NO el string del motivo. Antes era
+      // `if (reconstructionReason)`, y si Vision devolvía
+      // needs_reconstruction=true con reconstruction_reason vacío o null, la
+      // reconstrucción se salteaba en silencio.
+      if (needsReconstruction) {
         try {
           const rawUuid = crypto.randomUUID();
           const candidateRawPath = buildClothingImagePath({
@@ -549,7 +604,9 @@ export default function UploadForm() {
               upsert: false,
             });
 
-          if (!rawUploadError) {
+          if (rawUploadError) {
+            imageFailure = `no pudimos guardar la foto original (${rawUploadError.message})`;
+          } else {
             rawPath = candidateRawPath;
 
             setProgress("Puliendo los detalles con IA…");
@@ -565,12 +622,18 @@ export default function UploadForm() {
               toUpload = new File([reconBlob], "photo.png", { type: reconResult.contentType });
               reconstructed = true;
               backgroundRemoved = true;
+            } else {
+              imageFailure = describeImageFailure("reconstrucción", reconResult);
             }
           }
-        } catch {
-          // fallback de última línea — se sigue con comprimido tal cual
+        } catch (err) {
+          imageFailure = `reconstrucción: ${err instanceof Error ? err.message : "error desconocido"}`;
         }
-      } else {
+      }
+
+      // Remoción de fondo simple: la ruta normal cuando no hacía falta
+      // reconstruir, y el fallback cuando la reconstrucción no salió.
+      if (!backgroundRemoved) {
         setProgress("Quitando el fondo…");
         try {
           const fd = new FormData();
@@ -580,10 +643,29 @@ export default function UploadForm() {
             const pngBlob = base64ToBlob(bgResult.base64, bgResult.contentType);
             toUpload = new File([pngBlob], "photo.png", { type: "image/png" });
             backgroundRemoved = true;
+            // Si la reconstrucción había fallado pero el fondo sí se pudo
+            // quitar, el resultado es usable — pero NO es lo que se buscaba:
+            // la mano/el gancho que motivaron la reconstrucción siguen en la
+            // foto. Se avisa como parcial, no como éxito.
+            photoOutcome = needsReconstruction ? "parcial" : "ok";
+          } else {
+            imageFailure = describeImageFailure("remoción de fondo", bgResult);
+            photoOutcome = "falla";
           }
-        } catch {
-          // fallback de última línea — se sigue con comprimido tal cual
+        } catch (err) {
+          imageFailure = `remoción de fondo: ${err instanceof Error ? err.message : "error desconocido"}`;
+          photoOutcome = "falla";
         }
+      }
+
+      // El fallo NO puede ser silencioso: la prenda se guarda igual (nunca la
+      // perdemos por esto), pero el usuario tiene que enterarse de que la foto
+      // no quedó como debía y de que puede reintentarlo.
+      if (imageFailure) {
+        console.error(
+          `[UploadForm] pipeline de imagen (${photoOutcome}):`,
+          imageFailure
+        );
       }
 
       setProgress("Subiendo tu prenda…");
@@ -651,7 +733,14 @@ export default function UploadForm() {
       setProgress("¡Listo!");
       setSaveDone(true);
       await new Promise((resolve) => setTimeout(resolve, 700));
-      router.push("/wardrobe?uploaded=1");
+      // Si la foto no quedó como debía, el armario muestra un aviso en vez del
+      // banner verde: la prenda se guardó, pero el usuario tiene que saberlo
+      // para poder reintentar con "Mejora esta foto".
+      router.push(
+        photoOutcome === "ok"
+          ? "/wardrobe?uploaded=1"
+          : `/wardrobe?uploaded=1&fotoAviso=${photoOutcome}`
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error desconocido";
       fail(`Algo salió mal: ${msg}.`);
@@ -974,6 +1063,12 @@ export default function UploadForm() {
               clearFieldError("name");
             }}
             onChangeCategory={() => setStep("category")}
+            onBack={() => setStep(detailBackStep)}
+            backLabel={
+              detailBackStep === "subcategory"
+                ? "Volver a subcategorías"
+                : "Volver a categorías"
+            }
             errors={fieldErrors}
           />
 
