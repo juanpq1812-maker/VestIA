@@ -32,7 +32,10 @@ export default function CategoryGrid({ selected, hinted, onSelect }: Props) {
       selected={selected || undefined}
       hinted={hinted || undefined}
       onSelect={(value) => onSelect(value as ClothingCategory)}
+      // 3×2 fijo en cualquier ancho: son solo 6 y así el grid entra completo
+      // junto al header y la miniatura de la foto, sin scroll en un iPhone.
       columnsClassName="grid-cols-3"
+      tileSize="md"
     />
   );
 }

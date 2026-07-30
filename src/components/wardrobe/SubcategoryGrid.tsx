@@ -49,7 +49,12 @@ export default function SubcategoryGrid({
       onSelect={onSelect}
       onBack={onBack}
       backLabel="Volver a categorías"
-      columnsClassName="grid-cols-3 sm:grid-cols-4"
+      // 4 columnas ya en móvil: con el dibujo a 48px y el label a 11px una
+      // categoría típica de 10 items entra en 3 filas, de un vistazo y sin
+      // scroll en un iPhone. En pantallas anchas sube a 5 para no dejar las
+      // celdas enormes.
+      columnsClassName="grid-cols-4 sm:grid-cols-5"
+      tileSize="sm"
     />
   );
 }

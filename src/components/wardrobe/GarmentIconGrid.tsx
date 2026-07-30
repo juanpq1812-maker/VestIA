@@ -34,6 +34,8 @@ type Props = {
   backLabel?: string;
   /** Clases de columnas del grid; default pensado para 6 categorías. */
   columnsClassName?: string;
+  /** Tamaño del dibujo dentro de la celda. */
+  tileSize?: "sm" | "md";
 };
 
 export default function GarmentIconGrid({
@@ -46,6 +48,7 @@ export default function GarmentIconGrid({
   onBack,
   backLabel = "Volver",
   columnsClassName = "grid-cols-3",
+  tileSize = "sm",
 }: Props) {
   // Valor elegido en este paso y todavía sin propagar — durante esa ventana los
   // demás tiles se atenúan.
@@ -98,30 +101,38 @@ export default function GarmentIconGrid({
           </button>
         ) : null}
         <div>
-          <h2 className="font-display text-2xl font-bold text-text">{title}</h2>
+          <h2 className="font-display text-xl font-bold text-text sm:text-2xl">
+            {title}
+          </h2>
           {subtitle ? (
             <p className="mt-1 text-sm text-text-muted">{subtitle}</p>
           ) : null}
         </div>
       </div>
 
-      <div
-        role="radiogroup"
-        aria-label={title}
-        className={["mt-5 grid gap-2.5", columnsClassName].join(" ")}
-      >
-        {items.map((item, i) => (
-          <GarmentIconTile
-            key={item.value}
-            icon={item.icon}
-            label={item.label}
-            index={i}
-            selected={pending ? pending === item.value : selected === item.value}
-            hinted={!pending && !selected && hinted === item.value}
-            dimmed={pending !== null && pending !== item.value}
-            onClick={() => handleSelect(item.value)}
-          />
-        ))}
+      {/* Un solo panel blanco con un borde exterior sutil. Las celdas van
+          contiguas (gap-0) y sin borde ni sombra propios — el estado de cada
+          una lo pinta su capa interna, ver GarmentIconTile. */}
+      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-surface p-1.5 shadow-sm">
+        <div
+          role="radiogroup"
+          aria-label={title}
+          className={["grid gap-0", columnsClassName].join(" ")}
+        >
+          {items.map((item, i) => (
+            <GarmentIconTile
+              key={item.value}
+              icon={item.icon}
+              label={item.label}
+              index={i}
+              size={tileSize}
+              selected={pending ? pending === item.value : selected === item.value}
+              hinted={!pending && !selected && hinted === item.value}
+              dimmed={pending !== null && pending !== item.value}
+              onClick={() => handleSelect(item.value)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
