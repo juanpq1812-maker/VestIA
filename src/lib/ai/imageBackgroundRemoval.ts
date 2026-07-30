@@ -43,6 +43,209 @@ import sharp from "sharp";
 const WHITE_THRESHOLD = 235; // por debajo de esto (más lejos de blanco): opaco
 const WHITE_FEATHER = 250; // entre threshold y feather: alpha gradual (bordes suaves)
 
+// ---------------------------------------------------------------------------
+// Limpieza del matte que devuelve @imgly.
+//
+// MEDIDO sobre una camiseta blanca fotografiada en una tienda (prenda clara
+// sobre fondo claro, el caso peor): de 1.048.320 px, el 55,65% salía
+// semi-transparente, con 500 clusters sueltos sumando 35.454 px de partículas.
+// Y un dato que cambia el enfoque: @imgly NO devuelve NI UN píxel en alpha
+// 255 — el cuerpo de la prenda vive en 225-254. Por eso un threshold que solo
+// recorta lo translúcido no alcanza: hay que EMPUJAR el alfa alto a 255, o la
+// prenda queda moteada (se veían agujeritos en la card del armario y peor en
+// el moodboard).
+//
+// Tres pasos, en este orden:
+//   1. Threshold con feather: alfa bajo → 0 (mata la bruma), alfa alto → 255
+//      (solidifica la prenda), y el tramo intermedio se reescala para no
+//      perder el antialiasing del borde.
+//   2. Despeckle: se descartan los clusters visibles chicos y aislados.
+//   3. Relleno de pinholes: los huecos internos que no tocan el borde de la
+//      imagen se vuelven opacos. Es más preciso que un erode+dilate, que
+//      taparía los huecos pero además deformaría la silueta.
+// ---------------------------------------------------------------------------
+
+const ALPHA_LOW = 40; // <= esto → transparente
+const ALPHA_HIGH = 190; // >= esto → opaco
+// Un cluster que no sea el principal se descarta si es menor a este ratio del
+// principal. 5% se eligió midiendo: en la foto de tienda el blob de fondo que
+// sobrevivía era el 4,36% del principal, y todo lo demás legítimo estaba muy
+// por encima. OJO con subirlo: un par de zapatos son dos clusters de ~50% cada
+// uno (ahí no hay riesgo), pero un cinturón o una tira separada de la prenda
+// podrían caer en este rango y perderse.
+const MIN_CLUSTER_RATIO = 0.05;
+const MIN_CLUSTER_ABS_PX = 64; // …y siempre se descarta si es más chico que esto
+const MAX_HOLE_PX = 4096; // huecos internos hasta este tamaño se rellenan
+
+/**
+ * Limpia un canal alfa in-place-ish (devuelve una copia nueva). Puro
+ * typed-array: ~35ms para 1MP, despreciable al lado de los 16-23s de @imgly.
+ */
+function cleanAlphaMatte(
+  alpha: Uint8Array,
+  width: number,
+  height: number
+): { alpha: Uint8Array; clustersDropped: number; holesFilled: number } {
+  const n = width * height;
+  const a = new Uint8Array(alpha);
+
+  // ── 1. Threshold con feather ────────────────────────────────────────────
+  const span = ALPHA_HIGH - ALPHA_LOW;
+  for (let i = 0; i < n; i++) {
+    const v = a[i];
+    if (v <= ALPHA_LOW) a[i] = 0;
+    else if (v >= ALPHA_HIGH) a[i] = 255;
+    else a[i] = Math.round((255 * (v - ALPHA_LOW)) / span);
+  }
+
+  // Flood fill iterativo con una pila explícita — nada de recursión, que en
+  // una imagen de 1MP desbordaría el stack.
+  const stack = new Int32Array(n);
+
+  // ── 2. Despeckle ────────────────────────────────────────────────────────
+  const labels = new Int32Array(n).fill(-1);
+  const sizes: number[] = [];
+  for (let start = 0; start < n; start++) {
+    if (a[start] === 0 || labels[start] !== -1) continue;
+    const id = sizes.length;
+    let sp = 0;
+    stack[sp++] = start;
+    labels[start] = id;
+    let count = 0;
+    while (sp > 0) {
+      const p = stack[--sp];
+      count++;
+      const x = p % width;
+      const y = (p - x) / width;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const q = ny * width + nx;
+          if (a[q] !== 0 && labels[q] === -1) {
+            labels[q] = id;
+            stack[sp++] = q;
+          }
+        }
+      }
+    }
+    sizes.push(count);
+  }
+
+  let largest = 0;
+  for (const s of sizes) if (s > largest) largest = s;
+  const minKeep = Math.max(MIN_CLUSTER_ABS_PX, Math.floor(largest * MIN_CLUSTER_RATIO));
+  const dropCluster = new Uint8Array(sizes.length);
+  let clustersDropped = 0;
+  for (let c = 0; c < sizes.length; c++) {
+    // El cluster principal se conserva SIEMPRE, pase lo que pase con los
+    // umbrales: es la prenda.
+    if (sizes[c] !== largest && sizes[c] < minKeep) {
+      dropCluster[c] = 1;
+      clustersDropped++;
+    }
+  }
+  if (clustersDropped > 0) {
+    for (let i = 0; i < n; i++) {
+      const l = labels[i];
+      if (l >= 0 && dropCluster[l]) a[i] = 0;
+    }
+  }
+
+  // ── 3. Relleno de pinholes ──────────────────────────────────────────────
+  // Se agrupa por "no del todo opaco" (< 255), no por "totalmente
+  // transparente": las motas que quedan dentro de la prenda suelen estar en el
+  // tramo del feather, no en 0, y con `=== 0` se escapaban. El anillo de
+  // antialiasing del borde queda a salvo porque se conecta con el fondo, que
+  // toca el borde de la imagen.
+  const holeLabels = new Int32Array(n).fill(-1);
+  const holeSizes: number[] = [];
+  const holeTouchesBorder: boolean[] = [];
+  for (let start = 0; start < n; start++) {
+    if (a[start] === 255 || holeLabels[start] !== -1) continue;
+    const id = holeSizes.length;
+    let sp = 0;
+    stack[sp++] = start;
+    holeLabels[start] = id;
+    let count = 0;
+    let border = false;
+    while (sp > 0) {
+      const p = stack[--sp];
+      count++;
+      const x = p % width;
+      const y = (p - x) / width;
+      if (x === 0 || y === 0 || x === width - 1 || y === height - 1) border = true;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (dx === 0 && dy === 0) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const q = ny * width + nx;
+          if (a[q] !== 255 && holeLabels[q] === -1) {
+            holeLabels[q] = id;
+            stack[sp++] = q;
+          }
+        }
+      }
+    }
+    holeSizes.push(count);
+    holeTouchesBorder.push(border);
+  }
+
+  let holesFilled = 0;
+  for (let h = 0; h < holeSizes.length; h++) {
+    if (!holeTouchesBorder[h] && holeSizes[h] <= MAX_HOLE_PX) holesFilled++;
+  }
+  if (holesFilled > 0) {
+    for (let i = 0; i < n; i++) {
+      const l = holeLabels[i];
+      if (l >= 0 && !holeTouchesBorder[l] && holeSizes[l] <= MAX_HOLE_PX) a[i] = 255;
+    }
+  }
+
+  return { alpha: a, clustersDropped, holesFilled };
+}
+
+/**
+ * Aplica cleanAlphaMatte sobre un PNG con alfa y devuelve el PNG limpio. Si
+ * algo falla, devuelve el buffer original — una limpieza fallida nunca debe
+ * costar la imagen entera.
+ */
+async function cleanMattePng(buffer: Buffer): Promise<Buffer> {
+  try {
+    const { data, info } = await sharp(buffer)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+    const { width, height, channels } = info;
+    const n = width * height;
+
+    const alpha = new Uint8Array(n);
+    for (let i = 0; i < n; i++) alpha[i] = data[i * channels + 3];
+
+    const { alpha: cleaned, clustersDropped, holesFilled } = cleanAlphaMatte(
+      alpha,
+      width,
+      height
+    );
+    for (let i = 0; i < n; i++) data[i * channels + 3] = cleaned[i];
+
+    if (clustersDropped > 0 || holesFilled > 0) {
+      console.log(
+        `[imageBackgroundRemoval] matte limpiado: ${clustersDropped} clusters descartados, ${holesFilled} huecos rellenados`
+      );
+    }
+
+    return await sharp(data, { raw: { width, height, channels } }).png().toBuffer();
+  } catch (err) {
+    console.error("[imageBackgroundRemoval] falló la limpieza del matte:", err);
+    return buffer;
+  }
+}
+
 // Bucket público de Supabase Storage con SOLO el modelo 'small' de @imgly
 // (resources.json podado + sus 11 chunks, ~42MB) — ver STORAGE_SETUP.md.
 // Sin esta variable, saltamos directo al fallback de threshold (nunca
@@ -113,7 +316,10 @@ async function removeBackgroundWithImgly(
       IMGLY_TIMEOUT_MS
     );
     const arrayBuffer = await blob.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    // La limpieza va acá y no en finalizeGeminiImageOutput: el residuo
+    // (partículas sueltas, alfa moteado) lo produce la segmentación de @imgly.
+    // El fallback por threshold de color ya sale binario y no lo necesita.
+    return await cleanMattePng(Buffer.from(arrayBuffer));
   } catch (err) {
     console.error("[imageBackgroundRemoval] @imgly falló, cae al threshold de color:", err);
     return null;

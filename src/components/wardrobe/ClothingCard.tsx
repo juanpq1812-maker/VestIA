@@ -72,8 +72,15 @@ export default function ClothingCard({ item }: Props) {
           </span>
         ) : null}
 
-        {/* Recortada de un outfit completo, o sin fondo removido (Gemini falló del todo): invita a re-fotografiarla */}
-        {item.source === "outfit_extraction" || item.background_removed === false ? (
+        {/* Invita a re-fotografiarla cuando la foto no quedó como debía:
+            recortada de un outfit completo, sin fondo removido (Gemini falló
+            del todo), o marcada para reconstrucción que nunca se logró — en
+            ese último caso el fondo sí se quitó, pero la mano/el gancho que
+            motivaron la reconstrucción siguen en la foto, así que el reintento
+            tiene que estar disponible igual. */}
+        {item.source === "outfit_extraction" ||
+        item.background_removed === false ||
+        (item.reconstruction_reason !== null && item.reconstructed === false) ? (
           <Link
             href={`/wardrobe/${item.id}/edit`}
             className="absolute bottom-2 left-2 rounded-full bg-surface/90 px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-sm backdrop-blur transition-colors hover:text-primary"

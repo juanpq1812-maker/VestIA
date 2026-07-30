@@ -294,6 +294,16 @@ async function processOne(
     // outfitExtraction.ts) — acá solo se lee, nunca se vuelve a analizar por
     // prenda (eso sería cobrar N créditos por 1 sola detección).
     let reconstructionReason = item.reconstruction_reason;
+    // Para items de outfit_extraction la decisión ya viene tomada y lo único
+    // persistido es el motivo (no hay columna `needs_reconstruction`), así que
+    // ahí el booleano se deriva del motivo. Para el análisis fresco de más
+    // abajo se usa el booleano real que devuelve Vision.
+    //
+    // OJO: eso significa que si en outfitExtraction.ts Vision dijo
+    // needs_reconstruction=true con reconstruction_reason vacío, la
+    // información se pierde al persistir y acá se lee como false. Arreglarlo de
+    // raíz necesita una columna nueva; queda anotado, no lo cambio de callado.
+    let needsReconstruction = Boolean(item.reconstruction_reason);
     // Auditoría: si matchSubcategory no encuentra match, guardamos el string
     // crudo de Vision acá — se persiste en subcategory_ai_raw más abajo. Para
     // outfit_extraction ya viene resuelto desde outfitExtraction.ts (item.subcategory_ai_raw).
@@ -325,22 +335,33 @@ async function processOne(
       subcategoryAiRaw = !matchedSubcategory && subcategoria?.trim() ? subcategoria.trim() : null;
       color = matchColorToPalette(color_principal ?? "", color_hex ?? "") || null;
       occasions = mapAiOccasions(ocasiones ?? []);
+      needsReconstruction = Boolean(needs_reconstruction);
       reconstructionReason = needs_reconstruction ? reconstruction_reason : null;
     }
 
-    // Un solo crédito de Gemini por prenda: si necesita reconstrucción,
-    // reconstruye (y ese resultado YA viene con el fondo removido — ver
-    // garmentReconstructionActions.ts, no hace falta una segunda llamada).
-    // Si no, se le remueve el fondo con una edición mínima. Si Gemini falla
-    // del todo (sin cupo, error, timeout), fallback de última línea: se
-    // guarda la foto original tal cual, sin remover el fondo — la prenda
-    // nunca se pierde, queda marcada para reprocesar con "Mejora esta foto".
+    // Pipeline de imagen en cascada, igual que en UploadForm.tsx (mismo bug
+    // arreglado en los dos lados):
+    //
+    //   1. Si necesita reconstrucción, reconstruye — ese resultado YA viene
+    //      con el fondo removido, no hace falta una segunda llamada.
+    //   2. Si la reconstrucción falla, se intenta la remoción de fondo simple
+    //      antes de rendirse. Antes las dos ramas eran EXCLUYENTES, así que
+    //      una prenda marcada para reconstrucción cuya reconstrucción fallaba
+    //      se guardaba con el fondo completo sin haber intentado la remoción
+    //      simple. Cuesta un segundo crédito, pero solo en el camino de fallo.
+    //   3. Si todo falla, se guarda la foto original tal cual — la prenda
+    //      nunca se pierde, queda reprocesable con "Mejora esta foto".
     let reconstructed = false;
     let finalBlob: Blob = rawBlob;
     let finalContentType = rawBlob.type || "image/jpeg";
     let backgroundRemoved = false;
+    let imageFailure: string | null = null;
 
-    if (reconstructionReason) {
+    // OJO: `needsReconstruction` es el booleano, NO el string del motivo.
+    // Antes la condición era `if (reconstructionReason)`, y si Vision devolvía
+    // needs_reconstruction=true con el motivo vacío, la reconstrucción se
+    // salteaba en silencio.
+    if (needsReconstruction) {
       const description = [subcategory, color]
         .filter((v): v is string => Boolean(v))
         .join(" ") || category || "prenda de ropa";
@@ -356,8 +377,12 @@ async function processOne(
         finalContentType = reconResult.contentType;
         reconstructed = true;
         backgroundRemoved = true;
+      } else {
+        imageFailure = `reconstrucción falló (${reconResult.reason})`;
       }
-    } else {
+    }
+
+    if (!backgroundRemoved) {
       const bgForm = new FormData();
       bgForm.append("image", rawBlob, "photo.jpg");
       const bgResult = await removeBackgroundWithGemini(bgForm);
@@ -366,7 +391,17 @@ async function processOne(
         finalBlob = base64ToBlob(bgResult.base64, bgResult.contentType);
         finalContentType = bgResult.contentType;
         backgroundRemoved = true;
+        imageFailure = null; // el fondo se pudo quitar: resultado usable
+      } else {
+        imageFailure = `remoción de fondo falló (${bgResult.reason})`;
       }
+    }
+
+    // El fallo no puede ser silencioso. La prenda se guarda igual (con
+    // background_removed=false, reprocesable), pero queda registrado con el
+    // id del item para poder rastrearlo en los logs.
+    if (imageFailure) {
+      console.error(`[burstQueue] item ${item.id}: ${imageFailure}`);
     }
 
     const finalPath = buildClothingImagePath({

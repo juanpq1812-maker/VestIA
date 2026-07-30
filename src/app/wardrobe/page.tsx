@@ -22,7 +22,7 @@ import type { ClothingItem } from "@/types/database";
 
 type Props = {
   // En Next.js 16 los searchParams son async (Promise).
-  searchParams: Promise<{ uploaded?: string }>;
+  searchParams: Promise<{ uploaded?: string; fotoAviso?: string }>;
 };
 
 export default async function WardrobePage({ searchParams }: Props) {
@@ -102,6 +102,10 @@ export default async function WardrobePage({ searchParams }: Props) {
 
   const sp = await searchParams;
   const mostrarBanner = sp.uploaded === "1";
+  // La foto no quedo como debia: la prenda se guardo igual, pero hay que
+  // avisarlo (ver UploadSuccessBanner).
+  const fotoAviso =
+    sp.fotoAviso === "parcial" || sp.fotoAviso === "falla" ? sp.fotoAviso : undefined;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -109,7 +113,9 @@ export default async function WardrobePage({ searchParams }: Props) {
 
       <main className="flex-1 pb-32 pt-8 sm:pb-14 sm:pt-12">
         <Container size="lg">
-          {mostrarBanner ? <UploadSuccessBanner /> : null}
+          {mostrarBanner ? (
+            <UploadSuccessBanner photoWarning={fotoAviso} />
+          ) : null}
 
           {/* Barra de progreso de onboarding (desaparece al tener 6+ prendas) */}
           <OnboardingProgressBar itemCount={items.length} />
