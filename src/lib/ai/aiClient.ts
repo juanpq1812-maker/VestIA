@@ -12,6 +12,21 @@
 /** Modelo por defecto: Claude Haiku (Anthropic). */
 export const DEFAULT_AI_MODEL = "claude-haiku-4-5-20251001";
 
+// Modelo para la detección de outfit completo (bounding boxes). NO usa el
+// default: medido sobre una foto de estudio con fondo liso — el caso más fácil
+// posible — Haiku devolvió las 4 boxes mal, todas con valores múltiplos de 5
+// (la firma de un modelo estimando coordenadas plausibles en vez de localizar):
+// la caja del "jean" se extendía más allá de los pies y la de las zapatillas
+// caía sobre piso vacío. Opus 4.7, que sí trae las mejoras de localización por
+// bounding box y visión de alta resolución, ubicó las 4 correctamente.
+// Se puede sobreescribir con AI_VISION_DETECTION_MODEL.
+export const DEFAULT_DETECTION_MODEL = "claude-opus-4-7";
+
+export function getDetectionModelName(): string {
+  const fromEnv = process.env.AI_VISION_DETECTION_MODEL?.trim();
+  return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_DETECTION_MODEL;
+}
+
 export function getAiModelName(): string {
   const fromEnv = process.env.AI_MODEL?.trim();
   return fromEnv && fromEnv.length > 0 ? fromEnv : DEFAULT_AI_MODEL;
@@ -173,6 +188,9 @@ export async function callAnthropicVisionApi(args: {
   imageBase64: string;
   imageMimeType: string;
   maxTokens?: number;
+  /** Sobreescribe el modelo. La detección con bounding boxes lo necesita:
+   *  el default (Haiku) no localiza bien — ver DEFAULT_DETECTION_MODEL. */
+  model?: string;
 }): Promise<string> {
   const imageSource: AnthropicImageSource = {
     type: "base64",
@@ -181,7 +199,7 @@ export async function callAnthropicVisionApi(args: {
   };
 
   const response = await fetchAnthropic({
-    model: getAiModelName(),
+    model: args.model ?? getAiModelName(),
     max_tokens: args.maxTokens ?? 512,
     system: args.systemPrompt,
     messages: [

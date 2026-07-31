@@ -9,7 +9,7 @@
 // archivo "use server" solo puede exportar funciones async, así que la
 // validación pura/sync no puede vivir acá.
 
-import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
+import { callAnthropicVisionApi, getDetectionModelName } from "@/lib/ai/aiClient";
 import { checkAndConsumeBurstUse } from "@/lib/ai/burstUsageGate";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { parseDetectionResponse, type DetectedOutfitGarment } from "@/lib/wardrobe/outfitDetectionSchema";
@@ -31,6 +31,7 @@ const DETECTION_PROMPT = `Analiza esta foto de un outfit completo (puede ser una
       "patron": "string (ej: 'liso', 'rayas', 'cuadros', 'estampado', 'sin patrón')",
       "formalidad": "número entero 1-5 (1=muy casual/deportivo, 5=muy formal)",
       "bbox": { "x": 0, "y": 0, "width": 0, "height": 0 },
+      "confianza": "alta|media|baja — qué tan seguro estás de que esto ES esta prenda Y de que el bbox la encierra bien. Usa 'baja' sin miedo: una prenda con confianza baja llega desmarcada para que el usuario decida, que es mejor que colarla.",
       "needs_reconstruction": "boolean — estas prendas vienen de una foto de outfit completo (puesta o tendida junto a la persona), así que lo esperable es true casi siempre. Responde false SOLO en la excepción: cuando ESTA prenda en particular ya se ve extendida y completa por sí sola (ej. tendida aparte, sin nadie encima, sin deformar), aunque el resto de la foto tenga a la persona puesta.",
       "reconstruction_reason": "string corto en español si needs_reconstruction=true (ej: 'puesta por la persona', 'colgada deformando la silueta'), o null si needs_reconstruction=false"
     }
@@ -38,8 +39,21 @@ const DETECTION_PROMPT = `Analiza esta foto de un outfit completo (puede ser una
 }
 Reglas estrictas:
 - "bbox" son porcentajes de 0 a 100 relativos al ancho/alto TOTAL de la imagen (x,y = esquina superior izquierda del recorte).
-- Ignora accesorios diminutos o poco visibles (aretes chicos, anillos, etc — solo incluye lo claramente identificable).
-- NO inventes prendas ocultas: si hay un saco cerrado, no asumas que hay una camiseta debajo si no se ve.
+- MEJOR POCAS Y BIEN QUE MUCHAS Y MAL. Detectar 3 prendas correctas es mejor
+  resultado que 6 donde 4 son basura. Cada prenda de más que no era ropa le
+  ensucia el armario al usuario.
+- Incluye SOLO prendas que estés viendo con certeza, claramente visibles y con
+  límites bien definidos. Si no puedes trazar el borde de la prenda con
+  confianza, NO la incluyas.
+- NO inventes accesorios. Gafas, gorras, bolsos, relojes y joyería solo se
+  reportan si los estás viendo de verdad en la imagen — no porque sea probable
+  que la persona los lleve, ni porque encajen con el estilo del outfit.
+- El bbox debe encerrar SOLO la prenda. Antes de responder, verifica cada uno:
+  si el recorte que define contiene sobre todo cielo, pared, piso, vegetación,
+  un edificio, una estatua o cualquier cosa que no sea la prenda, esa entrada
+  está mal — corrígela o elimínala.
+- NO inventes prendas ocultas: si hay un saco cerrado, no asumas que hay una
+  camiseta debajo si no se ve.
 - Si la foto no tiene ropa identificable, responde { "prendas": [] }.
 - Responde SOLO el JSON, sin texto adicional, sin markdown.`;
 
@@ -75,6 +89,9 @@ export async function detectOutfitItemsAction(
       imageBase64: base64,
       imageMimeType: mimeType,
       maxTokens: 1500,
+      // Los bounding boxes necesitan un modelo con localización de verdad —
+      // ver DEFAULT_DETECTION_MODEL en aiClient.ts.
+      model: getDetectionModelName(),
     });
 
     const items = parseDetectionResponse(rawText);
