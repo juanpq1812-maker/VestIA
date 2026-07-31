@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { detectOutfitItemsAction } from "@/app/wardrobe/upload/outfitDetectionActions";
 import type { DetectedOutfitGarment } from "@/lib/wardrobe/outfitDetectionSchema";
+import type { BurstClothingItem } from "@/types/database";
 import { cropImageByBBox, downscaleToMaxPx, OUTFIT_PHOTO_MAX_PX } from "@/lib/wardrobe/imageUtils";
 import {
   mapFormalityToOccasions,
@@ -19,8 +20,12 @@ import { enqueueDraftPhoto } from "@/lib/wardrobe/burstQueue";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Supa = SupabaseClient<any>;
 
+/** Un recorte ya encolado como draft, con el File local para previsualizarlo
+ *  sin tener que volver a bajarlo de Storage. */
+export type ExtractedCrop = { item: BurstClothingItem; crop: File };
+
 export type ExtractOutfitPhotoResult =
-  | { ok: true; detectedCount: number }
+  | { ok: true; detectedCount: number; crops: ExtractedCrop[] }
   | { ok: false; reason: "rate_limited"; resetInMinutes: number }
   | { ok: false; reason: "invalid_response" | "no_image" | "no_session" | "upload_failed" };
 
@@ -29,9 +34,9 @@ async function enqueueDetectedOutfitGarment(
   userId: string,
   downscaledPhoto: File,
   garment: DetectedOutfitGarment
-): Promise<boolean> {
+): Promise<ExtractedCrop | null> {
   const crop = await cropImageByBBox(downscaledPhoto, garment.bbox).catch(() => null);
-  if (!crop) return false;
+  if (!crop) return null;
 
   const subcategory = matchSubcategory(garment.categoria, garment.subcategoria) || null;
   const subcategoryAiRaw =
@@ -52,14 +57,16 @@ async function enqueueDetectedOutfitGarment(
     reconstruction_reason: garment.needs_reconstruction ? garment.reconstruction_reason : null,
   });
 
-  return inserted !== null;
+  return inserted ? { item: inserted, crop } : null;
 }
 
 /**
  * Procesa UNA foto de outfit completo: detecta todas las prendas visibles y
- * encola un draft por cada una. No procesa la imagen con Gemini acá — eso lo retoma
- * `processPendingForUser` (el caller debe llamarlo después, igual que hace
- * BurstCapture con cada foto individual).
+ * encola un draft por cada una y devuelve los recortes. NO procesa nada con
+ * Gemini acá — eso lo retoma `processPendingForUser`, y el caller debe
+ * llamarlo SOLO con los recortes que el usuario confirmó (ver
+ * OutfitCropConfirm): Vision saca bounding boxes de cosas que no son prendas, y
+ * antes esos recortes basura pagaban Gemini igual.
  */
 export async function extractOutfitPhoto(
   supabase: Supa,
@@ -79,17 +86,17 @@ export async function extractOutfitPhoto(
   }
 
   if (detection.items.length === 0) {
-    return { ok: true, detectedCount: 0 };
+    return { ok: true, detectedCount: 0, crops: [] };
   }
 
   const results = await Promise.all(
     detection.items.map((garment) => enqueueDetectedOutfitGarment(supabase, userId, downscaled, garment))
   );
-  const detectedCount = results.filter(Boolean).length;
+  const crops = results.filter((r): r is ExtractedCrop => r !== null);
 
-  if (detectedCount === 0) {
+  if (crops.length === 0) {
     return { ok: false, reason: "upload_failed" };
   }
 
-  return { ok: true, detectedCount };
+  return { ok: true, detectedCount: crops.length, crops };
 }
