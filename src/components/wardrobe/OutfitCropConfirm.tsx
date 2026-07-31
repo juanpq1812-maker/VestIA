@@ -158,11 +158,11 @@ export default function OutfitCropConfirm({ crops, onConfirm, submitting = false
               </span>
 
               {veredictos.get(id)?.reason ? (
-                <span className="absolute inset-x-0 bottom-0 bg-warning-light px-1.5 py-1 text-[11px] font-medium leading-tight text-warning">
+                <span className="absolute inset-x-0 bottom-0 bg-warning-light px-1.5 py-1 text-xs font-medium leading-tight text-warning">
                   {veredictos.get(id)!.reason}
                 </span>
               ) : crop.item.subcategory ? (
-                <span className="absolute inset-x-0 bottom-0 truncate bg-surface/90 px-1.5 py-1 text-[11px] font-medium text-text backdrop-blur">
+                <span className="absolute inset-x-0 bottom-0 truncate bg-surface/90 px-1.5 py-1 text-xs font-medium text-text backdrop-blur">
                   {crop.item.subcategory}
                 </span>
               ) : null}
