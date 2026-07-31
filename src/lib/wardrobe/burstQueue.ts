@@ -370,6 +370,8 @@ async function processOne(
       reconForm.append("image", rawBlob, "photo.jpg");
       reconForm.append("description", description);
       if (category) reconForm.append("category", category);
+      reconForm.append("source", isOutfitExtraction ? "outfit_extraction" : "burst");
+      reconForm.append("clothingItemId", item.id);
       const reconResult = await reconstructGarmentImageAction(reconForm);
 
       if (reconResult.ok) {
@@ -385,6 +387,8 @@ async function processOne(
     if (!backgroundRemoved) {
       const bgForm = new FormData();
       bgForm.append("image", rawBlob, "photo.jpg");
+      bgForm.append("source", isOutfitExtraction ? "outfit_extraction" : "burst");
+      bgForm.append("clothingItemId", item.id);
       const bgResult = await removeBackgroundWithGemini(bgForm);
 
       if (bgResult.ok) {

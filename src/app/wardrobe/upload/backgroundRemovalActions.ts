@@ -14,9 +14,10 @@
 // Gatea el mismo pool que reconstructGarmentImageAction/detectOutfitItemsAction
 // (burst_ai_uses): 1 crédito por intento. El consumo pasa server-side.
 
-import { callGeminiImageEdit } from "@/lib/ai/geminiClient";
+import { callGeminiImageEdit, GEMINI_IMAGE_MODEL } from "@/lib/ai/geminiClient";
 import { finalizeGeminiImageOutput } from "@/lib/ai/imageBackgroundRemoval";
 import { checkAndConsumeBurstUse } from "@/lib/ai/burstUsageGate";
+import { logAiImageCall, type AiImageSource } from "@/lib/ai/aiImageAudit";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export type RemoveBackgroundResult =
@@ -40,11 +41,37 @@ export async function removeBackgroundWithGemini(
   const file = formData.get("image");
   if (!file || !(file instanceof Blob)) return { ok: false, reason: "no_image" };
 
+  // Contexto opcional para la auditoría — de qué flujo viene y, si ya existe,
+  // a qué prenda corresponde el gasto.
+  const source = (formData.get("source") as AiImageSource | null) ?? null;
+  const clothingItemId = (formData.get("clothingItemId") as string | null) || null;
+  const audit = (
+    ok: boolean,
+    reason: string | null,
+    usage: Parameters<typeof logAiImageCall>[1]["usage"],
+    durationMs: number
+  ) =>
+    logAiImageCall(supabase, {
+      userId: user.id,
+      operation: "background_removal",
+      model: GEMINI_IMAGE_MODEL,
+      ok,
+      reason,
+      usage,
+      durationMs,
+      source,
+      clothingItemId,
+    });
+
   const budget = await checkAndConsumeBurstUse(user.id, supabase);
   if (!budget.allowed) {
+    // Se registra aunque no haya llegado a Gemini (usage null, costo 0): sin
+    // esto no hay forma de saber cuántos usuarios chocan contra el límite.
+    await audit(false, "rate_limited", null, 0);
     return { ok: false, reason: "rate_limited", resetInMinutes: budget.resetInMinutes };
   }
 
+  const startedAt = Date.now();
   try {
     const arrayBuffer = await file.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString("base64");
@@ -56,13 +83,27 @@ export async function removeBackgroundWithGemini(
       prompt: MINIMAL_EDIT_PROMPT,
     });
 
-    if (!result) return { ok: false, reason: "generation_failed" };
+    if (!result.ok) {
+      await audit(false, result.reason, result.usage, Date.now() - startedAt);
+      return { ok: false, reason: "generation_failed" };
+    }
 
-    const finalized = await finalizeGeminiImageOutput(result);
-    if (!finalized) return { ok: false, reason: "generation_failed" };
+    const finalized = await finalizeGeminiImageOutput(result.image);
+    if (!finalized) {
+      // Gemini SÍ cobró: el fallo fue del post-procesado local.
+      await audit(false, "postprocess_failed", result.usage, Date.now() - startedAt);
+      return { ok: false, reason: "generation_failed" };
+    }
 
+    await audit(true, null, result.usage, Date.now() - startedAt);
     return { ok: true, ...finalized };
-  } catch {
+  } catch (err) {
+    await audit(
+      false,
+      err instanceof Error ? err.message.slice(0, 200) : "unknown",
+      null,
+      Date.now() - startedAt
+    );
     return { ok: false, reason: "generation_failed" };
   }
 }

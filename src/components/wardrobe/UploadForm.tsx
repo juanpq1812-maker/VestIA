@@ -615,6 +615,7 @@ export default function UploadForm() {
             reconForm.append("image", comprimido, comprimido.name);
             reconForm.append("description", description);
             if (category) reconForm.append("category", category);
+            reconForm.append("source", "individual");
             const reconResult = await reconstructGarmentImageAction(reconForm);
 
             if (reconResult.ok) {
@@ -638,6 +639,7 @@ export default function UploadForm() {
         try {
           const fd = new FormData();
           fd.append("image", comprimido, comprimido.name);
+          fd.append("source", "individual");
           const bgResult = await removeBackgroundWithGemini(fd);
           if (bgResult.ok) {
             const pngBlob = base64ToBlob(bgResult.base64, bgResult.contentType);

@@ -17,9 +17,10 @@
 // server-side acá adentro, nunca en el cliente — mismo patrón de seguridad
 // que outfitDetectionActions.ts.
 
-import { callGeminiImageEdit } from "@/lib/ai/geminiClient";
+import { callGeminiImageEdit, GEMINI_IMAGE_MODEL } from "@/lib/ai/geminiClient";
 import { finalizeGeminiImageOutput } from "@/lib/ai/imageBackgroundRemoval";
 import { checkAndConsumeBurstUse } from "@/lib/ai/burstUsageGate";
+import { logAiImageCall, type AiImageSource } from "@/lib/ai/aiImageAudit";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export type ReconstructGarmentResult =
@@ -49,11 +50,34 @@ export async function reconstructGarmentImageAction(
   const category = formData.get("category");
   if (!file || !(file instanceof Blob)) return { ok: false, reason: "no_image" };
 
+  // Contexto opcional para la auditoría (ver ai_image_calls).
+  const source = (formData.get("source") as AiImageSource | null) ?? null;
+  const clothingItemId = (formData.get("clothingItemId") as string | null) || null;
+  const audit = (
+    ok: boolean,
+    reason: string | null,
+    usage: Parameters<typeof logAiImageCall>[1]["usage"],
+    durationMs: number
+  ) =>
+    logAiImageCall(supabase, {
+      userId: user.id,
+      operation: "reconstruction",
+      model: GEMINI_IMAGE_MODEL,
+      ok,
+      reason,
+      usage,
+      durationMs,
+      source,
+      clothingItemId,
+    });
+
   const budget = await checkAndConsumeBurstUse(user.id, supabase);
   if (!budget.allowed) {
+    await audit(false, "rate_limited", null, 0);
     return { ok: false, reason: "rate_limited", resetInMinutes: budget.resetInMinutes };
   }
 
+  const startedAt = Date.now();
   try {
     const arrayBuffer = await file.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString("base64");
@@ -70,13 +94,27 @@ export async function reconstructGarmentImageAction(
       prompt: buildPrompt(descriptionText, categoryText),
     });
 
-    if (!result) return { ok: false, reason: "generation_failed" };
+    if (!result.ok) {
+      await audit(false, result.reason, result.usage, Date.now() - startedAt);
+      return { ok: false, reason: "generation_failed" };
+    }
 
-    const finalized = await finalizeGeminiImageOutput(result);
-    if (!finalized) return { ok: false, reason: "generation_failed" };
+    const finalized = await finalizeGeminiImageOutput(result.image);
+    if (!finalized) {
+      // Gemini SÍ cobró: el fallo fue del post-procesado local.
+      await audit(false, "postprocess_failed", result.usage, Date.now() - startedAt);
+      return { ok: false, reason: "generation_failed" };
+    }
 
+    await audit(true, null, result.usage, Date.now() - startedAt);
     return { ok: true, ...finalized };
-  } catch {
+  } catch (err) {
+    await audit(
+      false,
+      err instanceof Error ? err.message.slice(0, 200) : "unknown",
+      null,
+      Date.now() - startedAt
+    );
     return { ok: false, reason: "generation_failed" };
   }
 }

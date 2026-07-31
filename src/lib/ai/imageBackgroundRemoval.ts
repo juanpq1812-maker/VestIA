@@ -81,7 +81,7 @@ const MAX_HOLE_PX = 4096; // huecos internos hasta este tamaño se rellenan
  * Limpia un canal alfa in-place-ish (devuelve una copia nueva). Puro
  * typed-array: ~35ms para 1MP, despreciable al lado de los 16-23s de @imgly.
  */
-function cleanAlphaMatte(
+export function cleanAlphaMatte(
   alpha: Uint8Array,
   width: number,
   height: number

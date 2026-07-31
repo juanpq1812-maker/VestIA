@@ -19,6 +19,8 @@
 // sin romper nada — revisar disponibilidad si suben las tasas de
 // "generation_failed" en los logs.
 const GEMINI_MODEL = "gemini-3.1-flash-lite-image";
+/** Se exporta para que la auditoría (ai_image_calls) registre el modelo real. */
+export const GEMINI_IMAGE_MODEL = GEMINI_MODEL;
 const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const TIMEOUT_MS = 30_000;
 
@@ -43,12 +45,61 @@ type GeminiPart = {
   inline_data?: { mime_type?: string; data?: string };
 };
 
+type GeminiUsageMetadata = {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  candidatesTokensDetails?: Array<{ modality?: string; tokenCount?: number }>;
+};
+
 type GeminiResponse = {
   candidates?: Array<{ content?: { parts?: GeminiPart[] } }>;
+  usageMetadata?: GeminiUsageMetadata;
   error?: { message?: string };
 };
 
+// Precios oficiales del paid tier standard, USD por 1M de tokens
+// (https://ai.google.dev/gemini-api/docs/pricing). Verificados contra el
+// usageMetadata real: una imagen de 1K son 1.120 tokens = $0.0336, que es el
+// 98% del costo de una llamada. Si Google cambia la tarifa, cambiar acá — las
+// filas ya escritas en ai_image_calls conservan el costo del momento.
+const PRICE_INPUT_PER_M = 0.25;
+const PRICE_OUTPUT_TEXT_PER_M = 1.5;
+const PRICE_OUTPUT_IMAGE_PER_M = 30.0;
+
+export type GeminiImageUsage = {
+  promptTokens: number;
+  imageTokens: number;
+  textTokens: number;
+  costUsd: number;
+};
+
 export type GeneratedImage = { base64: string; mimeType: string };
+
+/**
+ * Resultado de una llamada de edición de imagen. `usage` viene incluso cuando
+ * la llamada NO produjo imagen: si Gemini respondió 200 sin parte de imagen,
+ * igual factura el input y el thinking — ese es justamente el gasto que hoy se
+ * pierde de vista. Es null solo cuando no hubo respuesta de la API (timeout,
+ * error de red, HTTP != 200).
+ */
+export type GeminiImageResult =
+  | { ok: true; image: GeneratedImage; usage: GeminiImageUsage | null }
+  | { ok: false; reason: string; usage: GeminiImageUsage | null };
+
+function parseUsage(u: GeminiUsageMetadata | undefined): GeminiImageUsage | null {
+  if (!u) return null;
+  const promptTokens = u.promptTokenCount ?? 0;
+  const imageTokens = (u.candidatesTokensDetails ?? [])
+    .filter((d) => d.modality === "IMAGE")
+    .reduce((s, d) => s + (d.tokenCount ?? 0), 0);
+  // Lo que no es imagen en la salida es texto/thinking, que se cobra distinto.
+  const textTokens = Math.max(0, (u.candidatesTokenCount ?? 0) - imageTokens);
+  const costUsd =
+    (promptTokens / 1e6) * PRICE_INPUT_PER_M +
+    (imageTokens / 1e6) * PRICE_OUTPUT_IMAGE_PER_M +
+    (textTokens / 1e6) * PRICE_OUTPUT_TEXT_PER_M;
+  return { promptTokens, imageTokens, textTokens, costUsd };
+}
 
 /** Chequea los magic bytes iniciales para confirmar que es un PNG o JPEG real. */
 function looksLikeValidImage(bytes: Uint8Array): boolean {
@@ -61,20 +112,21 @@ function looksLikeValidImage(bytes: Uint8Array): boolean {
 
 /**
  * Manda una imagen + prompt de edición a Gemini 3.1 Flash-Lite Image y
- * devuelve la imagen generada. Nunca lanza fuera del try/catch — cualquier
- * falla (error de API, timeout, respuesta sin imagen, imagen inválida)
- * devuelve `null` para que el caller decida el fallback (ver burstQueue.ts).
+ * devuelve la imagen generada. Nunca lanza — cualquier falla (error de API,
+ * timeout, respuesta sin imagen, imagen inválida) vuelve como
+ * `{ ok: false, reason }` para que el caller decida el fallback (ver
+ * burstQueue.ts) y pueda auditar el gasto (ver ai_image_calls).
  */
 export async function callGeminiImageEdit(args: {
   imageBase64: string;
   imageMimeType: string;
   prompt: string;
-}): Promise<GeneratedImage | null> {
+}): Promise<GeminiImageResult> {
   let apiKey: string;
   try {
     apiKey = getGeminiApiKey();
   } catch {
-    return null;
+    return { ok: false, reason: "missing_api_key", usage: null };
   }
 
   const controller = new AbortController();
@@ -105,10 +157,11 @@ export async function callGeminiImageEdit(args: {
     if (!response.ok) {
       const rawErrorText = await response.text().catch(() => "");
       console.error(`[geminiClient] HTTP ${response.status}`, rawErrorText.slice(0, 300));
-      return null;
+      return { ok: false, reason: `http_${response.status}`, usage: null };
     }
 
     const data = (await response.json()) as GeminiResponse;
+    const usage = parseUsage(data.usageMetadata);
     const parts = data.candidates?.[0]?.content?.parts ?? [];
 
     for (const part of parts) {
@@ -121,13 +174,17 @@ export async function callGeminiImageEdit(args: {
       const bytes = Buffer.from(base64, "base64");
       if (!looksLikeValidImage(bytes)) continue;
 
-      return { base64, mimeType };
+      return { ok: true, image: { base64, mimeType }, usage };
     }
 
-    return null;
+    // 200 pero sin imagen usable. OJO: esto SÍ se factura (input + thinking),
+    // por eso el usage viaja igual.
+    console.error("[geminiClient] respuesta 200 sin imagen usable");
+    return { ok: false, reason: "no_image_in_response", usage };
   } catch (err) {
+    const aborted = err instanceof Error && err.name === "AbortError";
     console.error("[geminiClient] error llamando a Gemini:", err);
-    return null;
+    return { ok: false, reason: aborted ? "timeout" : "network_error", usage: null };
   } finally {
     clearTimeout(timeout);
   }
