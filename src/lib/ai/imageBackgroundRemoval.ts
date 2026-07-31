@@ -253,10 +253,19 @@ async function cleanMattePng(buffer: Buffer): Promise<Buffer> {
 // en cada install).
 const IMGLY_MODEL_PUBLIC_PATH = process.env.IMGLY_MODEL_PUBLIC_PATH;
 
-// Le damos a @imgly una porción generosa del maxDuration=60 de la función,
-// dejando margen para la llamada a Gemini (hasta 30s, TIMEOUT_MS en
-// geminiClient.ts) que ya corrió antes en el mismo request.
+// Timeout cuando @imgly corre DESPUÉS de Gemini (post-procesado de su salida):
+// le queda la porción del maxDuration=60 que no se comió la llamada a Gemini
+// (hasta 30s, TIMEOUT_MS en geminiClient.ts).
 const IMGLY_TIMEOUT_MS = 25_000;
+
+// Timeout cuando @imgly corre PRIMERO, sobre la foto original (ver
+// segmentGarmentLocally). Es más generoso porque acá todavía no se gastó nada
+// del presupuesto: en un contenedor frío el modelo de 42MB tarda 16-24s en
+// bajar, y con 25s se quedaba corto — se desperdiciaban los 25s Y ADEMÁS se
+// terminaba pagando Gemini, que es el peor de los dos mundos. Con 40s el
+// arranque en frío alcanza a resolver; si aun así falla, quedan ~20s para
+// Gemini (~7s) más el post-procesado, que ya encuentra el modelo en memoria.
+const IMGLY_LOCAL_TIMEOUT_MS = 40_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -282,7 +291,8 @@ const IMGLY_SUPPORTED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/we
  */
 async function removeBackgroundWithImgly(
   buffer: Buffer,
-  mimeType: string
+  mimeType: string,
+  timeoutMs: number = IMGLY_TIMEOUT_MS
 ): Promise<Buffer | null> {
   if (!IMGLY_MODEL_PUBLIC_PATH) return null;
 
@@ -313,7 +323,7 @@ async function removeBackgroundWithImgly(
         // siempre extrae foreground, es su único comportamiento soportado acá.
         output: { format: "image/png", quality: 0.9 },
       }),
-      IMGLY_TIMEOUT_MS
+      timeoutMs
     );
     const arrayBuffer = await blob.arrayBuffer();
     // La limpieza va acá y no en finalizeGeminiImageOutput: el residuo
@@ -378,6 +388,64 @@ async function removeWhiteBackgroundLocally(buffer: Buffer): Promise<Buffer> {
   }
 
   return sharp(data, { raw: { width, height, channels } }).png().toBuffer();
+}
+
+// ---------------------------------------------------------------------------
+// Segmentación local: @imgly directo sobre la foto ORIGINAL, sin Gemini.
+//
+// @imgly segmenta por CONTENIDO (silueta de la prenda), así que no necesita que
+// el fondo sea blanco — usarlo solo para convertir el blanco de Gemini en
+// transparente estaba desaprovechando su capacidad real. Medido sobre 28
+// prendas con needs_reconstruction=false: 25 salen equivalentes al pipeline
+// completo (IoU mediano 99,3%), y las 3 que fallan se delatan por el alfa.
+//
+// A diferencia de finalizeGeminiImageOutput, acá NO hay fallback al threshold
+// de color: ese método recorta "lo que está cerca del blanco", que sobre una
+// foto real (cama, mesa, tienda) destruiría la prenda. Si @imgly no está
+// disponible o falla, se devuelve null y el caller cae a Gemini.
+// ---------------------------------------------------------------------------
+
+export type LocalSegmentation = {
+  base64: string;
+  contentType: "image/png";
+  /** % de píxeles semi-transparentes tras la limpieza. Señal de confianza. */
+  semiPct: number;
+};
+
+/** % de píxeles con alfa intermedio (ni transparente ni opaco). */
+async function measureSemiTransparency(png: Buffer): Promise<number> {
+  const { data, info } = await sharp(png)
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  const { width, height, channels } = info;
+  const n = width * height;
+  let semi = 0;
+  for (let i = 0; i < n; i++) {
+    const a = data[i * channels + 3];
+    if (a > 0 && a < 255) semi++;
+  }
+  return (semi / n) * 100;
+}
+
+/**
+ * Recorta la prenda de una foto original con @imgly. `null` si @imgly no está
+ * configurado o falló — el caller decide (típicamente: pasar por Gemini).
+ */
+export async function segmentGarmentLocally(
+  buffer: Buffer,
+  mimeType: string
+): Promise<LocalSegmentation | null> {
+  try {
+    const cut = await removeBackgroundWithImgly(buffer, mimeType, IMGLY_LOCAL_TIMEOUT_MS);
+    if (!cut) return null;
+
+    const semiPct = await measureSemiTransparency(cut);
+    return { base64: cut.toString("base64"), contentType: "image/png", semiPct };
+  } catch (err) {
+    console.error("[imageBackgroundRemoval] segmentación local falló:", err);
+    return null;
+  }
 }
 
 /**
