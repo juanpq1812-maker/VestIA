@@ -13,9 +13,10 @@ import Card from "@/components/ui/Card";
 import CameraTipsModal from "@/components/wardrobe/CameraTipsModal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import { ALLOWED_MIME_TYPES } from "@/lib/wardrobe/constants";
-import { extractOutfitPhoto } from "@/lib/wardrobe/outfitExtraction";
+import { extractOutfitPhoto, type ExtractedCrop } from "@/lib/wardrobe/outfitExtraction";
+import OutfitCropConfirm from "@/components/wardrobe/OutfitCropConfirm";
 import { peekBurstBudgetAction } from "@/app/wardrobe/upload/burstActions";
-import { processPendingForUser } from "@/lib/wardrobe/burstQueue";
+import { deletePendingItem, processPendingForUser } from "@/lib/wardrobe/burstQueue";
 
 const MAX_PHOTOS = 10;
 const CAMERA_TIPS_KEY_PREFIX = "strandia_camera_tips_seen";
@@ -35,6 +36,10 @@ export default function OutfitPhotoCapture() {
   const [results, setResults] = useState<PhotoResult[]>([]);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [trimmedWarning, setTrimmedWarning] = useState<string | null>(null);
+  // Recortes detectados esperando confirmación del usuario. Mientras esto
+  // tenga contenido NO se llamó a Gemini todavía — ese es el punto del paso.
+  const [pendingCrops, setPendingCrops] = useState<ExtractedCrop[]>([]);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -71,6 +76,7 @@ export default function OutfitPhotoCapture() {
       }
 
       const newResults: PhotoResult[] = [];
+      const allCrops: ExtractedCrop[] = [];
       let stopped = false;
 
       for (let i = 0; i < files.length; i++) {
@@ -79,6 +85,7 @@ export default function OutfitPhotoCapture() {
         const result = await extractOutfitPhoto(supabase, userId, files[i]);
 
         if (result.ok) {
+          allCrops.push(...result.crops);
           newResults.push({
             label: `Foto ${i + 1}`,
             detail:
@@ -100,10 +107,37 @@ export default function OutfitPhotoCapture() {
         setResults([...newResults]);
       }
 
-      processPendingForUser(supabase, userId).catch(() => {});
+      // NO se procesa nada acá: los recortes quedan esperando que el usuario
+      // confirme cuáles son prendas de verdad (ver handleConfirmCrops). Antes
+      // se llamaba a processPendingForUser de una y los recortes basura de
+      // Vision pagaban Gemini igual que los buenos.
+      setPendingCrops(allCrops);
     } finally {
       setProcessing(false);
       setProgressLabel(null);
+    }
+  }
+
+  async function handleConfirmCrops(
+    elegidos: ExtractedCrop[],
+    descartados: ExtractedCrop[]
+  ) {
+    if (!userId) return;
+    setConfirming(true);
+    try {
+      // Los descartados se borran ANTES de procesar: processPendingForUser
+      // levanta todos los drafts del usuario, así que si siguieran ahí se
+      // pagarían igual — que es justo lo que este paso viene a evitar.
+      await Promise.all(
+        descartados.map((c) =>
+          deletePendingItem(supabase, userId, c.item).catch(() => {})
+        )
+      );
+      setPendingCrops([]);
+      processPendingForUser(supabase, userId).catch(() => {});
+      router.push("/wardrobe/upload/review");
+    } finally {
+      setConfirming(false);
     }
   }
 
@@ -134,6 +168,18 @@ export default function OutfitPhotoCapture() {
     } else {
       setShowCameraTips(true);
     }
+  }
+
+  if (pendingCrops.length > 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        <OutfitCropConfirm
+          crops={pendingCrops}
+          onConfirm={handleConfirmCrops}
+          submitting={confirming}
+        />
+      </div>
+    );
   }
 
   return (
