@@ -9,7 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { detectOutfitItemsAction } from "@/app/wardrobe/upload/outfitDetectionActions";
 import type { DetectedOutfitGarment } from "@/lib/wardrobe/outfitDetectionSchema";
 import type { BurstClothingItem } from "@/types/database";
-import { cropImageByBBox, downscaleToMaxPx, OUTFIT_PHOTO_MAX_PX } from "@/lib/wardrobe/imageUtils";
+import { cropImageByBBox, downscaleToMaxPx, imageArea, OUTFIT_PHOTO_MAX_PX } from "@/lib/wardrobe/imageUtils";
 import {
   mapFormalityToOccasions,
   matchColorToPalette,
@@ -22,7 +22,14 @@ type Supa = SupabaseClient<any>;
 
 /** Un recorte ya encolado como draft, con el File local para previsualizarlo
  *  sin tener que volver a bajarlo de Storage. */
-export type ExtractedCrop = { item: BurstClothingItem; crop: File };
+export type ExtractedCrop = {
+  item: BurstClothingItem;
+  crop: File;
+  /** Confianza que reportó Vision para esta prenda. Alimenta el pre-desmarcado. */
+  confianza: DetectedOutfitGarment["confianza"];
+  /** Área en px de la foto de la que salió el recorte, para el ratio de área. */
+  sourceArea: number;
+};
 
 export type ExtractOutfitPhotoResult =
   | { ok: true; detectedCount: number; crops: ExtractedCrop[] }
@@ -33,7 +40,8 @@ async function enqueueDetectedOutfitGarment(
   supabase: Supa,
   userId: string,
   downscaledPhoto: File,
-  garment: DetectedOutfitGarment
+  garment: DetectedOutfitGarment,
+  sourceArea: number
 ): Promise<ExtractedCrop | null> {
   const crop = await cropImageByBBox(downscaledPhoto, garment.bbox).catch(() => null);
   if (!crop) return null;
@@ -57,7 +65,9 @@ async function enqueueDetectedOutfitGarment(
     reconstruction_reason: garment.needs_reconstruction ? garment.reconstruction_reason : null,
   });
 
-  return inserted ? { item: inserted, crop } : null;
+  return inserted
+    ? { item: inserted, crop, confianza: garment.confianza, sourceArea }
+    : null;
 }
 
 /**
@@ -74,6 +84,9 @@ export async function extractOutfitPhoto(
   file: File
 ): Promise<ExtractOutfitPhotoResult> {
   const downscaled = await downscaleToMaxPx(file, OUTFIT_PHOTO_MAX_PX).catch(() => file);
+  // Área de la foto ya reducida — es el espacio de coordenadas en el que Vision
+  // devuelve los bbox, así que es contra esta que se mide el ratio de área.
+  const sourceArea = await imageArea(downscaled).catch(() => 0);
 
   const formData = new FormData();
   formData.append("image", downscaled, "outfit.jpg");
@@ -90,7 +103,9 @@ export async function extractOutfitPhoto(
   }
 
   const results = await Promise.all(
-    detection.items.map((garment) => enqueueDetectedOutfitGarment(supabase, userId, downscaled, garment))
+    detection.items.map((garment) =>
+      enqueueDetectedOutfitGarment(supabase, userId, downscaled, garment, sourceArea)
+    )
   );
   const crops = results.filter((r): r is ExtractedCrop => r !== null);
 

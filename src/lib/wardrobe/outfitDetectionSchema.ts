@@ -25,6 +25,9 @@ export type DetectedOutfitGarment = {
   patron: string;
   formalidad: 1 | 2 | 3 | 4 | 5;
   bbox: { x: number; y: number; width: number; height: number };
+  /** Qué tan segura está Vision de la prenda Y de su bbox. Alimenta el
+   *  pre-desmarcado del grid de confirmación (ver OutfitCropConfirm). */
+  confianza: "alta" | "media" | "baja";
   /** true si Vision detectó evidencia de que este recorte necesita reconstrucción con Gemini. */
   needs_reconstruction: boolean;
   /** Motivo corto (ej. "puesta por la persona"). Solo se conserva cuando needs_reconstruction=true. */
@@ -71,6 +74,12 @@ function isValidGarmentCore(v: unknown): v is Record<string, unknown> {
   return true;
 }
 
+/** Default "baja" si el modelo omite el campo: ante la duda, que llegue
+ *  desmarcada — es el lado seguro. */
+function toConfianza(v: unknown): DetectedOutfitGarment["confianza"] {
+  return v === "alta" || v === "media" || v === "baja" ? v : "baja";
+}
+
 /**
  * Completa needs_reconstruction/reconstruction_reason con un default seguro
  * si el modelo los omite. A diferencia del análisis individual, acá el
@@ -98,6 +107,7 @@ function toDetectedGarment(g: Record<string, unknown>): DetectedOutfitGarment {
     patron: g.patron as string,
     formalidad: g.formalidad as 1 | 2 | 3 | 4 | 5,
     bbox: g.bbox as DetectedOutfitGarment["bbox"],
+    confianza: toConfianza(g.confianza),
     needs_reconstruction,
     reconstruction_reason,
   };

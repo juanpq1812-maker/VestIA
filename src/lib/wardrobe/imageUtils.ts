@@ -130,3 +130,18 @@ export function base64ToBlob(base64: string, type: string): Blob {
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return new Blob([bytes], { type });
 }
+
+/** Área en píxeles de una imagen. Se usa para medir qué fracción de la foto
+ *  original ocupa un recorte (ver cropSuspicion.ts). */
+export function imageArea(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img.naturalWidth * img.naturalHeight);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load failed")); };
+    img.src = url;
+  });
+}
