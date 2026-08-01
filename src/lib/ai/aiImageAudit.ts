@@ -15,11 +15,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { GeminiImageUsage } from "@/lib/ai/geminiClient";
 
-// `local_segmentation` = recorte con @imgly sin pasar por Gemini (costo 0).
-export type AiImageOperation =
-  | "reconstruction"
-  | "background_removal"
-  | "local_segmentation";
+export type AiImageOperation = "reconstruction" | "background_removal";
 
 /** De dónde salió la llamada, para poder cortar el gasto por flujo. */
 export type AiImageSource =
@@ -38,10 +34,6 @@ export async function logAiImageCall(
     ok: boolean;
     reason?: string | null;
     usage?: GeminiImageUsage | null;
-    /** % de píxeles semi-transparentes del matte. Se registra SIEMPRE, incluso
-     *  cuando la imagen no llegó a Gemini — es la serie con la que se tunea el
-     *  umbral del recorte local sin pagar por prenda mientras se decide. */
-    semiPct?: number | null;
     durationMs?: number;
     source?: AiImageSource | null;
     clothingItemId?: string | null;
@@ -59,8 +51,7 @@ export async function logAiImageCall(
       prompt_tokens: row.usage?.promptTokens ?? null,
       image_tokens: row.usage?.imageTokens ?? null,
       text_tokens: row.usage?.textTokens ?? null,
-      cost_usd: row.usage?.costUsd ?? 0,
-      semi_pct: row.semiPct ?? null,
+      cost_usd: row.usage?.costUsd ?? null,
       duration_ms: row.durationMs ?? null,
     });
     if (error) {
