@@ -2,6 +2,43 @@
 
 ---
 
+## PIPELINE DE IMAGEN — CAMINOS YA DESCARTADOS
+
+> No re-litigues estas decisiones. Están medidas, no supuestas. Si vas a
+> reabrir una, trae datos nuevos primero.
+
+**@imgly NO se usa como segmentador primario.** Su único rol es post-procesar
+la salida de Gemini: convertir el fondo blanco en transparente y limpiar
+partículas. Se intentó invertirlo (@imgly primero, Gemini de respaldo), causó
+una regresión en producción y se revirtió en `c32deab`. Medido en Vercel real:
+
+- **~15,4 s de CPU** por foto de tamaño completo, con el contenedor caliente.
+  El arranque en frío es marginal (~300 ms el import; 16-24 s en frío contra
+  15,4 s en caliente). **Precalentar el modelo no lo arregla** — el costo es la
+  inferencia, y se paga siempre.
+- **No escala con concurrencia.** El proyecto corre con Fluid Compute, que
+  empaqueta invocaciones concurrentes en la misma instancia; @imgly es
+  inferencia ONNX sobre CPU y dos en la misma instancia se serializan. El
+  throughput por instancia está fijo en 1 imagen / 15,4 s, así que **bajar la
+  concurrencia de la cola tampoco ayuda**.
+
+**Regla del presupuesto de tiempo.** En cualquier ruta que encadene trabajo
+local + Gemini:
+
+```
+timeout local + TIMEOUT_MS (geminiClient) < maxDuration de la ruta
+25s           + 30s                       = 55s  <  60s   ✓
+```
+
+Violarla es lo que tumbó producción: 40 + 30 = 70 > 60 mataba la función antes
+de que el timeout de Gemini se disparara limpio. Al mover cualquiera de los
+tres números, verifica la suma.
+
+Detalle completo y tabla de mediciones: bloque de comentarios al inicio de
+`src/lib/ai/imageBackgroundRemoval.ts`.
+
+---
+
 ## PATRONES DE UI
 
 > Todo lo que sigue está extraído del código real del proyecto. No uses clases o valores que no aparezcan aquí sin verificar primero en el componente fuente.

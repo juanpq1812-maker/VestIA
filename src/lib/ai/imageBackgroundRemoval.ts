@@ -34,9 +34,53 @@
 // modelo en memoria del proceso, así que el PRIMER removeBackground() de un
 // contenedor recién levantado paga la descarga completa del modelo
 // (~10-16s medido contra Supabase Storage real). Invocaciones siguientes en
-// el mismo contenedor (caso común con Fluid Compute) son casi tan rápidas
-// como con el modelo ya en disco (~1.5s). Por esto las rutas que llaman esta
-// función declaran `maxDuration = 60`.
+// el mismo contenedor (caso común con Fluid Compute) se ahorran esa descarga
+// (~1.5s sobre un RECORTE pequeño de outfit). Ojo con ese número: el costo
+// escala con los píxeles, y sobre una foto de tamaño completo son ~15s
+// aunque el contenedor esté caliente — ver el bloque siguiente. Por esto las
+// rutas que llaman esta función declaran `maxDuration = 60`.
+//
+// ───────────────────────────────────────────────────────────────────────────
+// POR QUÉ @imgly NO ES EL SEGMENTADOR PRIMARIO
+// Descartado el 2026-08-01. No reintentar sin datos nuevos.
+// ───────────────────────────────────────────────────────────────────────────
+//
+// Se probó invertir el pipeline: @imgly directo sobre la foto ORIGINAL, y
+// Gemini solo como respaldo cuando el recorte local no era confiable. Se
+// mergeó, causó una regresión severa en producción (fotos de ~3 min y varias
+// muertas en timeout) y se revirtió en c32deab. El experimento que lo había
+// justificado midió latencia SECUENCIAL — una foto a la vez — y el review
+// procesa varias en paralelo.
+//
+// Medido después, en un preview real de Vercel, foto de 675x900:
+//
+//   concurrencia   instancias   inferencia
+//   1              1            15,4 s
+//   3              2            media 19,9 s · máx 26,9 s
+//   6              4            media 21,1 s · máx 29,1 s
+//
+// Los dos números que lo matan:
+//
+// 1. COSTO DE CPU: ~15,4s por foto de tamaño completo, con el contenedor ya
+//    caliente. NO es arranque en frío — el import del nativo son ~300ms, y
+//    una instancia fría contra una caliente es 16-24s contra 15,4s. Es la
+//    inferencia misma, que se paga siempre. Precalentar el modelo o
+//    mantenerlo en memoria NO arregla esto.
+//
+// 2. NO ESCALA CON CONCURRENCIA: el proyecto corre con Fluid Compute
+//    (`fluid: true` en el proyecto de Vercel), que empaqueta invocaciones
+//    concurrentes en la MISMA instancia. Está pensado para trabajo I/O-bound,
+//    donde N requests esperando una API remota no se estorban. @imgly es
+//    inferencia ONNX sobre CPU: dos que caen en la misma instancia se
+//    serializan (una sale en ~14s, la otra en ~27s). El throughput por
+//    instancia está fijo en 1 imagen / 15,4s sin importar cuánto le mandes,
+//    así que BAJAR LA CONCURRENCIA DE LA COLA TAMPOCO AYUDA. Gemini no sufre
+//    esto porque el cómputo pesado es remoto y la función solo espera I/O.
+//
+// El intercambio real era ~9s más de espera por usuario para ahorrar COP 110
+// por prenda. @imgly se queda en el rol que tiene abajo: post-procesar la
+// salida de Gemini (fondo blanco -> transparente, limpieza de partículas),
+// donde corre una vez por request sobre una imagen ya pequeña.
 
 import sharp from "sharp";
 
@@ -256,6 +300,18 @@ const IMGLY_MODEL_PUBLIC_PATH = process.env.IMGLY_MODEL_PUBLIC_PATH;
 // Le damos a @imgly una porción generosa del maxDuration=60 de la función,
 // dejando margen para la llamada a Gemini (hasta 30s, TIMEOUT_MS en
 // geminiClient.ts) que ya corrió antes en el mismo request.
+//
+// REGLA DEL PRESUPUESTO — verificar la suma al tocar este valor:
+//
+//     IMGLY_TIMEOUT_MS + TIMEOUT_MS(geminiClient) < maxDuration de la ruta
+//     25s              + 30s                      = 55s  <  60s   ✓
+//
+// No es una guía de estilo, es la causa de una caída en producción. La
+// versión revertida (c32deab) le dio 40s a @imgly corriendo ANTES de Gemini:
+// 40 + 30 = 70 > 60. Un ítem que agotaba el tramo local no podía terminar —
+// la plataforma mataba la función antes de que el timeout de Gemini se
+// disparara limpio, así que ni siquiera quedaba un error decente en la
+// auditoría, solo "No pudimos mejorar esta foto" en la cara del usuario.
 const IMGLY_TIMEOUT_MS = 25_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
