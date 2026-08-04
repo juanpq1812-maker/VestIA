@@ -23,10 +23,13 @@ import {
   saveAndUseOutfitTodayAction,
   type GenerateActionInput,
 } from "@/app/outfits/actions";
-import type { GeneratedOutfit } from "@/lib/ai/generateOutfits";
+import type { GenerateMode, GeneratedOutfit } from "@/lib/ai/generateOutfits";
 import Toast from "@/components/ui/Toast";
 import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSection";
+import WardrobeMinimumsChecklist from "@/components/outfits/WardrobeMinimumsChecklist";
+import OutfitFeedbackSheet from "@/components/outfits/OutfitFeedbackSheet";
 import InspirationSection from "@/components/outfits/InspirationSection";
+import type { WardrobeMinimums } from "@/lib/wardrobe/wardrobeMinimums";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
 
@@ -56,8 +59,12 @@ const MENSAJES_LOADING = [
 type Tab = "occasion" | "description" | "surprise";
 
 type Props = {
-  /** Cantidad total de prendas en el armario. Si <2 el componente no renderiza el generador. */
-  totalItems: number;
+  /**
+   * Mínimos por categoría ya evaluados en el servidor. Si no se cumplen, en vez
+   * del generador se muestra el checklist de progreso — ver
+   * `WardrobeMinimumsChecklist`.
+   */
+  minimums: WardrobeMinimums;
   /** ID de la prenda que la IA debe incluir obligatoriamente en todos los outfits. */
   lockedItemId?: string | null;
   /** Nombre de la prenda bloqueada para mostrar en el badge. */
@@ -69,7 +76,7 @@ type Props = {
 };
 
 export default function OutfitGenerator({
-  totalItems,
+  minimums,
   lockedItemId,
   lockedItemName,
   wardrobeSummary = {},
@@ -87,8 +94,11 @@ export default function OutfitGenerator({
 
   const tieneLockedItem = Boolean(lockedItemId);
 
-  if (totalItems < 2) {
-    return <EmptyWardrobeCallout />;
+  // Bloqueo suave: el armario no da para dos outfits distintos todavía. En vez
+  // de dejar que la IA falle y mostrar un error, mostramos el progreso y qué
+  // falta. Ver WardrobeMinimumsChecklist.
+  if (!minimums.ok) {
+    return <MinimumsGate minimums={minimums} />;
   }
 
   function applyInspiration(desc: string) {
@@ -196,6 +206,7 @@ export default function OutfitGenerator({
           contextoOcasion={
             lastInput?.mode === "occasion" ? lastInput.occasion ?? null : null
           }
+          modo={lastInput?.mode ?? "occasion"}
           onToast={(msg, kind) => setToast({ msg, kind })}
         />
       )}
@@ -446,11 +457,13 @@ function ResultsGrid({
   outfits,
   onRegenerate,
   contextoOcasion,
+  modo,
   onToast,
 }: {
   outfits: GeneratedOutfit[];
   onRegenerate: () => void;
   contextoOcasion: string | null;
+  modo: GenerateMode;
   onToast: (msg: string, kind: "success" | "error") => void;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -611,6 +624,8 @@ function ResultsGrid({
               outfit={o}
               index={idx}
               contextoOcasion={contextoOcasion}
+              modo={modo}
+              onRegenerate={onRegenerate}
               onToast={onToast}
             />
           </div>
@@ -685,14 +700,19 @@ function OutfitCard({
   outfit,
   index,
   contextoOcasion,
+  modo,
+  onRegenerate,
   onToast,
 }: {
   outfit: GeneratedOutfit;
   index: number;
   contextoOcasion: string | null;
+  modo: GenerateMode;
+  onRegenerate: () => void;
   onToast: (msg: string, kind: "success" | "error") => void;
 }) {
   const [estado, setEstado] = useState<CardEstado>("idle");
+  const [feedbackAbierto, setFeedbackAbierto] = useState(false);
   const [errMsg, setErrMsg] = useState<string | null>(null);
   // Una vez guardado, recordamos el id para que "Lo usare hoy" no vuelva a
   // crear un outfit duplicado.
@@ -815,7 +835,50 @@ function OutfitCard({
         {estado === "error" && errMsg && (
           <span className="text-xs text-danger">{errMsg}</span>
         )}
+
+        {/* Punto de entrada al feedback: deliberadamente discreto. Un botón
+            grande invitaría a criticar; esto solo está ahí para quien
+            genuinamente quiera decir qué no le gustó. Se esconde una vez que el
+            outfit ya se guardó o se usó — a esa altura la señal es positiva. */}
+        {!yaGuardado && (
+          <button
+            type="button"
+            onClick={() => setFeedbackAbierto(true)}
+            className="mx-auto flex min-h-[44px] items-center gap-1.5 rounded-full px-3 text-xs font-medium text-text-muted transition-colors duration-150 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <svg
+              aria-hidden="true"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M17 14V2M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L11 22a1.93 1.93 0 0 1-2-2v-1.88Z" />
+            </svg>
+            No me convence
+          </button>
+        )}
       </div>
+
+      {feedbackAbierto && (
+        <OutfitFeedbackSheet
+          clothingItemIds={outfit.items.map((i) => i.id)}
+          occasion={contextoOcasion}
+          mode={modo}
+          onClose={() => setFeedbackAbierto(false)}
+          onSubmitted={() => {
+            setFeedbackAbierto(false);
+            onToast("Listo, lo tendremos en cuenta", "success");
+            // Regeneramos de una: quien dice "no me convence" quiere otra
+            // propuesta, no quedarse mirando la que rechazó.
+            onRegenerate();
+          }}
+        />
+      )}
     </article>
   );
 }
@@ -905,28 +968,33 @@ function LockedGarmentBanner({
 }
 
 // ---------------------------------------------------------------------------
-// Empty state cuando el armario tiene <2 prendas.
+// Gate: el armario todavía no cumple los mínimos por categoría.
 // ---------------------------------------------------------------------------
 
-function EmptyWardrobeCallout() {
+function MinimumsGate({ minimums }: { minimums: WardrobeMinimums }) {
   return (
-    <div className="rounded-xl bg-surface-offset p-10 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary">
-        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20.4 6.4 16 4l-1.5 2h-5L8 4 3.6 6.4a1 1 0 0 0-.4 1.3l1.6 3a1 1 0 0 0 1.3.4L7 10.4V19a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-8.6l.9.7a1 1 0 0 0 1.3-.4l1.6-3a1 1 0 0 0-.4-1.3Z" />
-        </svg>
-      </div>
-      <h3 className="mt-4 font-display text-xl text-text">
-        Necesitas al menos 2 prendas en tu armario
-      </h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm text-text-muted">
-        Para que la IA pueda combinar, sube primero algunas prendas. Te
-        recomendamos al menos 1 top, 1 bottom y 1 calzado.
-      </p>
-      <div className="mt-6 flex justify-center">
-        <Link href="/wardrobe/upload">
-          <Button variant="primary">Subir mi primera prenda</Button>
+    <div className="space-y-6">
+      <WardrobeMinimumsChecklist minimums={minimums} />
+
+      <div className="flex flex-col gap-3">
+        <Link href="/wardrobe/upload?modo=individual" className="block">
+          <Button variant="primary" size="lg" fullWidth>
+            {minimums.empty ? "Subir mi primera prenda" : "Subir prendas"}
+          </Button>
         </Link>
+
+        {/* El generador se queda a la vista, deshabilitado: comunica que existe
+            y está a un par de prendas de distancia. Desaparecerlo haría pensar
+            que la función no está. */}
+        <Button
+          variant="secondary"
+          size="lg"
+          fullWidth
+          disabled
+          aria-describedby="minimos-titulo"
+        >
+          Generar outfit
+        </Button>
       </div>
     </div>
   );

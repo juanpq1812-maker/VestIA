@@ -24,6 +24,7 @@ import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
 import { suggestOutfitForEvent } from "@/lib/ai/eventOutfit";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { isFeedbackReason, type FeedbackReason } from "@/lib/outfits/feedback";
 export type GenerateActionInput = {
   mode: GenerateMode;
   occasion?: string;
@@ -202,6 +203,58 @@ export async function generateEventOutfitAction(
     ok: true,
     suggestion: { name, explanation, matchPercentage, occasion, items },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Feedback negativo sobre un outfit RECIEN GENERADO.
+//
+// Solo aplica a outfits generados, nunca a los guardados: guardar ya es
+// feedback positivo implicito y "Lo usare hoy" es una senal aun mas fuerte.
+// La tabla es append-only (migracion 0032) y se lee al generar para
+// personalizar el prompt — ver lib/outfits/feedback.ts.
+// ---------------------------------------------------------------------------
+
+export type SubmitFeedbackInput = {
+  reason: FeedbackReason;
+  clothing_item_ids: string[];
+  occasion: string | null;
+  mode: GenerateMode;
+};
+
+export type SubmitFeedbackResult = { ok: true } | { ok: false; error: string };
+
+export async function submitOutfitFeedbackAction(
+  input: SubmitFeedbackInput
+): Promise<SubmitFeedbackResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, error: "Inicia sesion para enviar feedback." };
+  }
+
+  // El CHECK de la migracion rechazaria un slug inventado igual, pero acá el
+  // error queda claro en vez de llegar como fallo generico de Postgres.
+  if (!isFeedbackReason(input.reason)) {
+    return { ok: false, error: "Esa razon no es valida." };
+  }
+
+  const { error } = await supabase.from("outfit_feedback").insert({
+    user_id: user.id,
+    reason: input.reason,
+    item_ids: input.clothing_item_ids,
+    occasion: input.occasion,
+    mode: input.mode,
+  });
+
+  if (error) {
+    console.error("[submitOutfitFeedbackAction] insert fallo", error);
+    return { ok: false, error: "No pudimos registrar tu feedback." };
+  }
+
+  return { ok: true };
 }
 
 export type SaveOutfitInput = {
