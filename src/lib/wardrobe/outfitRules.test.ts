@@ -64,6 +64,44 @@ test("blanco + beige + negro + verde falla por el tope de neutros", () => {
   assert.match(violations[0].message, /neutros distintos/);
 });
 
+test("un look enteramente neutro es monocromo deliberado y pasa", () => {
+  // Medido contra el armario real de Juan: sin esta excepción la regla se
+  // disparaba en outfits perfectamente buenos y quemaba un reintento de ~7s en
+  // casi toda generación.
+  const grisNegroBlanco = [
+    prenda("top", "Camiseta", "blanco"),
+    prenda("bottom", "Jean", "gris"),
+    prenda("footwear", "Tenis", "negro"),
+  ];
+  assert.equal(validateOutfit(grisNegroBlanco).valid, true);
+
+  const cuatroNeutros = [
+    prenda("top", "Camiseta", "blanco"),
+    prenda("bottom", "Jean", "negro"),
+    prenda("footwear", "Tenis", "café"),
+    prenda("accessory", "Bolso", "beige"),
+  ];
+  assert.equal(validateOutfit(cuatroNeutros).valid, true);
+});
+
+test("con un solo color de por medio, el tope de 2 neutros vuelve a aplicar", () => {
+  const dosNeutrosMasColor = [
+    prenda("top", "Camiseta", "blanco"),
+    prenda("bottom", "Jean", "negro"),
+    prenda("footwear", "Tenis", "verde"),
+  ];
+  assert.equal(validateOutfit(dosNeutrosMasColor).valid, true);
+
+  const tresNeutrosMasColor = [
+    prenda("top", "Camiseta", "blanco"),
+    prenda("bottom", "Jean", "negro"),
+    prenda("outerwear", "Blazer", "gris"),
+    prenda("footwear", "Tenis", "verde"),
+  ];
+  const violations = validateOutfit(tresNeutrosMasColor).violations;
+  assert.ok(violations.some((v) => v.rule === "color"));
+});
+
 // ---------------------------------------------------------------------------
 // Capas.
 // ---------------------------------------------------------------------------

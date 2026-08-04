@@ -273,11 +273,41 @@ const VALIDATION_RETRY_BUDGET_MS = 8_000;
 
 type CleanOutfit = ParsedOutfit & { clothing_item_ids: string[] };
 
+/**
+ * Reglas cuya violación justifica gastar un reintento.
+ *
+ * "color" queda deliberadamente FUERA. Medido contra el armario real: en 4
+ * generaciones seguidas el modelo violó la regla de neutros 4 veces y la
+ * corrigió 0, incluso recibiendo la instrucción literal de qué quitar — se
+ * limitaba a proponer otra combinación con el mismo problema. El reintento
+ * costaba ~7,5 s y no compraba nada.
+ *
+ * Las tres que sí quedan (capas, térmica, base) son incoherencias físicas que
+ * arruinan el outfit de verdad, y que el modelo SÍ corrige cuando se le dice
+ * cuál fue. La de color se sigue evaluando, registrando y enseñando en el
+ * prompt; simplemente no bloquea.
+ */
+const BLOCKING_RULES: readonly OutfitViolation["rule"][] = [
+  "layers",
+  "thermal",
+  "base",
+];
+
 type EvaluatedSet = {
   outfits: CleanOutfit[];
   violationsByOutfit: { name: string; violations: OutfitViolation[] }[];
   totalViolations: number;
+  blockingViolations: number;
 };
+
+function countBlocking(
+  violationsByOutfit: readonly { violations: OutfitViolation[] }[]
+): number {
+  return violationsByOutfit.reduce(
+    (acc, o) => acc + o.violations.filter((v) => BLOCKING_RULES.includes(v.rule)).length,
+    0
+  );
+}
 
 async function generateValidatedSet(args: {
   basePrompt: string;
@@ -333,23 +363,32 @@ async function generateValidatedSet(args: {
       (acc, o) => acc + o.violations.length,
       0
     );
+    const blockingViolations = countBlocking(violationsByOutfit);
 
     // Nos quedamos siempre con el set MENOS malo visto hasta ahora, para poder
-    // devolver algo aunque los reintentos no logren un set limpio.
-    if (best === null || totalViolations < best.totalViolations) {
-      best = { outfits, violationsByOutfit, totalViolations };
+    // devolver algo aunque los reintentos no logren un set limpio. Las
+    // bloqueantes pesan primero: un set con 2 violaciones de color es mejor que
+    // uno con 1 de capas.
+    if (
+      best === null ||
+      blockingViolations < best.blockingViolations ||
+      (blockingViolations === best.blockingViolations &&
+        totalViolations < best.totalViolations)
+    ) {
+      best = { outfits, violationsByOutfit, totalViolations, blockingViolations };
     }
 
     if (totalViolations === 0) return outfits;
 
     console.warn(
-      `[generateOutfits] set con ${totalViolations} violación(es) en el intento ${attempt + 1}:`,
+      `[generateOutfits] set con ${totalViolations} violación(es) (${blockingViolations} bloqueante(s)) en el intento ${attempt + 1}:`,
       violationsByOutfit
         .flatMap((o) => o.violations.map((v) => `${o.name}: [${v.rule}] ${v.message}`))
         .join(" | ")
     );
 
-    if (!puedeReintentar) break;
+    // Solo las bloqueantes justifican otra llamada — ver BLOCKING_RULES.
+    if (blockingViolations === 0 || !puedeReintentar) break;
     correction = buildCorrectionPromptBlock(violationsByOutfit);
   }
 
@@ -362,7 +401,7 @@ async function generateValidatedSet(args: {
 
   if (best.totalViolations > 0) {
     console.warn(
-      `[generateOutfits] devolviendo el set menos malo tras los reintentos (${best.totalViolations} violación(es), ${Date.now() - t0}ms).`
+      `[generateOutfits] devolviendo el mejor set disponible (${best.totalViolations} violación(es), ${best.blockingViolations} bloqueante(s), ${Date.now() - t0}ms).`
     );
   }
 

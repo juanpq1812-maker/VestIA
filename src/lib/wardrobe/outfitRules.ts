@@ -59,8 +59,18 @@ const NEUTRAL_ALIASES: readonly string[] = [
 /** Máximo de colores NO neutros distintos (la clásica "regla de 3 colores"). */
 export const MAX_NON_NEUTRAL_COLORS = 3;
 /**
- * Máximo de neutros DISTINTOS. Este es el tope que faltaba: sin él,
- * blanco + beige + negro + verde pasaba como "un solo color".
+ * Máximo de neutros DISTINTOS, pero SOLO cuando el outfit ya tiene al menos un
+ * color no neutro.
+ *
+ * Este es el tope que faltaba: sin él, blanco + beige + negro + verde pasaba
+ * como "un solo color". La condición del color de por medio salió de medir la
+ * primera versión contra un armario real: sin ella la regla se disparaba en
+ * outfits perfectamente buenos (gris + negro + blanco), gastaba un reintento de
+ * ~7s en casi toda generación y terminaba devolviendo la violación igual.
+ *
+ * Un look enteramente neutro es una paleta monocroma deliberada y se permite.
+ * Lo que se rompe es apilar neutros ADEMÁS de un color: ahí la paleta deja de
+ * leerse.
  */
 export const MAX_NEUTRAL_COLORS = 2;
 
@@ -260,10 +270,12 @@ export function validateOutfit(items: readonly OutfitItemLike[]): OutfitValidati
       message: `El outfit usa ${noNeutros.size} colores distintos (${[...noNeutros].join(", ")}). El máximo son ${MAX_NON_NEUTRAL_COLORS} sin contar neutros.`,
     });
   }
-  if (neutros.size > MAX_NEUTRAL_COLORS) {
+  // Solo con un color de por medio: un look todo-neutro es monocromo a
+  // propósito y se deja pasar (ver la nota en MAX_NEUTRAL_COLORS).
+  if (neutros.size > MAX_NEUTRAL_COLORS && noNeutros.size > 0) {
     violations.push({
       rule: "color",
-      message: `El outfit usa ${neutros.size} neutros distintos (${[...neutros].join(", ")}). El máximo son ${MAX_NEUTRAL_COLORS} neutros en el mismo look.`,
+      message: `El outfit combina ${neutros.size} neutros distintos (${[...neutros].join(", ")}) con color (${[...noNeutros].join(", ")}). Con un color de por medio, el máximo son ${MAX_NEUTRAL_COLORS} neutros: quita uno o deja el look enteramente neutro.`,
     });
   }
 
@@ -318,8 +330,11 @@ export function buildRulesPromptBlock(): string {
     ``,
     `   C. LÍMITE DE COLORES:`,
     `   - Máximo ${MAX_NON_NEUTRAL_COLORS} colores no neutros distintos por outfit.`,
-    `   - Los neutros son exactamente: ${NEUTRAL_COLORS.join(", ")}. No cuentan contra ese límite de ${MAX_NON_NEUTRAL_COLORS}, PERO puedes usar máximo ${MAX_NEUTRAL_COLORS} neutros DISTINTOS en el mismo outfit.`,
-    `   - Ejemplo de lo que está PROHIBIDO: blanco + beige + negro + verde (son 3 neutros distintos, uno de más).`,
+    `   - Los neutros son exactamente: ${NEUTRAL_COLORS.join(", ")}. No cuentan contra ese límite de ${MAX_NON_NEUTRAL_COLORS}.`,
+    `   - PERO: en cuanto el outfit incluye aunque sea UN color no neutro, puedes usar máximo ${MAX_NEUTRAL_COLORS} neutros distintos. Apilar neutros ADEMÁS de un color desarma la paleta.`,
+    `   - Un outfit ENTERAMENTE neutro (sin ningún color) es una paleta monocroma deliberada y está permitido con los neutros que quieras.`,
+    `   - PROHIBIDO: blanco + beige + negro + verde (3 neutros distintos más un color).`,
+    `   - PERMITIDO: gris + negro + blanco (todo neutro, monocromo).`,
     ``,
     `   Estas tres reglas aplican SIEMPRE, incluido el modo "sorpréndeme": son de coherencia física, no de ocasión.`,
   ].join("\n");
