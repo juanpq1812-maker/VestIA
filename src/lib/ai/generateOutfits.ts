@@ -16,6 +16,22 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { callAnthropicApi } from "@/lib/ai/aiClient";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import {
+  checkWardrobeMinimums,
+  countByCategory,
+  describeMissingMinimums,
+} from "@/lib/wardrobe/wardrobeMinimums";
+import {
+  buildCorrectionPromptBlock,
+  buildRulesPromptBlock,
+  validateOutfit,
+  type OutfitViolation,
+} from "@/lib/wardrobe/outfitRules";
+import {
+  buildFeedbackPromptBlock,
+  isFeedbackReason,
+  FEEDBACK_PROMPT_WINDOW,
+} from "@/lib/outfits/feedback";
 import { getCurrentWeather, type CurrentWeather } from "@/lib/weather/openMeteo";
 import type { ClothingItem, Gender, UserPreferences } from "@/types/database";
 
@@ -49,7 +65,12 @@ export type GenerateOutfitsErrorCode =
   | "NO_API_KEY"
   | "NO_CREDITS"
   | "EMPTY_WARDROBE"
-  | "NOT_ENOUGH_ITEMS"
+  /**
+   * El armario existe pero no cumple los mínimos por categoría
+   * (ver lib/wardrobe/wardrobeMinimums.ts). Reemplaza al viejo
+   * NOT_ENOUGH_ITEMS, que solo miraba el total de prendas.
+   */
+  | "MISSING_MINIMUMS"
   | "RATE_LIMITED"
   | "NETWORK_ERROR"
   | "INVALID_RESPONSE"
@@ -113,21 +134,31 @@ export async function generateOutfits(
   if (items.length === 0) {
     throw new GenerateOutfitsError(
       "EMPTY_WARDROBE",
-      "Tu armario está vacío. Sube al menos 2 prendas para generar outfits."
-    );
-  }
-  if (items.length < 2) {
-    throw new GenerateOutfitsError(
-      "NOT_ENOUGH_ITEMS",
-      "Necesitas al menos 2 prendas en tu armario para generar outfits."
+      "Tu armario está vacío. Sube tus primeras prendas para generar outfits."
     );
   }
 
-  // 2. Leer preferencias (es opcional: si no existen, usamos defaults) y el
-  //    clima actual en paralelo. getCurrentWeather() nunca lanza y esta
-  //    cacheado 30 min por Next, asi que sumarlo aca no agrega latencia ni
-  //    llamadas de red extra.
-  const [{ data: prefsData }, { data: profileData }, weather] = await Promise.all([
+  // Mínimos por categoría. Va ANTES de armar el prompt: si el armario no da,
+  // el modelo igual devolvía outfits de 2 prendas que el filtro de abajo
+  // descartaba, y el usuario terminaba viendo "La IA propuso prendas que no
+  // existen en tu armario" — un mensaje falso que hace parecer que la app está
+  // rota. Acá el error dice la verdad y la UI lo convierte en un checklist
+  // accionable (ver WardrobeMinimumsChecklist).
+  const minimums = checkWardrobeMinimums(countByCategory(items));
+  if (!minimums.ok) {
+    throw new GenerateOutfitsError(
+      "MISSING_MINIMUMS",
+      describeMissingMinimums(minimums)
+    );
+  }
+
+  // 2. Leer preferencias (es opcional: si no existen, usamos defaults), el
+  //    feedback reciente y el clima actual en paralelo. getCurrentWeather()
+  //    nunca lanza y esta cacheado 30 min por Next, asi que sumarlo aca no
+  //    agrega latencia ni llamadas de red extra; el feedback viaja en el mismo
+  //    round-trip que las preferencias.
+  const [{ data: prefsData }, { data: profileData }, { data: feedbackData }, weather] =
+    await Promise.all([
     supabase
       .from("user_preferences")
       .select("style_tags, favorite_occasions")
@@ -138,6 +169,12 @@ export async function generateOutfits(
       .select("gender")
       .eq("id", input.userId)
       .maybeSingle(),
+    supabase
+      .from("outfit_feedback")
+      .select("reason")
+      .eq("user_id", input.userId)
+      .order("created_at", { ascending: false })
+      .limit(FEEDBACK_PROMPT_WINDOW),
     input.includeWeather === false ? Promise.resolve(null) : getCurrentWeather(),
   ]);
 
@@ -147,8 +184,18 @@ export async function generateOutfits(
   > | null;
   const gender = profileData?.gender ?? null;
 
+  // Personalizacion por contexto: resumimos los rechazos recientes dentro del
+  // prompt. Si la tabla todavia no existe (migracion 0032 sin correr) o la
+  // query falla, `feedbackData` viene null y el bloque simplemente no aparece
+  // — nunca debe tumbar una generacion.
+  const feedbackBlock = buildFeedbackPromptBlock(
+    ((feedbackData ?? []) as { reason: string }[])
+      .map((f) => f.reason)
+      .filter(isFeedbackReason)
+  );
+
   // 3. Construir prompt y llamar al modelo via Anthropic.
-  const prompt = buildPrompt({
+  const basePrompt = buildPrompt({
     items,
     prefs,
     gender,
@@ -158,32 +205,20 @@ export async function generateOutfits(
     lockedItemId: input.lockedItemId,
     count: input.count ?? 2,
     weather,
+    feedbackBlock,
   });
 
-  const rawJson = await callAiModel(prompt);
-
-  // 4. Parsear de forma tolerante.
-  const parsed = parseOutfitsJson(rawJson);
-
-  // 5. Validar IDs contra el armario real (anti-alucinacion).
   const validIds = new Set(items.map((i) => i.id));
   const itemsById = new Map(items.map((i) => [i.id, i] as const));
 
-  const validOutfits = parsed
-    .map((o) => {
-      const cleanIds = o.clothing_item_ids.filter((id) => validIds.has(id));
-      // Sin al menos 3 prendas validas el outfit queda incompleto (base minima: top+bottom+footwear o dress+footwear no alcanza 3 si se pierde una).
-      if (cleanIds.length < 3) return null;
-      return { ...o, clothing_item_ids: cleanIds };
-    })
-    .filter((o): o is NonNullable<typeof o> => o !== null);
-
-  if (validOutfits.length === 0) {
-    throw new GenerateOutfitsError(
-      "NO_VALID_OUTFITS",
-      "La IA propuso prendas que no existen en tu armario. Intenta de nuevo."
-    );
-  }
+  // 4-5. Generar, parsear, validar IDs (anti-alucinacion) y validar las reglas
+  //      duras de coherencia. Si el set viola reglas, se reintenta diciéndole al
+  //      modelo QUÉ falló — un reintento a ciegas repite el mismo error.
+  const validOutfits = await generateValidatedSet({
+    basePrompt,
+    validIds,
+    itemsById,
+  });
 
   // 6. Hidratar las prendas con signed URLs para las fotos.
   const usedPaths = new Set<string>();
@@ -216,6 +251,164 @@ export async function generateOutfits(
 }
 
 // ---------------------------------------------------------------------------
+// Generacion + validacion de reglas duras, con reintentos dirigidos.
+// ---------------------------------------------------------------------------
+
+/** Cuántas veces se le pide al modelo que corrija un set que viola reglas. */
+const VALIDATION_MAX_RETRIES = 2;
+
+/**
+ * Presupuesto de reloj para los reintentos por validación.
+ *
+ * REGLA DEL PRESUPUESTO DE TIEMPO (ver CLAUDE.md): cada llamada a Anthropic
+ * corta a los 25 s (TIMEOUT_MS en aiClient.ts) y la ruta muere a los 60 s. Tres
+ * llamadas secuenciales en el peor caso son 75 s — por encima del límite. Con
+ * este deadline solo se ARRANCA un reintento si todavía queda margen, así que
+ * el peor caso real es "una llamada más ya en curso", no tres seguidas.
+ *
+ * Además nadie espera 15 s mirando un spinner por un outfit: 8 s es el punto
+ * donde dejar de insistir y devolver lo mejor que haya.
+ */
+const VALIDATION_RETRY_BUDGET_MS = 8_000;
+
+type CleanOutfit = ParsedOutfit & { clothing_item_ids: string[] };
+
+/**
+ * Reglas cuya violación justifica gastar un reintento.
+ *
+ * "color" queda deliberadamente FUERA. Medido contra el armario real: en 4
+ * generaciones seguidas el modelo violó la regla de neutros 4 veces y la
+ * corrigió 0, incluso recibiendo la instrucción literal de qué quitar — se
+ * limitaba a proponer otra combinación con el mismo problema. El reintento
+ * costaba ~7,5 s y no compraba nada.
+ *
+ * Las tres que sí quedan (capas, térmica, base) son incoherencias físicas que
+ * arruinan el outfit de verdad, y que el modelo SÍ corrige cuando se le dice
+ * cuál fue. La de color se sigue evaluando, registrando y enseñando en el
+ * prompt; simplemente no bloquea.
+ */
+const BLOCKING_RULES: readonly OutfitViolation["rule"][] = [
+  "layers",
+  "thermal",
+  "base",
+];
+
+type EvaluatedSet = {
+  outfits: CleanOutfit[];
+  violationsByOutfit: { name: string; violations: OutfitViolation[] }[];
+  totalViolations: number;
+  blockingViolations: number;
+};
+
+function countBlocking(
+  violationsByOutfit: readonly { violations: OutfitViolation[] }[]
+): number {
+  return violationsByOutfit.reduce(
+    (acc, o) => acc + o.violations.filter((v) => BLOCKING_RULES.includes(v.rule)).length,
+    0
+  );
+}
+
+async function generateValidatedSet(args: {
+  basePrompt: string;
+  validIds: Set<string>;
+  itemsById: Map<string, ClothingItem>;
+}): Promise<CleanOutfit[]> {
+  const { basePrompt, validIds, itemsById } = args;
+  const t0 = Date.now();
+
+  let correction: string | null = null;
+  let best: EvaluatedSet | null = null;
+
+  for (let attempt = 0; attempt <= VALIDATION_MAX_RETRIES; attempt++) {
+    const prompt = correction ? `${basePrompt}\n\n${correction}` : basePrompt;
+    const parsed = parseOutfitsJson(await callAiModel(prompt));
+
+    const outfits = parsed
+      .map((o) => {
+        const cleanIds = o.clothing_item_ids.filter((id) => validIds.has(id));
+        // Sin al menos 3 prendas validas el outfit queda incompleto (base
+        // minima: top+bottom+footwear o dress+footwear no alcanza 3 si se
+        // pierde una).
+        if (cleanIds.length < 3) return null;
+        return { ...o, clothing_item_ids: cleanIds };
+      })
+      .filter((o): o is CleanOutfit => o !== null);
+
+    const puedeReintentar =
+      attempt < VALIDATION_MAX_RETRIES &&
+      Date.now() - t0 < VALIDATION_RETRY_BUDGET_MS;
+
+    // El modelo alucinó IDs o devolvió outfits demasiado cortos.
+    if (outfits.length === 0) {
+      if (puedeReintentar) {
+        correction = [
+          `CORRECCIÓN OBLIGATORIA — tu propuesta anterior no sirvió: usaste IDs que no existen en el armario, o los outfits quedaron con menos de 3 prendas.`,
+          `Usa EXCLUSIVAMENTE los IDs listados en el armario de arriba, copiados tal cual, y arma outfits de 3 a 6 prendas.`,
+        ].join("\n");
+        continue;
+      }
+      break;
+    }
+
+    const violationsByOutfit = outfits.map((o) => ({
+      name: o.name,
+      violations: validateOutfit(
+        o.clothing_item_ids
+          .map((id) => itemsById.get(id))
+          .filter((it): it is ClothingItem => Boolean(it))
+      ).violations,
+    }));
+    const totalViolations = violationsByOutfit.reduce(
+      (acc, o) => acc + o.violations.length,
+      0
+    );
+    const blockingViolations = countBlocking(violationsByOutfit);
+
+    // Nos quedamos siempre con el set MENOS malo visto hasta ahora, para poder
+    // devolver algo aunque los reintentos no logren un set limpio. Las
+    // bloqueantes pesan primero: un set con 2 violaciones de color es mejor que
+    // uno con 1 de capas.
+    if (
+      best === null ||
+      blockingViolations < best.blockingViolations ||
+      (blockingViolations === best.blockingViolations &&
+        totalViolations < best.totalViolations)
+    ) {
+      best = { outfits, violationsByOutfit, totalViolations, blockingViolations };
+    }
+
+    if (totalViolations === 0) return outfits;
+
+    console.warn(
+      `[generateOutfits] set con ${totalViolations} violación(es) (${blockingViolations} bloqueante(s)) en el intento ${attempt + 1}:`,
+      violationsByOutfit
+        .flatMap((o) => o.violations.map((v) => `${o.name}: [${v.rule}] ${v.message}`))
+        .join(" | ")
+    );
+
+    // Solo las bloqueantes justifican otra llamada — ver BLOCKING_RULES.
+    if (blockingViolations === 0 || !puedeReintentar) break;
+    correction = buildCorrectionPromptBlock(violationsByOutfit);
+  }
+
+  if (!best || best.outfits.length === 0) {
+    throw new GenerateOutfitsError(
+      "NO_VALID_OUTFITS",
+      "La IA propuso prendas que no existen en tu armario. Intenta de nuevo."
+    );
+  }
+
+  if (best.totalViolations > 0) {
+    console.warn(
+      `[generateOutfits] devolviendo el mejor set disponible (${best.totalViolations} violación(es), ${best.blockingViolations} bloqueante(s), ${Date.now() - t0}ms).`
+    );
+  }
+
+  return best.outfits;
+}
+
+// ---------------------------------------------------------------------------
 // Prompt builder.
 // ---------------------------------------------------------------------------
 
@@ -229,8 +422,11 @@ function buildPrompt(args: {
   lockedItemId?: string;
   count: 1 | 2;
   weather: CurrentWeather | null;
+  /** Resumen de rechazos recientes, o null si todavía no hay señal suficiente. */
+  feedbackBlock?: string | null;
 }): string {
-  const { items, prefs, gender, mode, occasion, description, lockedItemId, count, weather } = args;
+  const { items, prefs, gender, mode, occasion, description, lockedItemId, count, weather, feedbackBlock } =
+    args;
 
   // Listamos las prendas en formato compacto: ID + categoria/subcategoria +
   // color + ocasiones. Suficiente para que la IA combine sin pasarnos del
@@ -270,7 +466,7 @@ function buildPrompt(args: {
     solicitudTexto = `lo que pidió: "${trimmed}"`;
     instruccionDeOcasion = `El usuario describe lo que necesita asi: "${trimmed}". Interpreta el tono y elige prendas coherentes.`;
   } else {
-    instruccionDeOcasion = `Modo "sorprendeme": elige libremente. Combina prendas de forma creativa pero usable, mezclando colores que armonicen. En este modo NO apliques la calibración por nivel de formalidad (principio 4 del estilismo): no hay ocasión pedida. Las reglas de color, silueta y patrones (principios 1-3) sí aplican.`;
+    instruccionDeOcasion = `Modo "sorprendeme": elige libremente. Combina prendas de forma creativa pero usable, mezclando colores que armonicen. En este modo NO apliques la calibración por nivel de formalidad (principio 4 del estilismo): no hay ocasión pedida. Las reglas de color, silueta y patrones (principios 1-3) y las de coherencia física (principio 5) sí aplican: son físicas, no de ocasión.`;
   }
 
   const esSorpresa = mode === "surprise";
@@ -300,20 +496,25 @@ function buildPrompt(args: {
     ? `REGLA OBLIGATORIA: CADA outfit generado DEBE incluir la prenda con id="${lockedItemId}". Esta regla no es negociable ni opcional; es un requisito estricto.`
     : "";
 
-  // Checklist de auto-verificación antes de emitir cada outfit. Solo cuando
-  // hay una solicitud explícita que verificar (ocasión o descripción); en
-  // "sorpréndeme" no hay nivel de formalidad contra el cual chequear.
-  const bloqueVerificacion = esSorpresa
-    ? []
-    : [
-        `Antes de finalizar cada outfit, verifica mentalmente:`,
-        `✓ ¿Máximo 3 colores (sin contar neutros), con un dominante claro?`,
-        `✓ ¿La silueta está balanceada — no todo holgado ni todo ajustado sin ancla?`,
-        `✓ ¿Si hay 2+ patrones, tienen escalas distintas y comparten color?`,
-        `✓ ¿El nivel de formalidad de cada prenda coincide con la categoría de ${solicitudTexto}?`,
-        `Si alguna falla, cambia la prenda por otra del armario que sí cumpla. Si el armario no tiene alternativa, sigue la instrucción de la sección 5 del system prompt.`,
-        ``,
-      ];
+  // Checklist de auto-verificación antes de emitir cada outfit. Las tres
+  // primeras (capas, térmica, neutros) son de coherencia FÍSICA y se verifican
+  // en código después de la respuesta, así que van también en "sorpréndeme". La
+  // última es de formalidad y solo aplica cuando hay una solicitud explícita.
+  const bloqueVerificacion = [
+    `Antes de finalizar cada outfit, verifica una por una:`,
+    `✓ ¿Hay como máximo 1 prenda de outerwear y 1 top? (nunca chaqueta + saco, nunca camiseta + camisa)`,
+    `✓ ¿Todas las prendas son del mismo registro de temperatura? (nunca pantaloneta o sandalias con saco, suéter o abrigo)`,
+    `✓ ¿Hay como máximo 2 neutros distintos y 3 colores no neutros?`,
+    `✓ ¿La silueta está balanceada — no todo holgado ni todo ajustado sin ancla?`,
+    `✓ ¿Si hay 2+ patrones, tienen escalas distintas y comparten color?`,
+    ...(esSorpresa
+      ? []
+      : [
+          `✓ ¿El nivel de formalidad de cada prenda coincide con la categoría de ${solicitudTexto}?`,
+        ]),
+    `Si alguna falla, cambia la prenda por otra del armario que sí cumpla. Si el armario no tiene alternativa, sigue la instrucción de la sección 6 del system prompt.`,
+    ``,
+  ];
 
   return [
     count === 1
@@ -337,6 +538,7 @@ function buildPrompt(args: {
     `- Ocasiones favoritas: ${occasionPrefs}. Si el usuario no pidió una ocasión puntual (modo sorpresa o descripción libre), inclina la elección hacia estas.`,
     `- Género declarado: ${genderPrefs}.`,
     ``,
+    ...(feedbackBlock ? [feedbackBlock, ``] : []),
     instruccionDeOcasion,
     ``,
     ...bloqueClima,
@@ -384,7 +586,7 @@ PRINCIPIOS DE ESTILISMO PROFESIONAL QUE DEBES APLICAR SIEMPRE:
 
 1. REGLA DE 3 COLORES (obligatorio):
    - Máximo 3 colores por outfit: 1 dominante (~60% del look), 1 secundario (~30%), 1 acento opcional (~10%).
-   - Los neutros (blanco, negro, gris, beige, camel, navy) no cuentan estrictamente contra el límite — puedes combinarlos libremente con los 3 colores principales.
+   - Los neutros no cuentan estrictamente contra ese límite, pero tienen su propio tope — ver la regla C de coherencia física más abajo, que manda sobre esta.
    - Si usas un color de acento, verifica que aparezca en más de una prenda o accesorio (zapato + accesorio, por ejemplo) — un acento aislado se ve como error, repetido se ve intencional.
    - Prioriza colores análogos (cercanos en el círculo cromático) o monocromáticos. Los complementarios (opuestos) solo funcionan si uno de los dos es un neutro.
 
@@ -424,10 +626,14 @@ PRINCIPIOS DE ESTILISMO PROFESIONAL QUE DEBES APLICAR SIEMPRE:
 
    Si la ocasión pedida no encaja claramente en ninguna categoría, usa tu criterio para ubicarla en el nivel de formalidad más cercano antes de aplicar las reglas de color/patrón correspondientes.
 
-5. CUANDO EL ARMARIO NO ALCANZA:
-   - Si con las prendas disponibles NO es posible cumplir las reglas anteriores para la ocasión pedida, igual genera el mejor outfit posible con lo que hay — nunca dejes de generar un outfit.
-   - En ese caso, el campo "explanation" DEBE empezar con: "Con las prendas disponibles en tu armario no es posible armar un look ideal para esta ocasión. Sin embargo, esta es la mejor combinación posible: [explicación]."
+5. ${buildRulesPromptBlock()}
+
+6. CUANDO EL ARMARIO NO ALCANZA:
+   - Si con las prendas disponibles NO es posible cumplir del todo lo que se pidió, igual genera el mejor outfit posible con lo que hay — nunca dejes de generar un outfit.
    - Baja el match_percentage honestamente (por debajo de 50 si el resultado es muy limitado).
+   - Cuando el match_percentage quede por debajo de 70, cierra la "explanation" con UNA frase que diga qué prenda concreta subiría el resultado. Ejemplo del tono correcto: "Un blazer o unos zapatos formales subirían bastante el resultado para este tipo de ocasión."
+   - NUNCA juzgues el armario del usuario ni lo hagas sentir mal por lo que tiene. Prohibido escribir cosas como "tu armario no tiene ropa formal suficiente", "tu armario está incompleto" o "no es posible armar un look ideal". Informa y sugiere; no evalúes a la persona.
+   - Empieza siempre por lo que SÍ funciona de la combinación antes de mencionar la sugerencia.
 
 Responde SOLO en el formato JSON que se te pide, sin texto adicional ni backticks.`;
 

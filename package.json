@@ -7,6 +7,7 @@
     "build": "npm run verify:icons && next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test \"src/**/*.test.ts\"",
     "verify:icons": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/verify-garment-icons.mts",
     "icons:import": "node scripts/import-garment-icons.mjs",
     "postinstall": "node scripts/prune-imgly-assets.js"

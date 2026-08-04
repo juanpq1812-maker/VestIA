@@ -14,6 +14,7 @@ import Container from "@/components/ui/Container";
 import OutfitGenerator from "@/components/outfits/OutfitGenerator";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { checkWardrobeMinimums } from "@/lib/wardrobe/wardrobeMinimums";
 import { getCurrentWeather } from "@/lib/weather/openMeteo";
 import type { ClothingCategory } from "@/types/database";
 
@@ -43,12 +44,16 @@ export default async function OutfitsPage({ searchParams }: Props) {
   ]);
 
   const categoryItems = categoriesRes.data ?? [];
-  const totalItems = categoryItems.length;
   const wardrobeSummary: WardrobeSummary = {};
   for (const item of categoryItems) {
     const cat = item.category as ClothingCategory;
     wardrobeSummary[cat] = (wardrobeSummary[cat] ?? 0) + 1;
   }
+
+  // Los mismos mínimos que aplica generateOutfits en el servidor. Evaluarlos
+  // acá evita que el usuario dispare una generación que ya sabemos que va a
+  // fallar: el generador muestra el checklist de progreso en su lugar.
+  const minimums = checkWardrobeMinimums(wardrobeSummary);
 
   const lockedItemId = sp.prenda ?? null;
   const lockedItemName = sp.nombre ? decodeURIComponent(sp.nombre) : null;
@@ -71,7 +76,7 @@ export default async function OutfitsPage({ searchParams }: Props) {
 
           <div className="mt-8">
             <OutfitGenerator
-              totalItems={totalItems}
+              minimums={minimums}
               lockedItemId={lockedItemId}
               lockedItemName={lockedItemName}
               wardrobeSummary={wardrobeSummary}
