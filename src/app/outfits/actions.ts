@@ -23,6 +23,7 @@ import { recordPetAction } from "@/lib/pet/actions";
 import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
 import { suggestOutfitForEvent } from "@/lib/ai/eventOutfit";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import { isFeedbackReason, type FeedbackReason } from "@/lib/outfits/feedback";
 export type GenerateActionInput = {
@@ -180,20 +181,26 @@ export async function generateEventOutfitAction(
   if (itemIds.length > 0) {
     const { data: itemsRaw } = await supabase
       .from("clothing_items")
-      .select("id, name, subcategory, category, primary_color, image_path")
+      .select("id, name, subcategory, category, primary_color, image_path, thumbnail_path")
       .eq("status", CONFIRMED_STATUS)
       .in("id", itemIds);
     const paths = (itemsRaw ?? [])
       .map((i) => i.image_path)
       .filter((p): p is string => Boolean(p));
-    const signed = await createSignedUrlMap(supabase, paths);
+    const [signed, thumbs] = await Promise.all([
+      createSignedUrlMap(supabase, paths),
+      createThumbnailSignedUrlMap((itemsRaw ?? []).map((i) => i.thumbnail_path)),
+    ]);
     for (const id of itemIds) {
       const it = (itemsRaw ?? []).find((i) => i.id === id);
       if (!it) continue;
       items.push({
         id: it.id,
         nombre: it.name?.trim() || it.subcategory?.trim() || it.category,
-        image_url: it.image_path ? signed.get(it.image_path) ?? null : null,
+        // Miniatura si la hay; si no, la imagen completa.
+        image_url:
+          (it.thumbnail_path ? thumbs.get(it.thumbnail_path) : null) ??
+          (it.image_path ? signed.get(it.image_path) ?? null : null),
         primary_color: it.primary_color,
       });
     }

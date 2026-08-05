@@ -22,9 +22,11 @@ const CATEGORY_LABELS: Record<ClothingCategory, string> = {
 
 type Props = {
   item: ClothingItem;
+  /** Se pasa a las primeras cards de la grilla (las de sobre el pliegue). */
+  priority?: boolean;
 };
 
-export default function ClothingCard({ item }: Props) {
+export default function ClothingCard({ item, priority = false }: Props) {
   const titulo =
     item.name?.trim() ||
     item.subcategory?.trim() ||
@@ -37,10 +39,14 @@ export default function ClothingCard({ item }: Props) {
         className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-surface-2"
         style={{ backgroundColor: colorBase }}
       >
-        {item.image_url ? (
+        {/* La miniatura si existe; si no (prenda anterior al backfill, o la
+            generación falló), la imagen completa. La miniatura es adicional,
+            nunca un requisito. */}
+        {item.thumbnail_url ?? item.image_url ? (
           <LazyImage
-            src={item.image_url}
+            src={(item.thumbnail_url ?? item.image_url) as string}
             alt={titulo}
+            priority={priority}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           />
         ) : (
@@ -92,6 +98,7 @@ export default function ClothingCard({ item }: Props) {
         <DeleteItemButton
           itemId={item.id}
           imagePath={item.image_path}
+          thumbnailPath={item.thumbnail_path}
           itemName={titulo}
         />
       </div>

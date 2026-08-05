@@ -17,6 +17,7 @@ import WardrobeTabs from "@/components/wardrobe/WardrobeTabs";
 import OnboardingProgressBar from "@/components/wardrobe/OnboardingProgressBar";
 import UploadSuccessBanner from "@/components/wardrobe/UploadSuccessBanner";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { ClothingItem } from "@/types/database";
 
@@ -32,12 +33,12 @@ export default async function WardrobePage({ searchParams }: Props) {
   } = await supabase.auth.getUser();
 
   // Gracias a RLS, estas consultas solo traen datos del usuario logueado.
-  const [{ data: itemsData }, { data: outfitsData }, { data: usesData }, { data: profile }] =
+  const [{ data: itemsData, error: itemsError }, { data: outfitsData }, { data: usesData }, { data: profile }] =
     await Promise.all([
       supabase
         .from("clothing_items")
         .select(
-          "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, source, background_removed, created_at, updated_at"
+          "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, thumbnail_path, source, background_removed, created_at, updated_at"
         )
         .eq("status", CONFIRMED_STATUS)
         .order("created_at", { ascending: false }),
@@ -51,17 +52,35 @@ export default async function WardrobePage({ searchParams }: Props) {
     ]);
   void profile;
 
+  // Sin esto el fallo es MUDO: si el select falla (una columna que no existe
+  // porque falta correr una migración, por ejemplo), `itemsData` viene null,
+  // `itemsRaw` queda vacío y el armario se renderiza como si el usuario no
+  // tuviera prendas. Un armario vacío por error es peor que un error.
+  if (itemsError) {
+    console.error("[WardrobePage] error leyendo clothing_items", itemsError);
+  }
+
   const itemsRaw = (itemsData ?? []) as ClothingItem[];
 
   // Firmamos las URLs de las imagenes (bucket privado).
+  //
+  // Dos firmas distintas a proposito: las miniaturas van por
+  // `createThumbnailSignedUrlMap`, que memoiza la firma para que la URL sea
+  // ESTABLE entre visitas — sin eso el navegador nunca acierta en cache, porque
+  // el JWT de Supabase incluye `iat` y cambia en cada firma. Ver
+  // lib/storage/thumbnailUrls.ts.
   const paths = itemsRaw
     .map((i) => i.image_path)
     .filter((p): p is string => Boolean(p));
-  const signedUrls = await createSignedUrlMap(supabase, paths);
+  const [signedUrls, thumbUrls] = await Promise.all([
+    createSignedUrlMap(supabase, paths),
+    createThumbnailSignedUrlMap(itemsRaw.map((i) => i.thumbnail_path)),
+  ]);
 
   const items: ClothingItem[] = itemsRaw.map((i) => ({
     ...i,
     image_url: i.image_path ? signedUrls.get(i.image_path) ?? null : null,
+    thumbnail_url: i.thumbnail_path ? thumbUrls.get(i.thumbnail_path) ?? null : null,
   }));
 
   const tienePrendas = items.length > 0;

@@ -148,6 +148,14 @@ export type ClothingItem = {
   occasions: string[];
   image_url: string | null;
   image_path: string | null;
+  /** Path de la miniatura WebP 512px de la grilla. NULL = no hay (prenda anterior al backfill, o la generación falló) → se cae a image_path. */
+  thumbnail_path: string | null;
+  /**
+   * URL firmada de la miniatura. NO es una columna: la hidratan las páginas
+   * igual que `image_url`, vía `createThumbnailSignedUrlMap`. Los consumidores
+   * usan `thumbnail_url ?? image_url`.
+   */
+  thumbnail_url?: string | null;
   status: ClothingItemStatus;
   raw_image_path: string | null;
   retry_count: number;
@@ -181,6 +189,7 @@ export type ClothingItemInsert = {
   occasions?: string[];
   image_url?: string | null;
   image_path?: string | null;
+  thumbnail_path?: string | null;
   status?: ClothingItemStatus;
   raw_image_path?: string | null;
   retry_count?: number;

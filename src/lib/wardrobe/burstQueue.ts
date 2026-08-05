@@ -35,6 +35,8 @@ import {
   matchSubcategory,
 } from "@/lib/wardrobe/aiMapping";
 import { base64ToBlob } from "@/lib/wardrobe/imageUtils";
+import { subirMiniatura } from "@/lib/wardrobe/uploadThumbnail";
+import { THUMBNAIL_CACHE_CONTROL } from "@/lib/wardrobe/thumbnails";
 import type { BurstClothingItem, ClothingCategory } from "@/types/database";
 
 const MAX_RETRIES = 1;
@@ -416,9 +418,23 @@ async function processOne(
 
     const { error: uploadError } = await supabase.storage
       .from(CLOTHING_IMAGES_BUCKET)
-      .upload(finalPath, finalBlob, { contentType: finalContentType, upsert: false });
+      .upload(finalPath, finalBlob, {
+        contentType: finalContentType,
+        upsert: false,
+        cacheControl: THUMBNAIL_CACHE_CONTROL,
+      });
 
     if (uploadError) throw new Error(uploadError.message);
+
+    // Miniatura para la grilla. Adicional: si falla, la prenda igual queda
+    // 'ready' y la card cae a la imagen completa.
+    const thumbnailPath = await subirMiniatura(
+      supabase,
+      new File([finalBlob], `photo.${finalContentType === "image/png" ? "png" : "jpg"}`, {
+        type: finalContentType,
+      }),
+      finalPath
+    );
 
     const ready = await updateItem(supabase, item.id, {
       status: "ready",
@@ -427,6 +443,7 @@ async function processOne(
       primary_color: color,
       occasions,
       image_path: finalPath,
+      thumbnail_path: thumbnailPath,
       reconstructed,
       reconstruction_reason: reconstructionReason,
       background_removed: backgroundRemoved,

@@ -9,6 +9,7 @@ import Link from "next/link";
 import Chip from "@/components/onboarding/Chip";
 import CategoryDropdown, { type CategoryOption } from "./CategoryDropdown";
 import ClothingCard from "./ClothingCard";
+import { EAGER_IMAGE_COUNT } from "@/lib/wardrobe/thumbnails";
 import LazyImage from "@/components/ui/LazyImage";
 import {
   CLOTHING_CATEGORIES,
@@ -185,8 +186,12 @@ export default function WardrobeView({ items, destacadas }: Props) {
           </p>
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-            {visibles.map((item) => (
-              <ClothingCard key={item.id} item={item} />
+            {visibles.map((item, idx) => (
+              <ClothingCard
+                key={item.id}
+                item={item}
+                priority={idx < EAGER_IMAGE_COUNT}
+              />
             ))}
           </div>
         )}

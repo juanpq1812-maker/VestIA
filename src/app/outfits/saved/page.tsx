@@ -18,6 +18,7 @@ import RepeatedOutfitsSection, {
   type RepeatableOutfit,
 } from "@/components/outfits/RepeatedOutfitsSection";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import type { ClothingItem, Outfit, OutfitUse } from "@/types/database";
 
@@ -93,7 +94,7 @@ export default async function SavedOutfitsPage() {
     const { data: itemsRaw } = await supabase
       .from("clothing_items")
       .select(
-        "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, source, created_at, updated_at"
+        "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, thumbnail_path, source, created_at, updated_at"
       )
       .eq("status", CONFIRMED_STATUS)
       .in("id", allItemIds);
@@ -102,7 +103,10 @@ export default async function SavedOutfitsPage() {
     const paths = items
       .map((i) => i.image_path)
       .filter((p): p is string => Boolean(p));
-    const signed = await createSignedUrlMap(supabase, paths);
+    const [signed, thumbs] = await Promise.all([
+      createSignedUrlMap(supabase, paths),
+      createThumbnailSignedUrlMap(items.map((i) => i.thumbnail_path)),
+    ]);
 
     itemsById = new Map(
       items.map((it) => [
@@ -110,6 +114,9 @@ export default async function SavedOutfitsPage() {
         {
           ...it,
           image_url: it.image_path ? signed.get(it.image_path) ?? null : null,
+          thumbnail_url: it.thumbnail_path
+            ? thumbs.get(it.thumbnail_path) ?? null
+            : null,
         },
       ])
     );

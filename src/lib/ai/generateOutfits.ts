@@ -14,6 +14,7 @@
 
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
 import { callAnthropicApi } from "@/lib/ai/aiClient";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import {
@@ -117,7 +118,7 @@ export async function generateOutfits(
   const { data: itemsData, error: itemsError } = await supabase
     .from("clothing_items")
     .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, source, created_at, updated_at"
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, thumbnail_path, source, created_at, updated_at"
     )
     .eq("user_id", input.userId)
     .eq("status", CONFIRMED_STATUS);
@@ -222,13 +223,18 @@ export async function generateOutfits(
 
   // 6. Hidratar las prendas con signed URLs para las fotos.
   const usedPaths = new Set<string>();
+  const usedThumbPaths = new Set<string>();
   for (const o of validOutfits) {
     for (const id of o.clothing_item_ids) {
       const it = itemsById.get(id);
       if (it?.image_path) usedPaths.add(it.image_path);
+      if (it?.thumbnail_path) usedThumbPaths.add(it.thumbnail_path);
     }
   }
-  const signedUrls = await createSignedUrlMap(supabase, [...usedPaths]);
+  const [signedUrls, thumbUrls] = await Promise.all([
+    createSignedUrlMap(supabase, [...usedPaths]),
+    createThumbnailSignedUrlMap([...usedThumbPaths]),
+  ]);
 
   // En modo sorpresa no hay solicitud que medir: forzamos el % a null aunque
   // el modelo lo haya devuelto.
@@ -245,6 +251,9 @@ export async function generateOutfits(
         ...it,
         image_url: it.image_path
           ? signedUrls.get(it.image_path) ?? null
+          : null,
+        thumbnail_url: it.thumbnail_path
+          ? thumbUrls.get(it.thumbnail_path) ?? null
           : null,
       })),
   }));

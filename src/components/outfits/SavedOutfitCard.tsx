@@ -212,10 +212,10 @@ export default function SavedOutfitCard({
                 style={{ backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
                 title={it.name ?? it.subcategory ?? it.category}
               >
-                {it.image_url ? (
+                {it.thumbnail_url ?? it.image_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={it.image_url}
+                    src={(it.thumbnail_url ?? it.image_url) as string}
                     alt={it.name ?? it.subcategory ?? it.category}
                     className="h-full w-full object-cover"
                     loading="lazy"

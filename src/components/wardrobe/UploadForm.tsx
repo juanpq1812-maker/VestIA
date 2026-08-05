@@ -51,6 +51,8 @@ import {
   bytesToReadable,
   downscaleToMaxPx,
 } from "@/lib/wardrobe/imageUtils";
+import { subirMiniatura } from "@/lib/wardrobe/uploadThumbnail";
+import { THUMBNAIL_CACHE_CONTROL } from "@/lib/wardrobe/thumbnails";
 import {
   hexToColorName,
   mapAiOccasions,
@@ -683,6 +685,7 @@ export default function UploadForm() {
         .upload(path, toUpload, {
           contentType: toUpload.type,
           upsert: false,
+          cacheControl: THUMBNAIL_CACHE_CONTROL,
         });
 
       if (uploadError) {
@@ -691,6 +694,11 @@ export default function UploadForm() {
         );
         return;
       }
+
+      // Miniatura para la grilla del armario. Adicional, nunca bloqueante: si
+      // falla la generación o la subida, `thumbnailPath` queda null y la card
+      // cae al PNG completo (más lento, pero se ve igual).
+      const thumbnailPath = await subirMiniatura(supabase, toUpload, path);
 
       setProgress("Guardando en tu armario…");
       const { error: insertError } = await supabase
@@ -704,6 +712,7 @@ export default function UploadForm() {
           occasions,
           image_path: path,
           image_url: null,
+          thumbnail_path: thumbnailPath,
           raw_image_path: rawPath,
           reconstructed,
           reconstruction_reason: reconstructionReason,
@@ -712,7 +721,9 @@ export default function UploadForm() {
         });
 
       if (insertError) {
-        const orphanPaths = rawPath ? [path, rawPath] : [path];
+        const orphanPaths = [path, rawPath, thumbnailPath].filter(
+          (p): p is string => Boolean(p)
+        );
         await supabase.storage
           .from(CLOTHING_IMAGES_BUCKET)
           .remove(orphanPaths)
