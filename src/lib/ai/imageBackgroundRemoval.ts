@@ -404,6 +404,50 @@ async function hasRealAlphaTransparency(buffer: Buffer): Promise<boolean> {
 }
 
 /**
+ * Fracción de píxeles francamente transparentes (alfa < 16), 0-1.
+ *
+ * Distinta de `hasRealAlphaTransparency`, que responde "¿hay ALGÚN píxel no
+ * opaco?" y sirve como puerta de ENTRADA (¿hace falta recortar?). Para
+ * verificar la SALIDA esa pregunta no alcanza: un recorte que falló puede
+ * dejar un puñado de píxeles semitransparentes en un borde y pasaría igual.
+ *
+ * Mide sobre una copia de 200px de ancho: la fracción es la misma y evita
+ * recorrer varios millones de píxeles en una ruta con presupuesto de tiempo.
+ */
+async function transparentFraction(buffer: Buffer): Promise<number> {
+  try {
+    const meta = await sharp(buffer).metadata();
+    if (!meta.hasAlpha) return 0;
+
+    const { data, info } = await sharp(buffer)
+      .ensureAlpha()
+      .resize({ width: 200 })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    let transparentes = 0;
+    const total = info.width * info.height;
+    for (let i = 3; i < data.length; i += info.channels) {
+      if (data[i] < 16) transparentes++;
+    }
+    return total > 0 ? transparentes / total : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Piso de píxeles transparentes para dar un recorte por bueno.
+ *
+ * Calibrado midiendo las 266 prendas confirmadas del proyecto: la
+ * distribución salió BIMODAL y sin zona intermedia — 145 prendas por encima
+ * del 15% y 121 por debajo del 5%, ninguna en medio. O el recorte funcionó o
+ * no hizo nada. El 5% cae en ese hueco, así que separa limpio sin ser
+ * sensible a la calibración exacta.
+ */
+const MIN_TRANSPARENT_FRACTION = 0.05;
+
+/**
  * Fallback: recorta a transparente todo lo que esté cerca del blanco puro,
  * con borde suave. Por color, no por contenido — falla si Gemini devolvió el
  * fondo en crema/gris en vez de blanco puro (por eso ya no es el método
@@ -438,29 +482,61 @@ async function removeWhiteBackgroundLocally(buffer: Buffer): Promise<Buffer> {
 
 /**
  * Toma la salida cruda de Gemini (base64 + mimeType) y devuelve siempre un
- * PNG con fondo transparente: passthrough si ya trae alpha real; si no,
- * segmentación por contenido con @imgly y, si esa falla o no está
- * configurada, threshold de color local. Nunca lanza — `null` solo si TODO
- * falla (el caller decide el fallback final: guardar con
- * background_removed=false, patrón existente).
+ * PNG: passthrough si ya trae alpha real; si no, segmentación por contenido
+ * con @imgly y, si esa falla o no está configurada, threshold de color local.
+ * Nunca lanza — `null` solo si TODO falla.
+ *
+ * `backgroundRemoved` dice si el recorte FUNCIONÓ DE VERDAD, medido sobre el
+ * resultado. No es lo mismo que "la función devolvió algo".
+ *
+ * POR QUÉ SE VERIFICA LA SALIDA
+ * Antes esto devolvía un PNG y el caller marcaba `background_removed = true`
+ * por el mero hecho de haber recibido respuesta. Pero el último recurso,
+ * `removeWhiteBackgroundLocally`, recorta POR COLOR: si Gemini devolvió el
+ * fondo en crema o gris en vez de blanco, no recorta nada y aun así produce
+ * un PNG perfectamente válido — con canal alfa íntegramente opaco. El flag
+ * quedaba en true mintiendo, y la prenda no ofrecía "Mejora esta foto"
+ * porque el sistema creía que estaba bien.
+ *
+ * Medido sobre las 266 prendas confirmadas: 121 (45%) estaban así. De ellas,
+ * 116 son de mayo (pipeline anterior a Gemini) y 5 del pipeline actual, todas
+ * del camino de reconstrucción — ver el análisis en el PR.
  */
 export async function finalizeGeminiImageOutput(args: {
   base64: string;
   mimeType: string;
-}): Promise<{ base64: string; contentType: "image/png" } | null> {
+}): Promise<{
+  base64: string;
+  contentType: "image/png";
+  backgroundRemoved: boolean;
+} | null> {
   try {
     const buffer = Buffer.from(args.base64, "base64");
 
     const alreadyTransparent = await hasRealAlphaTransparency(buffer);
-    if (alreadyTransparent) {
-      const finalBuffer = await sharp(buffer).png().toBuffer();
-      return { base64: finalBuffer.toString("base64"), contentType: "image/png" };
+    const finalBuffer = alreadyTransparent
+      ? await sharp(buffer).png().toBuffer()
+      : (await removeBackgroundWithImgly(buffer, args.mimeType)) ??
+        (await removeWhiteBackgroundLocally(buffer));
+
+    const fraccion = await transparentFraction(finalBuffer);
+    const backgroundRemoved = fraccion >= MIN_TRANSPARENT_FRACTION;
+
+    if (!backgroundRemoved) {
+      // No es un error: la prenda se guarda igual. Pero deja de ser invisible
+      // — con background_removed=false la card ofrece "Mejora esta foto".
+      console.warn(
+        `[imageBackgroundRemoval] el recorte no surtió efecto ` +
+          `(${(fraccion * 100).toFixed(1)}% transparente, mínimo ${MIN_TRANSPARENT_FRACTION * 100}%). ` +
+          `Se guarda sin fondo removido y queda reprocesable.`
+      );
     }
 
-    const imglyResult = await removeBackgroundWithImgly(buffer, args.mimeType);
-    const finalBuffer = imglyResult ?? (await removeWhiteBackgroundLocally(buffer));
-
-    return { base64: finalBuffer.toString("base64"), contentType: "image/png" };
+    return {
+      base64: finalBuffer.toString("base64"),
+      contentType: "image/png",
+      backgroundRemoved,
+    };
   } catch (err) {
     console.error("[imageBackgroundRemoval] error post-procesando imagen de Gemini:", err);
     return null;

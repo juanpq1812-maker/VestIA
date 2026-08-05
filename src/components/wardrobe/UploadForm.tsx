@@ -574,6 +574,15 @@ export default function UploadForm() {
       // pero solo en el camino de fallo.
       let rawPath: string | null = null;
       let reconstructed = false;
+      // Dos cosas distintas que antes compartían variable:
+      //   - `pipelineResuelto`: control de flujo. Ya tenemos imagen final, no
+      //     hay que intentar la remoción de fondo.
+      //   - `backgroundRemoved`: el DATO que se guarda. Dice si el recorte
+      //     funcionó de verdad (lo mide finalizeGeminiImageOutput sobre el
+      //     resultado). Mezclarlas hacía que un recorte fallido en la
+      //     reconstrucción disparara una segunda llamada a Gemini sobre la
+      //     foto ORIGINAL, tirando la reconstrucción a la basura.
+      let pipelineResuelto = false;
       let backgroundRemoved = false;
       let toUpload: File = comprimido;
       // Motivo por el que el pipeline no pudo limpiar la foto, para el log.
@@ -624,7 +633,8 @@ export default function UploadForm() {
               const reconBlob = base64ToBlob(reconResult.base64, reconResult.contentType);
               toUpload = new File([reconBlob], "photo.png", { type: reconResult.contentType });
               reconstructed = true;
-              backgroundRemoved = true;
+              pipelineResuelto = true;
+              backgroundRemoved = reconResult.backgroundRemoved;
             } else {
               imageFailure = describeImageFailure("reconstrucción", reconResult);
             }
@@ -636,7 +646,7 @@ export default function UploadForm() {
 
       // Remoción de fondo simple: la ruta normal cuando no hacía falta
       // reconstruir, y el fallback cuando la reconstrucción no salió.
-      if (!backgroundRemoved) {
+      if (!pipelineResuelto) {
         setProgress("Quitando el fondo…");
         try {
           const fd = new FormData();
@@ -646,7 +656,8 @@ export default function UploadForm() {
           if (bgResult.ok) {
             const pngBlob = base64ToBlob(bgResult.base64, bgResult.contentType);
             toUpload = new File([pngBlob], "photo.png", { type: "image/png" });
-            backgroundRemoved = true;
+            pipelineResuelto = true;
+            backgroundRemoved = bgResult.backgroundRemoved;
             // Si la reconstrucción había fallado pero el fondo sí se pudo
             // quitar, el resultado es usable — pero NO es lo que se buscaba:
             // la mano/el gancho que motivaron la reconstrucción siguen en la
@@ -660,6 +671,15 @@ export default function UploadForm() {
           imageFailure = `remoción de fondo: ${err instanceof Error ? err.message : "error desconocido"}`;
           photoOutcome = "falla";
         }
+      }
+
+      // El recorte pudo no surtir efecto aunque la IA respondiera bien (fondo
+      // que no era blanco y @imgly no lo resolvió). La prenda se guarda igual,
+      // pero se avisa como parcial y `background_removed=false` hace que la
+      // card ofrezca "Mejora esta foto" — antes esto quedaba invisible porque
+      // el flag se ponía en true sin mirar el resultado.
+      if (pipelineResuelto && !backgroundRemoved && photoOutcome === "ok") {
+        photoOutcome = "parcial";
       }
 
       // El fallo NO puede ser silencioso: la prenda se guarda igual (nunca la
