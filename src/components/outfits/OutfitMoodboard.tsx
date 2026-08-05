@@ -109,10 +109,10 @@ export default function OutfitMoodboard({ items, index = 0 }: Props) {
             }}
           >
             <div className="h-full w-full" style={{ transform: `rotate(${rot}deg)` }}>
-              {it.image_url ? (
+              {it.thumbnail_url ?? it.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={it.image_url}
+                  src={(it.thumbnail_url ?? it.image_url) as string}
                   alt={nombre}
                   className="h-full w-full object-contain"
                   style={{ filter: "drop-shadow(0 10px 14px rgba(45,49,46,0.22))" }}

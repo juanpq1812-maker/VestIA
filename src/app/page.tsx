@@ -69,7 +69,7 @@ export default async function RootPage() {
     supabase
       .from("clothing_items")
       .select(
-        "id, name, subcategory, category, primary_color, image_path, created_at"
+        "id, name, subcategory, category, primary_color, image_path, thumbnail_path, created_at"
       )
       .eq("status", CONFIRMED_STATUS)
       .order("created_at", { ascending: false }),
@@ -117,7 +117,7 @@ export default async function RootPage() {
   }
 
   // Candidatas: prendas no usadas en 15 días Y creadas hace 15+ días
-  type Candidata = { id: string; nombre: string; image_path: string | null; primary_color: string | null; diasOlvidada: number };
+  type Candidata = { id: string; nombre: string; image_path: string | null; thumbnail_path: string | null; primary_color: string | null; diasOlvidada: number };
   const candidatas: Candidata[] = [];
   for (const item of allItems) {
     if (recentlyUsedItemIds.has(item.id)) continue;
@@ -138,6 +138,7 @@ export default async function RootPage() {
       id: item.id,
       nombre: item.name?.trim() || item.subcategory?.trim() || item.category,
       image_path: item.image_path,
+      thumbnail_path: item.thumbnail_path,
       primary_color: item.primary_color,
       diasOlvidada,
     });
@@ -202,7 +203,7 @@ export default async function RootPage() {
         const { data: sugItems } = ids.length
           ? await supabase
               .from("clothing_items")
-              .select("id, name, subcategory, category, primary_color, image_path")
+              .select("id, name, subcategory, category, primary_color, image_path, thumbnail_path")
               .eq("status", CONFIRMED_STATUS)
               .in("id", ids)
           : { data: [] };
@@ -210,7 +211,13 @@ export default async function RootPage() {
         const sugPaths = (sugItems ?? [])
           .map((i) => i.image_path)
           .filter((p): p is string => Boolean(p));
-        const sugUrls = await sign(supabase, sugPaths);
+        const { createThumbnailSignedUrlMap } = await import(
+          "@/lib/storage/thumbnailUrls"
+        );
+        const [sugUrls, sugThumbs] = await Promise.all([
+          sign(supabase, sugPaths),
+          createThumbnailSignedUrlMap((sugItems ?? []).map((i) => i.thumbnail_path)),
+        ]);
         cachedEventOutfit = {
           name: sug.name,
           explanation: sug.explanation,
@@ -222,7 +229,9 @@ export default async function RootPage() {
             .map((i) => ({
               id: i.id,
               nombre: i.name?.trim() || i.subcategory?.trim() || i.category,
-              image_url: i.image_path ? sugUrls.get(i.image_path) ?? null : null,
+              image_url:
+                (i.thumbnail_path ? sugThumbs.get(i.thumbnail_path) : null) ??
+                (i.image_path ? sugUrls.get(i.image_path) ?? null : null),
               primary_color: i.primary_color,
             })),
         };
@@ -236,12 +245,20 @@ export default async function RootPage() {
     (p): p is string => Boolean(p)
   );
 
-  const signedUrls = await createSignedUrlMap(supabase, pathsToSign);
+  const { createThumbnailSignedUrlMap: signThumbs } = await import(
+    "@/lib/storage/thumbnailUrls"
+  );
+  const [signedUrls, olvidadaThumbs] = await Promise.all([
+    createSignedUrlMap(supabase, pathsToSign),
+    signThumbs([prendaOlvidada?.thumbnail_path]),
+  ]);
 
-  // Inyectar URL firmada en el objeto
+  // Inyectar URL firmada en el objeto: miniatura si la hay, si no la completa.
   if (prendaOlvidada?.image_path) {
     (prendaOlvidada as { image_url?: string | null }).image_url =
-      signedUrls.get(prendaOlvidada.image_path) ?? null;
+      (prendaOlvidada.thumbnail_path
+        ? olvidadaThumbs.get(prendaOlvidada.thumbnail_path)
+        : null) ?? signedUrls.get(prendaOlvidada.image_path) ?? null;
   }
 
   // Clima para el estado vacío de la agenda (feed conectado, día sin eventos).

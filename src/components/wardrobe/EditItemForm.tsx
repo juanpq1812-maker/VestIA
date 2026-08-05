@@ -14,6 +14,8 @@ import Input from "@/components/ui/Input";
 import Chip from "@/components/onboarding/Chip";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import { CLOTHING_IMAGES_BUCKET, buildClothingImagePath } from "@/lib/storage/clothingImages";
+import { subirMiniatura } from "@/lib/wardrobe/uploadThumbnail";
+import { THUMBNAIL_CACHE_CONTROL } from "@/lib/wardrobe/thumbnails";
 import { removeBackgroundWithGemini } from "@/app/wardrobe/upload/backgroundRemovalActions";
 import {
   ALLOWED_MIME_TYPES,
@@ -165,6 +167,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
       }
 
       let newImagePath: string | null = null;
+      let newThumbnailPath: string | null = null;
       if (newPhoto) {
         newImagePath = buildClothingImagePath({
           userId: user.id,
@@ -173,11 +176,22 @@ export default function EditItemForm({ item, imageUrl }: Props) {
         });
         const { error: uploadError } = await supabase.storage
           .from(CLOTHING_IMAGES_BUCKET)
-          .upload(newImagePath, newPhoto.blob, { contentType: "image/png", upsert: false });
+          .upload(newImagePath, newPhoto.blob, {
+            contentType: "image/png",
+            upsert: false,
+            cacheControl: THUMBNAIL_CACHE_CONTROL,
+          });
         if (uploadError) {
           setGeneralError(`No pudimos subir la foto nueva: ${uploadError.message}.`);
           return;
         }
+        // Miniatura de la foto nueva. Adicional: si falla queda null y la card
+        // cae a la imagen completa.
+        newThumbnailPath = await subirMiniatura(
+          supabase,
+          new File([newPhoto.blob], "photo.png", { type: "image/png" }),
+          newImagePath
+        );
       }
 
       const { error: updateError } = await supabase
@@ -191,6 +205,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
           ...(newImagePath
             ? {
                 image_path: newImagePath,
+                thumbnail_path: newThumbnailPath,
                 source: "individual",
                 background_removed: true,
                 reconstructed: false,
@@ -208,9 +223,12 @@ export default function EditItemForm({ item, imageUrl }: Props) {
 
       // Foto vieja: best-effort, un huérfano en Storage no rompe nada.
       if (newImagePath && item.image_path) {
+        const viejos = [item.image_path, item.thumbnail_path].filter(
+          (p): p is string => Boolean(p)
+        );
         await supabase.storage
           .from(CLOTHING_IMAGES_BUCKET)
-          .remove([item.image_path])
+          .remove(viejos)
           .catch(() => {});
       }
 

@@ -18,10 +18,12 @@ import { CLOTHING_IMAGES_BUCKET } from "@/lib/storage/clothingImages";
 type Props = {
   itemId: string;
   imagePath: string | null;
+  /** Miniatura de la grilla, si la prenda la tiene — se borra junto con la foto. */
+  thumbnailPath?: string | null;
   itemName: string;
 };
 
-export default function DeleteItemButton({ itemId, imagePath, itemName }: Props) {
+export default function DeleteItemButton({ itemId, imagePath, thumbnailPath, itemName }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -69,12 +71,16 @@ export default function DeleteItemButton({ itemId, imagePath, itemName }: Props)
         return;
       }
 
-      // Best-effort: la imagen del Storage. Un fallo aquí no es crítico.
-      if (imagePath) {
+      // Best-effort: la imagen del Storage y su miniatura. Un fallo aquí no es
+      // crítico (quedan huérfanos, no rompen nada).
+      const paths = [imagePath, thumbnailPath].filter(
+        (p): p is string => Boolean(p)
+      );
+      if (paths.length > 0) {
         try {
-          await supabase.storage.from(CLOTHING_IMAGES_BUCKET).remove([imagePath]);
+          await supabase.storage.from(CLOTHING_IMAGES_BUCKET).remove(paths);
         } catch {
-          /* archivo huérfano, se ignora */
+          /* archivos huérfanos, se ignoran */
         }
       }
 
@@ -84,7 +90,7 @@ export default function DeleteItemButton({ itemId, imagePath, itemName }: Props)
       setError(e instanceof Error ? e.message : "Error desconocido.");
       setDeleting(false);
     }
-  }, [itemId, imagePath, router]);
+  }, [itemId, imagePath, thumbnailPath, router]);
 
   return (
     <>

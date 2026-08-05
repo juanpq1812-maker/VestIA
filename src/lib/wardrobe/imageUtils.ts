@@ -4,6 +4,13 @@
 // "use client" porque usan Canvas/Image/atob, solo disponibles en el browser.
 "use client";
 
+import {
+  THUMBNAIL_CONTENT_TYPE,
+  THUMBNAIL_EXTENSION,
+  THUMBNAIL_QUALITY,
+  THUMBNAIL_WIDTH,
+} from "@/lib/wardrobe/thumbnails";
+
 // Max long-edge (px) usado al redimensionar fotos de cámara antes de
 // cualquier otro procesamiento.
 export const CAMERA_DOWNSCALE_MAX_PX = 1200;
@@ -49,6 +56,53 @@ export function downscaleToMaxPx(file: File, maxPx: number): Promise<File> {
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load failed")); };
     img.src = url;
   });
+}
+
+// Genera la miniatura WebP que se sirve en la grilla del armario, a partir del
+// archivo final (el mismo blob que se sube como imagen completa).
+//
+// Vive acá y no en el servidor porque los TRES caminos que escriben
+// `image_path` corren en el navegador: UploadForm, burstQueue (a pesar del
+// nombre, "vive enteramente en el cliente" — ver su cabecera) y EditItemForm.
+// Un solo helper los cubre a los tres, sin round trip extra ni CPU de servidor.
+//
+// NO rellena el fondo antes de dibujar: eso aplanaría el alpha que produce el
+// pipeline. Verificado en Chrome sobre prendas reales — la transparencia
+// sobrevive el round-trip (≈50-63% de píxeles transparentes tras codificar).
+//
+// Devuelve `null` en vez de lanzar: la miniatura es ADICIONAL. Si falla, el
+// caller sube la imagen completa igual y deja `thumbnail_path` en null; la UI
+// cae al PNG original. Nunca se pierde una prenda por una miniatura.
+export async function generateThumbnailFile(file: File): Promise<File | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    try {
+      const scale = Math.min(1, THUMBNAIL_WIDTH / bitmap.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, THUMBNAIL_CONTENT_TYPE, THUMBNAIL_QUALITY);
+      });
+      // Un navegador sin encoder WebP devuelve PNG en vez de fallar: si el tipo
+      // no es el pedido, preferimos no subir nada antes que meter un PNG a
+      // tamaño de miniatura haciéndose pasar por `.webp`.
+      if (!blob || blob.type !== THUMBNAIL_CONTENT_TYPE) return null;
+
+      return new File([blob], `thumb.${THUMBNAIL_EXTENSION}`, {
+        type: THUMBNAIL_CONTENT_TYPE,
+      });
+    } finally {
+      bitmap.close();
+    }
+  } catch (err) {
+    console.error("[generateThumbnailFile] no se pudo generar la miniatura", err);
+    return null;
+  }
 }
 
 // Piso de calidad para fotos subidas por el usuario (p.ej. compartir con la
