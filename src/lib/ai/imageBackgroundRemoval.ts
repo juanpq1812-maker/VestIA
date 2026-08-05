@@ -297,14 +297,14 @@ async function cleanMattePng(buffer: Buffer): Promise<Buffer> {
 // en cada install).
 const IMGLY_MODEL_PUBLIC_PATH = process.env.IMGLY_MODEL_PUBLIC_PATH;
 
-// Le damos a @imgly una porción generosa del maxDuration=60 de la función,
+// Le damos a @imgly una porción generosa del maxDuration de la función,
 // dejando margen para la llamada a Gemini (hasta 30s, TIMEOUT_MS en
 // geminiClient.ts) que ya corrió antes en el mismo request.
 //
 // REGLA DEL PRESUPUESTO — verificar la suma al tocar este valor:
 //
 //     IMGLY_TIMEOUT_MS + TIMEOUT_MS(geminiClient) < maxDuration de la ruta
-//     25s              + 30s                      = 55s  <  60s   ✓
+//     25s              + 30s                      = 55s  <  120s   ✓
 //
 // No es una guía de estilo, es la causa de una caída en producción. La
 // versión revertida (c32deab) le dio 40s a @imgly corriendo ANTES de Gemini:
@@ -312,6 +312,15 @@ const IMGLY_MODEL_PUBLIC_PATH = process.env.IMGLY_MODEL_PUBLIC_PATH;
 // la plataforma mataba la función antes de que el timeout de Gemini se
 // disparara limpio, así que ni siquiera quedaba un error decente en la
 // auditoría, solo "No pudimos mejorar esta foto" en la cara del usuario.
+//
+// El maxDuration pasó de 60s a 120s el 2026-08-05. Con 60s la suma dejaba
+// ~4.7s para base64, encode PNG, red y serialización, y eso no alcanzaba:
+// medido en la auditoría, una sola prenda promediaba 26.6s y llegaba a 42.8s.
+// El techo de 60s era autoimpuesto (Fluid Compute da 300s por default), así
+// que se subió el techo en vez de encoger los timeouts — encogerlos habría
+// dado MÁS abortos de @imgly, y cada aborto cae al recorte por color, que no
+// sabe recortar fondos que no sean blancos. Ver la nota larga en
+// src/app/wardrobe/upload/page.tsx.
 const IMGLY_TIMEOUT_MS = 25_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

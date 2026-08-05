@@ -16,7 +16,8 @@ import type { ClothingItem } from "@/types/database";
 
 // Ver nota de maxDuration en /wardrobe/upload/page.tsx — EditItemForm llama
 // al mismo pipeline de remoción de fondo vía "Mejora esta foto".
-export const maxDuration = 60;
+// Los tres sitios tienen que moverse juntos: comparten el mismo pipeline.
+export const maxDuration = 120;
 
 type Props = {
   params: Promise<{ id: string }>;

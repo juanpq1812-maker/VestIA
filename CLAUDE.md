@@ -27,15 +27,36 @@ local + Gemini:
 
 ```
 timeout local + TIMEOUT_MS (geminiClient) < maxDuration de la ruta
-25s           + 30s                       = 55s  <  60s   ✓
+25s           + 30s                       = 55s  <  120s   ✓
 ```
 
 Violarla es lo que tumbó producción: 40 + 30 = 70 > 60 mataba la función antes
 de que el timeout de Gemini se disparara limpio. Al mover cualquiera de los
 tres números, verifica la suma.
 
+**`maxDuration` son 120s desde 2026-08-05** (antes 60), en los tres sitios que
+comparten el pipeline: `/wardrobe/upload`, `/wardrobe/upload/review` y
+`/wardrobe/[id]/edit`. Tienen que moverse juntos.
+
+Con 60s la suma dejaba ~4,7s para base64 de ~1MB, encode PNG, red y
+serialización — y no alcanzaba: medido en `ai_image_calls`, una sola prenda
+promediaba 26,6s y llegaba a 42,8s (71% del presupuesto viejo). El techo de
+60s era **autoimpuesto**: Fluid Compute da 300s por default. Se subió el techo
+en vez de encoger los timeouts porque encogerlos empeora el problema — menos
+tiempo para @imgly significa más abortos, y cada aborto cae al recorte por
+color, que no sabe recortar un fondo que no sea blanco.
+
 Detalle completo y tabla de mediciones: bloque de comentarios al inicio de
-`src/lib/ai/imageBackgroundRemoval.ts`.
+`src/lib/ai/imageBackgroundRemoval.ts`. La nota larga de por qué 120 está en
+`src/app/wardrobe/upload/page.tsx`.
+
+**`background_removed` es un valor medido, no una suposición.** Desde
+`1466e06`, `finalizeGeminiImageOutput` mide la fracción de píxeles
+transparentes del RESULTADO y devuelve `backgroundRemoved`; los tres caminos
+de subida guardan ese valor. Antes se ponía `true` en cuanto la Server Action
+respondía, y como el último recurso (`removeWhiteBackgroundLocally`) recorta
+por color y devuelve un PNG válido aunque no recorte nada, el flag mentía en
+121 de 266 prendas. Si tocas el pipeline, no vuelvas a asumir el flag.
 
 ---
 
