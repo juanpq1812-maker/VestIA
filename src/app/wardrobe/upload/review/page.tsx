@@ -15,7 +15,8 @@ import ReviewGrid from "@/components/wardrobe/ReviewGrid";
 
 // Ver nota de maxDuration en /wardrobe/upload/page.tsx — mismo pipeline de
 // imagen, reintentos de prendas con error también pueden llamarlo acá.
-export const maxDuration = 60;
+// Los tres sitios tienen que moverse juntos: comparten el mismo pipeline.
+export const maxDuration = 120;
 
 export default async function ReviewPage() {
   const supabase = await createSupabaseServerClient();

@@ -356,6 +356,12 @@ async function processOne(
     let reconstructed = false;
     let finalBlob: Blob = rawBlob;
     let finalContentType = rawBlob.type || "image/jpeg";
+    // `pipelineResuelto` es control de flujo (ya hay imagen final);
+    // `backgroundRemoved` es el dato que se guarda y sale de medir el
+    // resultado (ver finalizeGeminiImageOutput). Compartían variable, y eso
+    // hacía que un recorte fallido en la reconstrucción disparara una segunda
+    // llamada a Gemini sobre la foto ORIGINAL, tirando la reconstrucción.
+    let pipelineResuelto = false;
     let backgroundRemoved = false;
     let imageFailure: string | null = null;
 
@@ -380,13 +386,14 @@ async function processOne(
         finalBlob = base64ToBlob(reconResult.base64, reconResult.contentType);
         finalContentType = reconResult.contentType;
         reconstructed = true;
-        backgroundRemoved = true;
+        pipelineResuelto = true;
+        backgroundRemoved = reconResult.backgroundRemoved;
       } else {
         imageFailure = `reconstrucción falló (${reconResult.reason})`;
       }
     }
 
-    if (!backgroundRemoved) {
+    if (!pipelineResuelto) {
       const bgForm = new FormData();
       bgForm.append("image", rawBlob, "photo.jpg");
       bgForm.append("source", isOutfitExtraction ? "outfit_extraction" : "burst");
@@ -396,7 +403,8 @@ async function processOne(
       if (bgResult.ok) {
         finalBlob = base64ToBlob(bgResult.base64, bgResult.contentType);
         finalContentType = bgResult.contentType;
-        backgroundRemoved = true;
+        pipelineResuelto = true;
+        backgroundRemoved = bgResult.backgroundRemoved;
         imageFailure = null; // el fondo se pudo quitar: resultado usable
       } else {
         imageFailure = `remoción de fondo falló (${bgResult.reason})`;
@@ -408,6 +416,12 @@ async function processOne(
     // id del item para poder rastrearlo en los logs.
     if (imageFailure) {
       console.error(`[burstQueue] item ${item.id}: ${imageFailure}`);
+    }
+    // La IA respondió bien pero el recorte no surtió efecto (fondo no blanco
+    // que @imgly no resolvió). Queda con background_removed=false, así que la
+    // card ofrece "Mejora esta foto" en vez de dar el problema por inexistente.
+    if (pipelineResuelto && !backgroundRemoved) {
+      console.warn(`[burstQueue] item ${item.id}: el recorte no surtió efecto, reprocesable`);
     }
 
     const finalPath = buildClothingImagePath({

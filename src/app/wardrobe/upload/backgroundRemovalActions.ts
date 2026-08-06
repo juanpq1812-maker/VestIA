@@ -15,18 +15,25 @@
 // (burst_ai_uses): 1 crédito por intento. El consumo pasa server-side.
 
 import { callGeminiImageEdit, GEMINI_IMAGE_MODEL } from "@/lib/ai/geminiClient";
+import { MINIMAL_EDIT_PROMPT } from "@/lib/ai/imagePrompts";
 import { finalizeGeminiImageOutput } from "@/lib/ai/imageBackgroundRemoval";
 import { checkAndConsumeBurstUse } from "@/lib/ai/burstUsageGate";
 import { logAiImageCall, type AiImageSource } from "@/lib/ai/aiImageAudit";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export type RemoveBackgroundResult =
-  | { ok: true; base64: string; contentType: "image/png" }
+  // `backgroundRemoved`: si el recorte funcionó DE VERDAD, medido sobre el
+  // resultado (ver finalizeGeminiImageOutput). `true` aquí no es garantía de
+  // nada por sí solo — es el valor que el caller debe guardar tal cual en
+  // clothing_items.background_removed, en vez de asumir true.
+  | {
+      ok: true;
+      base64: string;
+      contentType: "image/png";
+      backgroundRemoved: boolean;
+    }
   | { ok: false; reason: "rate_limited"; resetInMinutes: number }
   | { ok: false; reason: "no_session" | "no_image" | "generation_failed" };
-
-const MINIMAL_EDIT_PROMPT =
-  "Remove the background completely. Keep the garment EXACTLY as it is — same pixels, same colors, same wrinkles, same angle, same lighting. Output the garment centered on a pure solid white background (#FFFFFF), no shadow, no gradient, no texture. Do not alter, improve or regenerate the garment.";
 
 export async function removeBackgroundWithGemini(
   formData: FormData

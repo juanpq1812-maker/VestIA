@@ -23,7 +23,24 @@ import UploadModeChooser from "@/components/wardrobe/UploadModeChooser";
 // descargar el modelo de Supabase Storage (~10-16s medido) — ver
 // src/lib/ai/imageBackgroundRemoval.ts. Fluid Compute ya da 300s por
 // default, esto es explícito para que quede documentado en el código.
-export const maxDuration = 60;
+//
+// POR QUÉ 120 Y NO 60 (subido 2026-08-05):
+// El camino de reconstrucción encadena Gemini (≤30s) y @imgly (≤25s) en la
+// MISMA request. Con el techo en 60s quedaban ~4.7s para todo lo demás —
+// base64 de ~1MB, encode PNG, red, serialización — y eso no alcanza. Medido
+// sobre la tabla de auditoría: media 26.6s, max 42.8s, o sea 71% del
+// presupuesto viejo consumido por una sola prenda.
+//
+// El techo de 60s era AUTOIMPUESTO, no de la plataforma. Subirlo no hace la
+// subida más lenta (solo eleva el límite) y elimina la clase de fallo que
+// causó la regresión de c32deab, en vez de repartir un presupuesto que ya iba
+// justo. La alternativa era encoger los timeouts, que empeora el bug que
+// estamos arreglando: menos tiempo para @imgly = más caídas al recorte por
+// color, que es el que no recorta fondos no blancos.
+//
+// Contrapartida aceptada: Fluid factura por CPU, así que una request que
+// antes moría a los 60s ahora puede consumir hasta 120.
+export const maxDuration = 120;
 
 type Props = {
   searchParams: Promise<{ modo?: string }>;

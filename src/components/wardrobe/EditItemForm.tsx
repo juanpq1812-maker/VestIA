@@ -76,7 +76,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
   // completo, o que se guardaron sin fondo removido (ver `canRetake` más
   // abajo). La remoción de fondo con Gemini corre apenas se elige la foto
   // nueva; la subida a Storage queda para el submit.
-  const [newPhoto, setNewPhoto] = useState<{ blob: Blob; previewUrl: string } | null>(null);
+  const [newPhoto, setNewPhoto] = useState<{ blob: Blob; previewUrl: string; backgroundRemoved: boolean } | null>(null);
   const [retakingPhoto, setRetakingPhoto] = useState(false);
   const [retakeError, setRetakeError] = useState<string | null>(null);
 
@@ -118,7 +118,14 @@ export default function EditItemForm({ item, imageUrl }: Props) {
       }
       const blob = base64ToBlob(result.base64, result.contentType);
       if (newPhoto) URL.revokeObjectURL(newPhoto.previewUrl);
-      setNewPhoto({ blob, previewUrl: URL.createObjectURL(blob) });
+      // `backgroundRemoved` viaja con la foto: si el recorte no surtió efecto,
+      // la prenda se guarda con el flag en false y sigue ofreciendo "Mejora
+      // esta foto" en vez de darse por arreglada.
+      setNewPhoto({
+        blob,
+        previewUrl: URL.createObjectURL(blob),
+        backgroundRemoved: result.backgroundRemoved,
+      });
     } finally {
       setRetakingPhoto(false);
     }
@@ -168,6 +175,9 @@ export default function EditItemForm({ item, imageUrl }: Props) {
 
       let newImagePath: string | null = null;
       let newThumbnailPath: string | null = null;
+      // Se captura junto al path para que TS pueda estrecharlo: dentro del
+      // spread condicional de abajo ya no sabe que `newPhoto` no es null.
+      let newBackgroundRemoved = false;
       if (newPhoto) {
         newImagePath = buildClothingImagePath({
           userId: user.id,
@@ -187,6 +197,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
         }
         // Miniatura de la foto nueva. Adicional: si falla queda null y la card
         // cae a la imagen completa.
+        newBackgroundRemoved = newPhoto.backgroundRemoved;
         newThumbnailPath = await subirMiniatura(
           supabase,
           new File([newPhoto.blob], "photo.png", { type: "image/png" }),
@@ -207,7 +218,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
                 image_path: newImagePath,
                 thumbnail_path: newThumbnailPath,
                 source: "individual",
-                background_removed: true,
+                background_removed: newBackgroundRemoved,
                 reconstructed: false,
                 reconstruction_reason: null,
               }

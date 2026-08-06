@@ -24,7 +24,16 @@ import { logAiImageCall, type AiImageSource } from "@/lib/ai/aiImageAudit";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
 export type ReconstructGarmentResult =
-  | { ok: true; base64: string; contentType: "image/png" }
+  // `backgroundRemoved`: si el recorte funcionó DE VERDAD, medido sobre el
+  // resultado (ver finalizeGeminiImageOutput). `true` aquí no es garantía de
+  // nada por sí solo — es el valor que el caller debe guardar tal cual en
+  // clothing_items.background_removed, en vez de asumir true.
+  | {
+      ok: true;
+      base64: string;
+      contentType: "image/png";
+      backgroundRemoved: boolean;
+    }
   | { ok: false; reason: "rate_limited"; resetInMinutes: number }
   | { ok: false; reason: "no_session" | "no_image" | "generation_failed" };
 
