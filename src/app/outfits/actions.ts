@@ -21,6 +21,7 @@ import {
 import { callAnthropicVisionApi } from "@/lib/ai/aiClient";
 import { recordPetAction } from "@/lib/pet/actions";
 import { checkAndConsumeAiUse } from "@/lib/ai/usageGate";
+import { checkAndConsumeGeneration } from "@/lib/plans/checkAndConsumeGeneration";
 import { suggestOutfitForEvent } from "@/lib/ai/eventOutfit";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
@@ -35,8 +36,8 @@ export type GenerateActionInput = {
 };
 
 export type GenerateActionResult =
-  | { ok: true; outfits: GeneratedOutfit[] }
-  | { ok: false; error: string; code: string };
+  | { ok: true; outfits: GeneratedOutfit[]; generationsRemaining: number | null }
+  | { ok: false; error: string; code: string; resetsOn?: string };
 
 export async function generateOutfitsAction(
   input: GenerateActionInput
@@ -51,6 +52,18 @@ export async function generateOutfitsAction(
       ok: false,
       code: "UNAUTHENTICATED",
       error: "Inicia sesion para generar outfits.",
+    };
+  }
+
+  // Cuota de plan primero, rate limit horario despues: si al usuario ya no
+  // le queda cuota mensual, debe ver el paywall y no "espera una hora".
+  const planGate = await checkAndConsumeGeneration(user.id, supabase);
+  if (!planGate.allowed) {
+    return {
+      ok: false,
+      code: "PLAN_LIMIT_REACHED",
+      error: `Ya usaste tus outfits de este mes. Vuelven el ${planGate.resetsOn}.`,
+      resetsOn: planGate.resetsOn,
     };
   }
 
@@ -74,7 +87,7 @@ export async function generateOutfitsAction(
     // Corre tras enviar la respuesta — Hebri es gamificación, no debe sumar
     // latencia ni poder tumbar la generación real de outfits.
     after(() => recordPetAction("outfit_generated").catch(() => {}));
-    return { ok: true, outfits };
+    return { ok: true, outfits, generationsRemaining: planGate.remaining };
   } catch (err) {
     if (err instanceof GenerateOutfitsError) {
       return { ok: false, code: err.code, error: err.message };

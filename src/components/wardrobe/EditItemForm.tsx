@@ -17,6 +17,7 @@ import { CLOTHING_IMAGES_BUCKET, buildClothingImagePath } from "@/lib/storage/cl
 import { subirMiniatura } from "@/lib/wardrobe/uploadThumbnail";
 import { THUMBNAIL_CACHE_CONTROL } from "@/lib/wardrobe/thumbnails";
 import { removeBackgroundWithGemini } from "@/app/wardrobe/upload/backgroundRemovalActions";
+import PlanPaywall from "@/components/plans/PlanPaywall";
 import {
   ALLOWED_MIME_TYPES,
   COLOR_PALETTE,
@@ -79,6 +80,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
   const [newPhoto, setNewPhoto] = useState<{ blob: Blob; previewUrl: string; backgroundRemoved: boolean } | null>(null);
   const [retakingPhoto, setRetakingPhoto] = useState(false);
   const [retakeError, setRetakeError] = useState<string | null>(null);
+  const [photoImprovementPaywall, setPhotoImprovementPaywall] = useState(false);
 
   const subcategoryOptions = useMemo<readonly string[]>(() => {
     return category ? SUBCATEGORIES[category] : [];
@@ -104,6 +106,7 @@ export default function EditItemForm({ item, imageUrl }: Props) {
     }
 
     setRetakeError(null);
+    setPhotoImprovementPaywall(false);
     setRetakingPhoto(true);
     try {
       const downscaled = await downscaleToMaxPx(selected, CAMERA_DOWNSCALE_MAX_PX).catch(
@@ -111,9 +114,18 @@ export default function EditItemForm({ item, imageUrl }: Props) {
       );
       const fd = new FormData();
       fd.append("image", downscaled, downscaled.name);
+      // `source: "photo_improvement"` marca esta llamada como el botón manual
+      // de "Mejora esta foto" — es la señal que backgroundRemovalActions.ts usa
+      // para gatear contra la cuota de plan (5 en total en free). El pipeline
+      // automático de subida no manda este source, así que nunca la consume.
+      fd.append("source", "photo_improvement");
       const result = await removeBackgroundWithGemini(fd);
       if (!result.ok) {
-        setRetakeError("No pudimos procesar la foto. Prueba de nuevo.");
+        if (result.reason === "plan_limit") {
+          setPhotoImprovementPaywall(true);
+        } else {
+          setRetakeError("No pudimos procesar la foto. Prueba de nuevo.");
+        }
         return;
       }
       const blob = base64ToBlob(result.base64, result.contentType);
@@ -315,6 +327,14 @@ export default function EditItemForm({ item, imageUrl }: Props) {
                 <p role="alert" className="text-xs font-medium text-danger">
                   {retakeError}
                 </p>
+              ) : null}
+              {photoImprovementPaywall ? (
+                <div className="w-full">
+                  <PlanPaywall
+                    title="Ya usaste tus 5 mejoras de foto"
+                    subtitle="Con StrandIA Premium las mejoras de foto son ilimitadas."
+                  />
+                </div>
               ) : null}
             </div>
           ) : null}

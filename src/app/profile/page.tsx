@@ -14,6 +14,7 @@ import PushDevTools from "@/components/profile/PushDevTools";
 import NotificationPreferences from "@/components/profile/NotificationPreferences";
 import { DEFAULT_PUSH_PREFERENCES, type PushPreferences } from "@/lib/push/preferences";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { getUserPlan } from "@/lib/plans/getUserPlan";
 
 export const metadata = {
   title: "Perfil — StrandIA",
@@ -22,6 +23,12 @@ export const metadata = {
 const PLAN_FREE_FEATURES = [
   "Outfits con IA desde tu armario",
   "Recomendación de outfit del día",
+  "Armario digital ilimitado",
+];
+
+const PLAN_PREMIUM_FEATURES = [
+  "Outfits con IA sin cuota mensual",
+  "Mejoras de foto ilimitadas",
   "Armario digital ilimitado",
 ];
 
@@ -39,28 +46,30 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [profileRes, itemsRes, outfitsRes, usesRes, feedRes, pushPrefsRes] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name, created_at")
-      .eq("id", user?.id ?? "")
-      .maybeSingle(),
-    supabase
-      .from("clothing_items")
-      .select("id", { count: "exact", head: true })
-      .eq("status", CONFIRMED_STATUS),
-    supabase.from("outfits").select("id", { count: "exact", head: true }),
-    supabase.from("outfit_uses").select("used_date"),
-    supabase
-      .from("calendar_feeds")
-      .select("id, url, provider, sync_error")
-      .order("created_at", { ascending: true }),
-    supabase
-      .from("push_preferences")
-      .select("recordatorio_diario, avisos_hebri, novedades_hilo")
-      .eq("user_id", user?.id ?? "")
-      .maybeSingle(),
-  ]);
+  const [profileRes, itemsRes, outfitsRes, usesRes, feedRes, pushPrefsRes, planInfo] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("display_name, created_at")
+        .eq("id", user?.id ?? "")
+        .maybeSingle(),
+      supabase
+        .from("clothing_items")
+        .select("id", { count: "exact", head: true })
+        .eq("status", CONFIRMED_STATUS),
+      supabase.from("outfits").select("id", { count: "exact", head: true }),
+      supabase.from("outfit_uses").select("used_date"),
+      supabase
+        .from("calendar_feeds")
+        .select("id, url, provider, sync_error")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("push_preferences")
+        .select("recordatorio_diario, avisos_hebri, novedades_hilo")
+        .eq("user_id", user?.id ?? "")
+        .maybeSingle(),
+      getUserPlan(user?.id ?? "", supabase),
+    ]);
 
   // Sin fila = todo activado (ver src/lib/push/preferences.ts).
   const pushPrefs: PushPreferences = pushPrefsRes.data ?? DEFAULT_PUSH_PREFERENCES;
@@ -118,9 +127,13 @@ export default async function ProfilePage() {
             <div className="mt-4 rounded-xl bg-surface-2 p-5 sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold text-primary">Plan Free</p>
+                  <p className="text-sm font-semibold text-primary">
+                    {planInfo.isPremium ? "StrandIA Premium" : "StrandIA Free"}
+                  </p>
                   <p className="mt-1 text-sm text-text-muted">
-                    Disfruta de lo básico de StrandIA
+                    {planInfo.isPremium
+                      ? `Activo hasta el ${formatFechaBogota(planInfo.premiumUntil)}`
+                      : "Disfruta de lo básico de StrandIA"}
                   </p>
                 </div>
                 <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="shrink-0 text-text-muted">
@@ -130,7 +143,7 @@ export default async function ProfilePage() {
               </div>
 
               <ul className="mt-4 space-y-2.5">
-                {PLAN_FREE_FEATURES.map((f) => (
+                {(planInfo.isPremium ? PLAN_PREMIUM_FEATURES : PLAN_FREE_FEATURES).map((f) => (
                   <li key={f} className="flex items-center gap-2.5 text-sm text-text">
                     <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-primary">
                       <circle cx="12" cy="12" r="9" />
@@ -141,12 +154,14 @@ export default async function ProfilePage() {
                 ))}
               </ul>
 
-              <Link
-                href="/pricing"
-                className="mt-5 flex w-full items-center justify-center rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-px hover:shadow-md active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                Upgrade a Premium
-              </Link>
+              {!planInfo.isPremium && (
+                <Link
+                  href="/pricing"
+                  className="mt-5 flex w-full items-center justify-center rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-px hover:shadow-md active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  Upgrade a Premium
+                </Link>
+              )}
             </div>
           </section>
 
@@ -211,6 +226,19 @@ export default async function ProfilePage() {
       </main>
     </div>
   );
+}
+
+// Fecha legible en hora de Colombia para "Activo hasta el...". `null` no
+// debería llegar aquí (isPremium ya lo descarta salvo el caso "premium sin
+// vencimiento"), pero se cubre igual con un texto neutro.
+function formatFechaBogota(iso: string | null): string {
+  if (!iso) return "sin fecha de vencimiento";
+  return new Date(iso).toLocaleDateString("es-CO", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Bogota",
+  });
 }
 
 function maskFeedUrl(raw: string): string {

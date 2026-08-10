@@ -29,9 +29,13 @@ import WardrobeCompletionSection from "@/components/outfits/WardrobeCompletionSe
 import WardrobeMinimumsChecklist from "@/components/outfits/WardrobeMinimumsChecklist";
 import OutfitFeedbackSheet from "@/components/outfits/OutfitFeedbackSheet";
 import InspirationSection from "@/components/outfits/InspirationSection";
+import GenerationCounter from "@/components/outfits/GenerationCounter";
+import PlanPaywall from "@/components/plans/PlanPaywall";
 import type { WardrobeMinimums } from "@/lib/wardrobe/wardrobeMinimums";
 import type { WardrobeSummary } from "@/lib/outfits/tiendas";
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
+import type { PlanInfo } from "@/lib/plans/getUserPlan";
+import { FREE_MONTHLY_GENERATIONS } from "@/lib/plans/constants";
 
 import OutfitMoodboard from "@/components/outfits/OutfitMoodboard";
 import { triggerFirstOutfitValueMoment } from "@/components/push/PushOptInFlow";
@@ -73,6 +77,8 @@ type Props = {
   wardrobeSummary?: WardrobeSummary;
   /** Clima actual en Bogotá — la IA lo considera al generar. Null si Open-Meteo falló. */
   weather?: CurrentWeather | null;
+  /** Plan del usuario y su cuota de generaciones, evaluado en el servidor. */
+  planInfo: PlanInfo;
 };
 
 export default function OutfitGenerator({
@@ -81,6 +87,7 @@ export default function OutfitGenerator({
   lockedItemName,
   wardrobeSummary = {},
   weather,
+  planInfo,
 }: Props) {
   const [tab, setTab] = useState<Tab>("occasion");
   const [occasion, setOccasion] = useState<string>(OCASIONES[1]); // "Casual"
@@ -91,6 +98,10 @@ export default function OutfitGenerator({
   const [error, setError] = useState<string | null>(null);
   const [lastInput, setLastInput] = useState<GenerateActionInput | null>(null);
   const [toast, setToast] = useState<{ msg: string; kind: "success" | "error" } | null>(null);
+  // Cuota mensual: arranca con lo que trajo el server, se actualiza con lo que
+  // devuelve cada generación (evita otro roundtrip solo para refrescar el número).
+  const [generationsUsed, setGenerationsUsed] = useState(planInfo.generationsUsed);
+  const [planPaywall, setPlanPaywall] = useState<{ title: string; subtitle: string } | null>(null);
 
   const tieneLockedItem = Boolean(lockedItemId);
 
@@ -109,15 +120,26 @@ export default function OutfitGenerator({
 
   function dispararGeneracion(input: GenerateActionInput) {
     setError(null);
+    setPlanPaywall(null);
     setOutfits(null);
     setLastInput(input);
     startTransition(async () => {
       const res = await generateOutfitsAction(input);
       if (!res.ok) {
-        setError(res.error);
+        if (res.code === "PLAN_LIMIT_REACHED") {
+          setPlanPaywall({
+            title: "Ya usaste tus outfits de este mes",
+            subtitle: `Vuelven el ${res.resetsOn}.`,
+          });
+        } else {
+          setError(res.error);
+        }
         return;
       }
       setOutfits(res.outfits);
+      if (res.generationsRemaining !== null) {
+        setGenerationsUsed(FREE_MONTHLY_GENERATIONS - res.generationsRemaining);
+      }
       triggerFirstOutfitValueMoment();
     });
   }
@@ -177,6 +199,10 @@ export default function OutfitGenerator({
         </div>
       )}
 
+      {!planInfo.isPremium && planInfo.generationsLimit !== null && (
+        <GenerationCounter used={generationsUsed} limit={planInfo.generationsLimit} />
+      )}
+
       <Button
         variant="primary"
         size="lg"
@@ -187,6 +213,8 @@ export default function OutfitGenerator({
       >
         Generar outfit
       </Button>
+
+      {planPaywall && <PlanPaywall title={planPaywall.title} subtitle={planPaywall.subtitle} />}
 
       {error && (
         <div

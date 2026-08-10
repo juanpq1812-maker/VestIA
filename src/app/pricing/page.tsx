@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
 import PricingPlans from "@/components/pricing/PricingPlans";
+import { getUserPlan } from "@/lib/plans/getUserPlan";
 
 export const metadata = {
   title: "Planes — StrandIA",
@@ -16,6 +17,8 @@ export default async function PricingPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const planInfo = user ? await getUserPlan(user.id, supabase) : null;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -34,7 +37,7 @@ export default async function PricingPage() {
           </header>
 
           <div className="mt-10">
-            <PricingPlans />
+            <PricingPlans isPremium={planInfo?.isPremium} />
           </div>
         </Container>
       </main>
