@@ -6,13 +6,14 @@
 import Link from "next/link";
 
 type Props = {
-  active: "quests" | "hilo" | "reports";
+  active: "quests" | "hilo" | "reports" | "users";
 };
 
 const TABS = [
   { key: "quests", label: "Fashion Quests", href: "/admin/quests" },
   { key: "hilo", label: "El Hilo", href: "/admin/hilo" },
   { key: "reports", label: "Reportes", href: "/admin/reports" },
+  { key: "users", label: "Usuarios", href: "/admin/users" },
 ] as const;
 
 export default function AdminTabs({ active }: Props) {

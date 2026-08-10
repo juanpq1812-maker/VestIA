@@ -18,6 +18,7 @@ import { callGeminiImageEdit, GEMINI_IMAGE_MODEL } from "@/lib/ai/geminiClient";
 import { MINIMAL_EDIT_PROMPT } from "@/lib/ai/imagePrompts";
 import { finalizeGeminiImageOutput } from "@/lib/ai/imageBackgroundRemoval";
 import { checkAndConsumeBurstUse } from "@/lib/ai/burstUsageGate";
+import { checkAndConsumePhotoImprovement } from "@/lib/plans/checkAndConsumePhotoImprovement";
 import { logAiImageCall, type AiImageSource } from "@/lib/ai/aiImageAudit";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 
@@ -33,6 +34,7 @@ export type RemoveBackgroundResult =
       backgroundRemoved: boolean;
     }
   | { ok: false; reason: "rate_limited"; resetInMinutes: number }
+  | { ok: false; reason: "plan_limit" }
   | { ok: false; reason: "no_session" | "no_image" | "generation_failed" };
 
 export async function removeBackgroundWithGemini(
@@ -69,6 +71,20 @@ export async function removeBackgroundWithGemini(
       source,
       clothingItemId,
     });
+
+  // `source === "photo_improvement"` es la única llamada de este archivo que
+  // viene del botón manual "Mejora esta foto" (EditItemForm.tsx) — el
+  // pipeline automático de subida nunca manda ese source. Solo esa llamada
+  // gasta cuota de plan (5 en total en free); subir prendas sigue ilimitado.
+  // Va ANTES del rate limit horario: si al usuario ya no le queda cuota de
+  // plan, debe ver el paywall y no "espera una hora".
+  if (source === "photo_improvement") {
+    const planGate = await checkAndConsumePhotoImprovement(user.id, supabase);
+    if (!planGate.allowed) {
+      await audit(false, "plan_limit", null, 0);
+      return { ok: false, reason: "plan_limit" };
+    }
+  }
 
   const budget = await checkAndConsumeBurstUse(user.id, supabase);
   if (!budget.allowed) {
