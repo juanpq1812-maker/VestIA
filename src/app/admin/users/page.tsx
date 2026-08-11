@@ -46,13 +46,19 @@ export default async function AdminUsersPage({ searchParams }: Props) {
   const { q } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
 
+  // service_role para AMBAS lecturas, no solo para listUsers: `profiles`
+  // tiene RLS `profiles_select_own` (auth.uid() = id) sin excepción para
+  // admins, así que el client normal del usuario solo devuelve su propia
+  // fila — el resto de la lista quedaba vacío por RLS, no por falta de
+  // datos. Ya se hizo el check de is_admin arriba con el client normal.
+  const admin = createSupabaseAdminClient();
   const [{ data: profiles }, { data: authList }] = await Promise.all([
-    supabase
+    admin
       .from("profiles")
       .select("id, display_name, plan, premium_until, created_at")
       .order("created_at", { ascending: false }),
-    // service_role: profiles no tiene email, solo auth.users lo tiene.
-    createSupabaseAdminClient().auth.admin.listUsers({ page: 1, perPage: 1000 }),
+    // profiles no tiene email, solo auth.users lo tiene.
+    admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
 
   const emailById = new Map((authList?.users ?? []).map((u) => [u.id, u.email ?? ""]));
