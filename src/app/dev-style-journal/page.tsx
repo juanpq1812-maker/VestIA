@@ -117,6 +117,11 @@ export default async function DevStyleJournalPage() {
         llama al mismo compositor que usará el botón de compartir.
       </p>
       <ExportTestButton items={pool.slice(0, 4)} outfitName="Outfit de oficina" />
+
+      <h2 className="mt-12 font-display text-2xl text-text">
+        Export real — 6 prendas + título largo (fix de iPhone)
+      </h2>
+      <ExportTestButton items={pool.slice(0, 6)} outfitName="Casual deportivo con presencia" />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import {
   CATEGORY_SCALE,
   HEADER_BOTTOM,
   HEADER_LEFT,
+  HEADER_RIGHT,
   HEADER_TOP,
   arrowMidpoint,
   arrowStartPoint,
@@ -37,9 +38,14 @@ const CARD_H = 1920;
 // de Fase 4 confirmado: bone white de marca, cuaderno centrado, marca abajo).
 const WATERMARK_AREA_H = 150;
 
-// El cuaderno (viewBox 400x500, aspect 4:5) ocupa el 84% del ancho del
-// lienzo — mismos números que el mockup de Fase 4.
-const NOTEBOOK_W = CARD_W * 0.84;
+// El cuaderno (viewBox 400x500, aspect 4:5) ocupa el 95% del ancho del
+// lienzo — subido desde 84% tras prueba en iPhone real: a 84% sobraba bone
+// white por todos lados (~55% del alto). El techo real es geométrico: a
+// ancho completo (100%, sin margen) el cuaderno mide 1350px de alto = 70%
+// del lienzo, así que no hay forma de llenar "casi todo" sin recortar el
+// arte — 95% es lo más grande que se puede llenar dejando un marco de marca
+// visible en los bordes.
+const NOTEBOOK_W = CARD_W * 0.95;
 const NOTEBOOK_H = NOTEBOOK_W * (500 / 400);
 const NOTEBOOK_X = (CARD_W - NOTEBOOK_W) / 2;
 const NOTEBOOK_Y = (CARD_H - WATERMARK_AREA_H - NOTEBOOK_H) / 2;
@@ -224,7 +230,13 @@ export async function composeStyleJournalImage(
   const titleFont = await resolveFont("--font-caslon", 700, 46);
   ctx.font = titleFont;
   ctx.fillStyle = `rgb(${COLOR_TEXT})`;
-  const titleText = truncateToFit(ctx, outfitName, NOTEBOOK_W * 0.86);
+  // Ancho real del papel disponible para el título (x 80→366 del viewBox),
+  // NO un porcentaje arbitrario de NOTEBOOK_W — con 0.86 el título se salía
+  // del borde derecho de la hoja (medido en iPhone real: HEADER_RIGHT-
+  // HEADER_LEFT es 286 de 400 unidades, ≈0.715 de NOTEBOOK_W, bastante menos
+  // que 0.86).
+  const titleMaxWidth = nx(HEADER_RIGHT) - nx(HEADER_LEFT);
+  const titleText = truncateToFit(ctx, outfitName, titleMaxWidth);
   ctx.fillText(titleText, nx(HEADER_LEFT), ny(HEADER_TOP) + 34);
   void HEADER_BOTTOM; // banda reservada, ver styleJournalLayout.ts — no se dibuja nada más ahí.
 
@@ -258,7 +270,13 @@ export async function composeStyleJournalImage(
   for (let i = 0; i < board.length; i++) {
     const slot = template[i];
     if (!slot) continue;
-    const maxWidth = ((slot.labelWidthPct ?? 30) / 100) * CARD_W;
+    // % de NOTEBOOK_W, no de CARD_W — en pantalla (StyleJournal.tsx) ese %
+    // es relativo al ancho de la propia tarjeta del cuaderno, que en el
+    // export NO es el lienzo completo de 1080px sino NOTEBOOK_W (más
+    // angosto). Medir contra CARD_W sobreestimaba el ancho disponible y
+    // dejaba "Chaqueta biker"/"Gorra" casi tocándose en TEMPLATE_6 — mismo
+    // bug de fondo que el título (ver truncateToFit arriba).
+    const maxWidth = ((slot.labelWidthPct ?? 30) / 100) * NOTEBOOK_W;
     const lines = wrapLines(ctx, itemLabel(board[i]), maxWidth, 2);
     let ly = ny(slot.labelTop);
     for (const line of lines) {
