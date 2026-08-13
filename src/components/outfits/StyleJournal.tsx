@@ -83,10 +83,16 @@ export default function StyleJournal({ items, outfitName, labelVariant = "name" 
         className="pointer-events-none absolute inset-0 h-full w-full"
       />
 
-      {/* Encabezado — banda reservada y=40 a y=100 del viewBox, nunca
-          invadida por prendas ni etiquetas (ver CONTENT_TOP). */}
+      {/* Encabezado — banda reservada y=40 a y=CONTENT_TOP del viewBox,
+          nunca invadida por prendas ni etiquetas. El titular es el ancla
+          visual de toda la pieza (mismo diseño que composeStyleJournalImage.ts,
+          pantalla y export comparten intención): eyebrow chico arriba,
+          "Look"/"día" itálicos grandes flanqueando "del" (redonda, un poco
+          más chica) con destellos a los lados, nombre del outfit chico
+          debajo. Que varíe itálica/redonda entre líneas, no el tamaño —
+          las tres deben leerse como una sola frase. */}
       <div
-        className="absolute"
+        className="absolute flex flex-col items-center text-center"
         style={{
           top: `${vy(HEADER_TOP)}%`,
           left: `${vx(HEADER_LEFT)}%`,
@@ -94,13 +100,32 @@ export default function StyleJournal({ items, outfitName, labelVariant = "name" 
           height: `${vy(HEADER_BOTTOM - HEADER_TOP)}%`,
         }}
       >
-        {/* Titular fijo, no el nombre del outfit — ese baja a la línea de
-            abajo. Itálica de Libre Caslon Text es lo que carga la sensación
-            "manuscrita" acá, no una fuente nueva. */}
-        <h3 className="font-display text-xl italic font-semibold leading-tight text-text sm:text-2xl">
-          Look del día
+        {/* Sin sm: en el titular a propósito: esta tarjeta vive en
+            contenedores angostos (max-w-[280/320px]) sin importar qué tan
+            ancho sea el viewport del navegador — sm: es un breakpoint de
+            VIEWPORT, no del contenedor, así que en desktop (viewport ancho,
+            tarjeta igual de angosta) el salto a text-5xl/text-3xl chocaba
+            con la primera fila de prendas (medido en Chrome a 1547px).
+            Además el tamaño de fuente es px fijo mientras que la banda del
+            header es un % (vy()) del alto de la tarjeta — en la tarjeta más
+            angosta real (SavedOutfitCard, max-w-[280px]) el texto a
+            text-4xl/text-2xl seguía desbordando esa banda y chocando con la
+            primera fila, incluso sin sm:. Bajado a text-3xl/text-xl y
+            espaciado más apretado hasta que cupo con margen, verificado en
+            Chrome — no por aritmética. */}
+        <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
+          Style Journal
+        </p>
+        <h3 className="font-display leading-[0.95] text-text">
+          <span className="block text-3xl italic font-bold">Look</span>
+          <span className="relative my-px flex items-center justify-center">
+            <SparkleIcon className="absolute -left-4 h-2.5 w-2.5 text-primary" />
+            <span className="text-xl font-medium">del</span>
+            <SparkleIcon className="absolute -right-4 h-2.5 w-2.5 text-primary" />
+          </span>
+          <span className="block text-3xl italic font-bold">día</span>
         </h3>
-        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-widest text-text-muted sm:text-[11px]">
+        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-widest text-text-muted">
           {outfitName}
         </p>
       </div>
@@ -235,6 +260,17 @@ export default function StyleJournal({ items, outfitName, labelVariant = "name" 
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Destello de 4 puntas — mismo path que dibuja composeStyleJournalImage.ts
+ * en el export (ahí como curvas de Canvas, acá como SVG), flanqueando "del"
+ * en el titular. */
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
+    </svg>
   );
 }
 

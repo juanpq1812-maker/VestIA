@@ -16,7 +16,14 @@ import type { ClothingCategory } from "@/types/database";
 // flecha — la espiral vive entre x=34 y x=66, por eso el mínimo es 80).
 export const CONTENT_LEFT = 80;
 export const CONTENT_RIGHT = 366;
-export const CONTENT_TOP = 100; // debajo de la banda de encabezado
+// Subido de 100 (original) — el titular pasó de una línea chica a
+// "Look/del/día" en 3 líneas + eyebrow arriba + nombre del outfit abajo, más
+// alto que antes. 220 se probó primero y se pasó: el header ocupaba ~40%
+// del papel, apretando las filas. 150 se probó después y quedó corto: el
+// nombre del outfit chocaba con "Camiseta"/"Cargo" (medido, no a ojo — el
+// subtítulo terminaba en el mismo y donde arranca la primera fila). 178
+// deja el margen real que faltaba, ~30% del papel.
+export const CONTENT_TOP = 178;
 export const CONTENT_BOTTOM = 458;
 
 // Banda de encabezado (eyebrow + nombre del outfit): dentro de la zona útil
@@ -61,13 +68,20 @@ export function jitter(id: string, span = 3): number {
 // useAlphaCroppedImage.ts) — si no, el tamaño final lo define el margen
 // transparente del PNG, no esta tabla (medido: 53% de las prendas reales
 // tenían >20% de "hueco" por área antes del recorte).
+// Subida en bloque (feedback tras el rediseño del fondo: "las prendas
+// quedaron chicas contra el papel" — el cuaderno creció, esto no había
+// crecido con él). footwear/accessory eran los más chicos (0.82/0.75) y los
+// que más se notaban perdidos contra la hoja más grande.
 export const CATEGORY_SCALE: Record<ClothingCategory, number> = {
-  outerwear: 1.15,
-  dress: 1.25,
-  top: 1,
-  bottom: 1,
-  footwear: 0.82,
-  accessory: 0.75,
+  outerwear: 1.3,
+  dress: 1.4,
+  top: 1.15,
+  bottom: 1.1,
+  // Subidos otra vez — con más aire liberado del header (CONTENT_TOP bajó
+  // de 220 a 150), footwear/accessory seguían leyéndose como puntos
+  // ("el bolso y la gorra quedaron como puntos").
+  footwear: 1.15,
+  accessory: 1.15,
 };
 
 // Prioridad al recortar cuando el outfit trae más prendas que slots: las
@@ -261,38 +275,44 @@ const TEMPLATE_5_FRACTIONS: FractionalSlot[] = [
 ];
 
 // 6+ prendas — tope de la app (OutfitMoodboard también corta en 6). 3 filas
-// de 2, cada una más chica para que las 6 quepan sin apretarse ni perder el
-// hueco de 10 puntos entre etiqueta y prenda.
+// de 2, repartidas en TODA la altura útil (antes las filas paraban en
+// top:76+h:18=94 con solo 4 puntos de hueco entre filas — sobraba casi un
+// tercio de página abajo, y el hueco etiqueta→prenda de 10 puntos era el
+// más angosto de las 4 plantillas: con una etiqueta real de 2 líneas el
+// margen para la flecha quedaba en ~6 unidades absolutas, al borde de
+// cruzar el texto). Ahora: hueco etiqueta→prenda de 11-13 puntos (~40-46
+// unidades absolutas, vs. ARROW_LABEL_CLEARANCE_Y=30 — igual margen que
+// las otras plantillas) y la fila 3 llega hasta ~97 en vez de 94.
 const TEMPLATE_6_FRACTIONS: FractionalSlot[] = [
   {
-    w: 30, h: 18, top: 12, left: 4, rot: -4, z: 20,
+    w: 36, h: 18, top: 13, left: 4, rot: -4, z: 20,
     labelTop: 2, labelLeft: 4, labelAlign: "left",
-    arrowTargetTop: 14, arrowTargetLeft: 16, arrowCurve: 1,
+    arrowTargetTop: 15, arrowTargetLeft: 18, arrowCurve: 1,
   },
   {
-    w: 28, h: 18, top: 12, left: 62, rot: 5, z: 28,
+    w: 34, h: 18, top: 13, left: 62, rot: 5, z: 28,
     labelTop: 2, labelLeft: 62, labelAlign: "left",
-    arrowTargetTop: 14, arrowTargetLeft: 74, arrowCurve: -1,
+    arrowTargetTop: 15, arrowTargetLeft: 76, arrowCurve: -1,
   },
   {
-    w: 26, h: 18, top: 44, left: 6, rot: 6, z: 18,
-    labelTop: 34, labelLeft: 4, labelAlign: "left",
-    arrowTargetTop: 46, arrowTargetLeft: 16, arrowCurve: -1,
+    w: 32, h: 18, top: 46, left: 6, rot: 6, z: 18,
+    labelTop: 35, labelLeft: 4, labelAlign: "left",
+    arrowTargetTop: 48, arrowTargetLeft: 18, arrowCurve: -1,
   },
   {
-    w: 26, h: 18, top: 44, left: 60, rot: -6, z: 24,
-    labelTop: 34, labelLeft: 60, labelAlign: "left",
-    arrowTargetTop: 46, arrowTargetLeft: 72, arrowCurve: 1,
+    w: 32, h: 18, top: 46, left: 60, rot: -6, z: 24,
+    labelTop: 35, labelLeft: 60, labelAlign: "left",
+    arrowTargetTop: 48, arrowTargetLeft: 74, arrowCurve: 1,
   },
   {
-    w: 28, h: 18, top: 76, left: 4, rot: -3, z: 16,
-    labelTop: 66, labelLeft: 4, labelAlign: "left",
-    arrowTargetTop: 78, arrowTargetLeft: 16, arrowCurve: 1,
+    w: 34, h: 18, top: 79, left: 4, rot: -3, z: 16,
+    labelTop: 68, labelLeft: 4, labelAlign: "left",
+    arrowTargetTop: 81, arrowTargetLeft: 18, arrowCurve: 1,
   },
   {
-    w: 26, h: 18, top: 76, left: 62, rot: -5, z: 22,
-    labelTop: 66, labelLeft: 62, labelAlign: "left",
-    arrowTargetTop: 78, arrowTargetLeft: 74, arrowCurve: -1,
+    w: 32, h: 18, top: 79, left: 62, rot: -5, z: 22,
+    labelTop: 68, labelLeft: 62, labelAlign: "left",
+    arrowTargetTop: 81, arrowTargetLeft: 76, arrowCurve: -1,
   },
 ];
 
@@ -317,23 +337,45 @@ export function getTemplate(count: number): JournalSlot[] {
 const ARROW_LABEL_CLEARANCE_Y = 30;
 
 /**
- * Punto real donde arranca la flechita: por FUERA de la caja de texto de la
- * etiqueta (abajo, con aire), no en su esquina — evita que la curva cruce
- * las letras. Se desplaza también un poco en horizontal hacia la prenda,
- * para que la curva salga "del lado de afuera" del texto.
+ * Punto real donde arranca la flechita: por debajo del CENTRO de la
+ * etiqueta, no de su esquina izquierda — con el blend horizontal en 0.15
+ * (versión anterior) el origen quedaba pegado a labelLeft, casi debajo de
+ * la primera letra, y leía como si la flecha saliera del LADO de la
+ * etiqueta en vez de por debajo de toda la palabra (reportado en iPhone
+ * real, confirmado con zoom sobre las letras). Con el origen centrado
+ * horizontalmente bajo el texto, ninguna combinación de longitud de
+ * etiqueta puede dejar la curva pasando por encima de las letras — el
+ * punto de partida ya no depende de dónde arranca el texto, solo de dónde
+ * está su centro.
  */
 export function arrowStartPoint(slot: JournalSlot): { top: number; left: number } {
   return {
     top: slot.labelTop + ARROW_LABEL_CLEARANCE_Y,
-    left: slot.labelLeft + (slot.arrowTargetLeft - slot.labelLeft) * 0.15,
+    left: slot.labelLeft + (slot.arrowTargetLeft - slot.labelLeft) * 0.5,
   };
 }
+
+// Cuánto se desplaza el punto de control respecto a la cuerda origen→destino,
+// como fracción de su longitud — no un número fijo de unidades. Un offset
+// perpendicular proporcional es lo que da una curva de aspecto constante
+// (misma "panza" relativa) sin importar qué tan larga o corta, ni en qué
+// ángulo, sea la flecha.
+const ARROW_BULGE_RATIO = 0.4;
 
 /**
  * Punto de control de la curva cuadrática de una flechita — compartido por
  * `arrowPath` (dibuja con SVG, en pantalla) y `composeStyleJournalImage.ts`
  * (dibuja con `ctx.quadraticCurveTo`, en el export a Canvas). Un solo lugar
  * para la fórmula de curvatura evita que las dos versiones se desalineen.
+ *
+ * El offset es PERPENDICULAR a la cuerda origen→destino (no un vector fijo
+ * como "arriba 10, izquierda 6") y proporcional a su longitud (no un número
+ * fijo de unidades). Con un offset fijo, centrar el origen bajo la etiqueta
+ * (ver arrowStartPoint) acortó la cuerda y la acercó a la dirección misma
+ * del offset — la "panza" quedó casi paralela a la línea en vez de
+ * perpendicular, y la curva se leía recta. Perpendicular-y-proporcional no
+ * puede aplanarse así: siempre bulge hacia el lado, siempre relativo al
+ * tamaño real del trazo.
  */
 export function arrowMidpoint(
   fromTop: number,
@@ -342,9 +384,16 @@ export function arrowMidpoint(
   toLeft: number,
   curve: number
 ): { top: number; left: number } {
+  const dx = toLeft - fromLeft;
+  const dy = toTop - fromTop;
+  const length = Math.hypot(dx, dy) || 1;
+  // Vector unitario perpendicular a la cuerda (rota 90°).
+  const perpLeft = -dy / length;
+  const perpTop = dx / length;
+  const bulge = length * ARROW_BULGE_RATIO * curve;
   return {
-    top: (fromTop + toTop) / 2 + curve * 10,
-    left: (fromLeft + toLeft) / 2 + curve * 6,
+    top: (fromTop + toTop) / 2 + perpTop * bulge,
+    left: (fromLeft + toLeft) / 2 + perpLeft * bulge,
   };
 }
 

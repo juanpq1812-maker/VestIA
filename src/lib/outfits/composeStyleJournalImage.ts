@@ -60,6 +60,30 @@ const COLOR_PRIMARY = "81, 99, 81"; // --color-primary #516351 — fondo del lie
 const COLOR_PRIMARY_MID = "184, 204, 182"; // --color-primary-mid #b8ccb6 — palabra de fondo
 const COLOR_TEXT_INVERSE = "243, 240, 237"; // --color-text-inverse #f3f0ed — texto sobre el fondo oscuro
 
+// SVG de ruido a pantalla completa para texturizar el fondo verde plano —
+// mismo criterio que el grano de papel de cuaderno-export.svg (feTurbulence
+// + saturate 0), pero acá en escala de grises OPACA: se mezcla con
+// globalCompositeOperation="overlay" a alpha bajo (ver uso abajo), no con
+// alfa transparente — así modula la luminosidad del verde en vez de
+// dibujar polvo encima.
+function buildBackgroundGrainDataUri(width: number, height: number): string {
+  // feTurbulence genera alfa propio (~50% promedio, moteado) además del
+  // color — sin forzarlo a opaco, ese alfa se multiplica con el globalAlpha
+  // del canvas y diluye el efecto a ~3-4% real, invisible después de
+  // comprimir a JPEG (medido: se probó a 0.07 y no se veía nada). Con
+  // feFuncA fijo a 1, el único dial de intensidad es el globalAlpha del
+  // canvas al dibujarla.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+    <filter id="n" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="7" stitchTiles="stitch" result="noise"/>
+      <feColorMatrix type="saturate" values="0" in="noise" result="gray"/>
+      <feComponentTransfer in="gray"><feFuncA type="linear" slope="0" intercept="1"/></feComponentTransfer>
+    </filter>
+    <rect width="100%" height="100%" filter="url(#n)"/>
+  </svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -188,6 +212,42 @@ function drawSwatch(ctx: CanvasRenderingContext2D, it: ClothingItem, w: number, 
   ctx.fill();
 }
 
+// Estrellita de 4 puntas (mismo path que el SparkleIcon que tenía el eyebrow
+// "STYLE JOURNAL" en StyleJournal.tsx, antes de que ese eyebrow se quitara —
+// viewBox 24x24, centrada en (12,10), bounding box 16x16). Puntos absolutos
+// del path SVG original ("M12 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42
+// 3.58-8 8-8-4.42 0-8-3.58-8-8Z"), reescritos como curvas cúbicas de Canvas.
+function drawSparkle(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  size: number,
+  rotationDeg: number,
+  colorRgb: string
+) {
+  const s = size / 16; // 16 = ancho/alto real de la silueta dentro del viewBox 24x24
+  const pt = (x: number, y: number): [number, number] => [(x - 12) * s, (y - 10) * s];
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((rotationDeg * Math.PI) / 180);
+  ctx.beginPath();
+  const [mx, my] = pt(12, 2);
+  ctx.moveTo(mx, my);
+  const segments: [[number, number], [number, number], [number, number]][] = [
+    [pt(12, 6.42), pt(8.42, 10), pt(4, 10)],
+    [pt(8.42, 10), pt(12, 13.58), pt(12, 18)],
+    [pt(12, 13.58), pt(15.58, 10), pt(20, 10)],
+    [pt(15.58, 10), pt(12, 6.42), pt(12, 2)],
+  ];
+  for (const [c1, c2, end] of segments) {
+    ctx.bezierCurveTo(c1[0], c1[1], c2[0], c2[1], end[0], end[1]);
+  }
+  ctx.closePath();
+  ctx.fillStyle = `rgb(${colorRgb})`;
+  ctx.fill();
+  ctx.restore();
+}
+
 function itemLabel(it: ClothingItem): string {
   return it.name?.trim() || it.subcategory || categoryLabel(it.category);
 }
@@ -208,6 +268,16 @@ export async function composeStyleJournalImage(
   ctx.fillStyle = `rgb(${COLOR_PRIMARY})`;
   ctx.fillRect(0, 0, CARD_W, CARD_H);
 
+  // Grano sutil sobre el verde — sin esto lee como relleno plano, no como
+  // superficie (feedback de iPhone). overlay + alpha bajo modula la
+  // luminosidad en vez de dibujar polvo encima.
+  const grainImg = await loadImage(buildBackgroundGrainDataUri(CARD_W, CARD_H));
+  ctx.save();
+  ctx.globalCompositeOperation = "overlay";
+  ctx.globalAlpha = 0.1;
+  ctx.drawImage(grainImg, 0, 0, CARD_W, CARD_H);
+  ctx.restore();
+
   // /cuaderno-export.svg, NO /cuaderno.svg — es la copia con el grano de
   // papel a x3 de frecuencia, calibrada para el ancho al que se rasteriza
   // el cuaderno acá (~907px) en vez del ancho de pantalla (~300px). Ver el
@@ -220,18 +290,12 @@ export async function composeStyleJournalImage(
 
   // ── Palabra de fondo "STRANDIA" ──────────────────────────────────────
   // Grande, DETRÁS del cuaderno (se dibuja antes de drawImage) — la
-  // oclusión parcial (el cuaderno la tapa) es lo que da profundidad. Tiene
-  // que sangrar apenas por los bordes laterales (una letra, no la mitad de
-  // la palabra) — a 300px fijo solo se leía "TRAND" en iPhone real. En vez
-  // de un tamaño fijo a ojo, se mide a un tamaño de referencia y se escala
-  // al tamaño que da el ancho objetivo (~1.15x CARD_W).
-  const bgWordRefPx = 100;
-  const bgWordRefFont = await resolveFont("--font-caslon", 700, bgWordRefPx);
-  ctx.font = bgWordRefFont;
-  const bgWordRefWidth = ctx.measureText("STRANDIA").width;
-  const bgWordTargetWidth = CARD_W * 1.15;
-  const bgWordPx = Math.round(bgWordRefPx * (bgWordTargetWidth / bgWordRefWidth));
-  const bgWordFont = await resolveFont("--font-caslon", 700, bgWordPx);
+  // oclusión parcial (el cuaderno la tapa) es lo que da profundidad. 300px
+  // fijo corta la palabra a "TRAND" por los dos lados — probado en iPhone
+  // real, se ve mejor así que la palabra casi completa (que se ensayó y se
+  // descartó). No rota con el cuaderno: es textura de fondo, se dibuja
+  // ANTES del bloque de rotación de abajo.
+  const bgWordFont = await resolveFont("--font-caslon", 700, 300);
   ctx.font = bgWordFont;
   ctx.fillStyle = `rgb(${COLOR_PRIMARY_MID})`;
   ctx.textAlign = "center";
@@ -240,26 +304,110 @@ export async function composeStyleJournalImage(
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 
-  ctx.drawImage(notebookImg, NOTEBOOK_X, NOTEBOOK_Y, NOTEBOOK_W, NOTEBOOK_H);
-
   const board = prioritizeItems(items, 6);
   const template = getTemplate(board.length);
 
-  // ── Encabezado ────────────────────────────────────────────────────────
-  // Titular fijo ("Look del día", itálica) en vez del nombre del outfit —
-  // el nombre baja a una línea chica debajo, en mayúsculas. De paso resuelve
-  // el bug de título desbordado: "Look del día" es corto y constante, no
-  // depende de qué tan largo sea outfit.name.
-  const titleFont = await resolveFont("--font-caslon", 600, 46, true);
-  ctx.font = titleFont;
-  ctx.fillStyle = `rgb(${COLOR_TEXT})`;
-  ctx.textBaseline = "top";
-  ctx.fillText("Look del día", nx(HEADER_LEFT), ny(HEADER_TOP));
+  // ── El cuaderno completo (papel + anillos + sombra + contenido) como una
+  // sola unidad rígida ──────────────────────────────────────────────────
+  // Todo lo que va DENTRO de esta transformación (drawImage del cuaderno,
+  // encabezado, flechitas, prendas, etiquetas) se posiciona con las mismas
+  // coordenadas nx()/ny() de siempre — rotan juntas porque comparten la
+  // matriz de transformación del canvas, no porque se les sumó un ángulo a
+  // cada una. La marca de agua de abajo queda AFUERA a propósito: es
+  // identidad de marca, no parte física del cuaderno, se mantiene nivelada.
+  const NOTEBOOK_ROTATE_DEG = 2.2;
+  const notebookCx = NOTEBOOK_X + NOTEBOOK_W / 2;
+  const notebookCy = NOTEBOOK_Y + NOTEBOOK_H / 2;
+  ctx.save();
+  ctx.translate(notebookCx, notebookCy);
+  ctx.rotate((NOTEBOOK_ROTATE_DEG * Math.PI) / 180);
+  ctx.translate(-notebookCx, -notebookCy);
 
-  // Nombre del outfit — chico, Hanken Grotesk, tracking amplio, mayúsculas.
-  // Mismo tratamiento visual que tenía el eyebrow "STYLE JOURNAL" que se
-  // quita de acá (ver StyleJournal.tsx en pantalla).
-  const subtitleFont = await resolveFont("--font-hanken", 700, 20);
+  // Sombra amplia y suave, proyectada por el papel sobre el verde — el SVG
+  // trae su propia "page-shadow" pero está calibrada para un fondo claro
+  // (opacidad 0.18, casi invisible sobre el verde oscuro).
+  //
+  // NO se deriva del alfa de notebookImg completo — ese incluye la espiral,
+  // que son huecos finos y repetidos; un shadowBlur grande sobre esa
+  // silueta intrincada revienta cada anillo en manchas sueltas en vez de
+  // leer como espiral continua (visto en iPhone real). En cambio se dibuja
+  // un rectángulo redondeado plano que aproxima solo el PAPEL (el mismo
+  // rect de `paper-mask` en cuaderno.svg/cuaderno-export.svg: x=46 y=12
+  // width=342 height=470 rx=3, en las mismas unidades de viewBox) — una
+  // silueta simple da una sombra limpia. Se dibuja, se cubre por completo
+  // con el drawImage real de abajo, y solo sobresale su sombra proyectada.
+  const paperX = nx(46);
+  const paperY = ny(12);
+  const paperW = (342 / 400) * NOTEBOOK_W;
+  const paperH = (470 / 500) * NOTEBOOK_H;
+  const paperR = (6 / 400) * NOTEBOOK_W;
+  ctx.save();
+  ctx.shadowColor = `rgba(${COLOR_INK}, 0.4)`;
+  ctx.shadowBlur = 46;
+  ctx.shadowOffsetX = 16;
+  ctx.shadowOffsetY = 24;
+  ctx.fillStyle = `rgb(${COLOR_INK})`; // no se ve — lo tapa el drawImage de abajo, solo importa su sombra
+  ctx.beginPath();
+  ctx.roundRect(paperX, paperY, paperW, paperH, paperR);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.drawImage(notebookImg, NOTEBOOK_X, NOTEBOOK_Y, NOTEBOOK_W, NOTEBOOK_H);
+
+  // ── Encabezado ────────────────────────────────────────────────────────
+  // Rediseño: el titular es ahora el ancla visual de toda la pieza (como en
+  // la referencia de Lookbook) — grande, centrado, 3 líneas, mezclando
+  // itálica y redonda entre palabras ("Look" itálica / "del" redonda chica
+  // / "día" itálica). El eyebrow vuelve arriba, chico y centrado; el nombre
+  // del outfit baja a una línea chica debajo del titular, también centrado.
+  const headerCenterX = (nx(HEADER_LEFT) + nx(HEADER_RIGHT)) / 2;
+  let headerY = ny(HEADER_TOP);
+
+  const eyebrowFont = await resolveFont("--font-hanken", 700, 20);
+  ctx.font = eyebrowFont;
+  ctx.fillStyle = `rgb(${COLOR_PRIMARY})`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.letterSpacing = "0.16em";
+  ctx.fillText("STYLE JOURNAL", headerCenterX, headerY);
+  ctx.letterSpacing = "0";
+  headerY += 38;
+
+  // Titular grande — ~1.6x el tamaño original (era 46px), bajado desde el
+  // primer intento (148px) que ocupaba ~40% del papel y apretaba las filas
+  // de abajo. Las tres líneas casi al mismo tamaño ("del" apenas menor) —
+  // la primera versión las hacía muy distintas (148 vs 62) y se leía como
+  // tres palabras sueltas en vez de una frase; lo que debe variar es
+  // itálica/redonda, no el tamaño.
+  const titleBigFont = await resolveFont("--font-caslon", 700, 74, true);
+  const titleSmallFont = await resolveFont("--font-caslon", 500, 64, false);
+
+  ctx.fillStyle = `rgb(${COLOR_TEXT})`;
+  ctx.font = titleBigFont;
+  ctx.fillText("Look", headerCenterX, headerY);
+  headerY += 78;
+
+  ctx.font = titleSmallFont;
+  const delY = headerY; // guardado para anclar los destellos a esta línea
+  ctx.fillText("del", headerCenterX, headerY);
+  headerY += 68;
+
+  ctx.font = titleBigFont;
+  ctx.fillText("día", headerCenterX, headerY);
+  headerY += 78;
+
+  // Destellos — flanquean el titular, sobre el PAPEL (no el fondo verde),
+  // a la altura de "del" (la línea chica del medio, donde sobra aire a los
+  // lados). Más grandes y más contrastados que los que iban en el fondo:
+  // en tinta verde oscura sobre el papel claro, no verde claro sobre verde
+  // oscuro.
+  const sparkleHalfWidth = (nx(HEADER_RIGHT) - nx(HEADER_LEFT)) / 2;
+  drawSparkle(ctx, headerCenterX - sparkleHalfWidth * 0.72, delY + 10, 30, -10, COLOR_PRIMARY);
+  drawSparkle(ctx, headerCenterX + sparkleHalfWidth * 0.68, delY + 6, 24, 16, COLOR_PRIMARY);
+
+  // Nombre del outfit — chico, Hanken Grotesk, tracking amplio, mayúsculas,
+  // centrado debajo del titular.
+  const subtitleFont = await resolveFont("--font-hanken", 700, 22);
   ctx.font = subtitleFont;
   ctx.fillStyle = `rgb(${COLOR_TEXT_FAINT})`;
   ctx.letterSpacing = "0.14em";
@@ -268,8 +416,9 @@ export async function composeStyleJournalImage(
   // derecho de la hoja (medido en iPhone real).
   const subtitleMaxWidth = nx(HEADER_RIGHT) - nx(HEADER_LEFT);
   const subtitleText = truncateToFit(ctx, outfitName.toUpperCase(), subtitleMaxWidth);
-  ctx.fillText(subtitleText, nx(HEADER_LEFT), ny(HEADER_TOP) + 58);
+  ctx.fillText(subtitleText, headerCenterX, headerY + 16);
   ctx.letterSpacing = "0";
+  ctx.textAlign = "left";
   void HEADER_BOTTOM; // banda reservada, ver styleJournalLayout.ts — no se dibuja nada más ahí.
 
   // ── Flechitas (antes que las prendas, igual z-order que en pantalla) ───
@@ -316,6 +465,8 @@ export async function composeStyleJournalImage(
       ly += 30;
     }
   }
+
+  ctx.restore(); // cierra la rotación del cuaderno — de acá en adelante, nivelado otra vez.
 
   // ── Marca de agua — franja inferior, logo real ──────────────────────
   // El logo es tinta oscura — sin chip claro detrás se pierde contra el
