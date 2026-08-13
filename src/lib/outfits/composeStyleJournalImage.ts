@@ -33,30 +33,32 @@ import {
 const CARD_W = 1080;
 const CARD_H = 1920;
 
-// Franja inferior reservada para la marca de agua — el resto del lienzo se
-// reparte arriba/abajo del cuaderno para centrarlo verticalmente (checkpoint
-// de Fase 4 confirmado: bone white de marca, cuaderno centrado, marca abajo).
-const WATERMARK_AREA_H = 150;
+// Franja inferior reservada para el ancla (línea fina + etiqueta editorial)
+// — más angosta que cuando llevaba logo+wordmark, porque ese contenido pesa
+// menos visualmente (ver "── Ancla inferior" al final del compositor).
+const WATERMARK_AREA_H = 110;
 
-// El cuaderno (viewBox 400x500, aspect 4:5) ocupa el 95% del ancho del
+// El cuaderno (viewBox 400x500, aspect 4:5) ocupa el 96% del ancho del
 // lienzo — subido desde 84% tras prueba en iPhone real: a 84% sobraba bone
 // white por todos lados (~55% del alto). El techo real es geométrico: a
 // ancho completo (100%, sin margen) el cuaderno mide 1350px de alto = 70%
 // del lienzo, así que no hay forma de llenar "casi todo" sin recortar el
-// arte — 95% es lo más grande que se puede llenar dejando un marco de marca
-// visible en los bordes.
-const NOTEBOOK_W = CARD_W * 0.95;
+// arte — 96% es lo más grande que se puede llenar dejando aire arriba para
+// que la palabra de fondo "STRANDIA" se asome antes de que el cuaderno la
+// tape.
+const NOTEBOOK_W = CARD_W * 0.96;
 const NOTEBOOK_H = NOTEBOOK_W * (500 / 400);
 const NOTEBOOK_X = (CARD_W - NOTEBOOK_W) / 2;
 const NOTEBOOK_Y = (CARD_H - WATERMARK_AREA_H - NOTEBOOK_H) / 2;
 
 // Colores de marca (mismos tokens que globals.css) — el canvas no puede leer
 // clases Tailwind, se repiten literales (mismo criterio que storyCardCanvas.ts).
-const COLOR_BONE = "252, 249, 246"; // --color-bg #fcf9f6
 const COLOR_INK = "45, 49, 46"; // --color-ink #2d312e
 const COLOR_TEXT = "28, 28, 26"; // --color-text #1c1c1a
 const COLOR_TEXT_FAINT = "107, 111, 105"; // --color-text-faint #6b6f69
-const COLOR_PRIMARY = "81, 99, 81"; // --color-primary #516351
+const COLOR_PRIMARY = "81, 99, 81"; // --color-primary #516351 — fondo del lienzo
+const COLOR_PRIMARY_MID = "184, 204, 182"; // --color-primary-mid #b8ccb6 — palabra de fondo
+const COLOR_TEXT_INVERSE = "243, 240, 237"; // --color-text-inverse #f3f0ed — texto sobre el fondo oscuro
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -200,8 +202,10 @@ export async function composeStyleJournalImage(
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Este navegador no soporta canvas.");
 
-  // Fondo bone white de marca detrás del cuaderno (checkpoint de Fase 4).
-  ctx.fillStyle = `rgb(${COLOR_BONE})`;
+  // Fondo dark green de marca — reemplaza el bone white (feedback de iPhone:
+  // "el bone white no aporta nada"). El contraste papel-claro/fondo-oscuro es
+  // lo que da la sensación editorial; el cuaderno mismo no cambia de color.
+  ctx.fillStyle = `rgb(${COLOR_PRIMARY})`;
   ctx.fillRect(0, 0, CARD_W, CARD_H);
 
   // /cuaderno-export.svg, NO /cuaderno.svg — es la copia con el grano de
@@ -209,10 +213,29 @@ export async function composeStyleJournalImage(
   // el cuaderno acá (~907px) en vez del ancho de pantalla (~300px). Ver el
   // comentario de cabecera de ese archivo antes de tocar cualquiera de los
   // dos.
-  const [notebookImg, logoImg] = await Promise.all([
-    loadImage("/cuaderno-export.svg"),
-    loadImage("/logo-mark-strandia.png"),
-  ]);
+  const notebookImg = await loadImage("/cuaderno-export.svg");
+
+  // ── Palabra de fondo "STRANDIA" ──────────────────────────────────────
+  // Grande, DETRÁS del cuaderno (se dibuja antes de drawImage) — la
+  // oclusión parcial (el cuaderno la tapa) es lo que da profundidad. Tiene
+  // que sangrar por los bordes laterales del lienzo, no caber completa: el
+  // tamaño se elige para que el texto medido sea más ancho que CARD_W.
+  const bgWordFont = await resolveFont("--font-caslon", 700, 300);
+  ctx.font = bgWordFont;
+  ctx.letterSpacing = "0.02em";
+  const bgWordWidth = ctx.measureText("STRANDIA").width;
+  // Si el texto no alcanza a sangrar por los dos lados (fuente muy angosta
+  // en algún fallback), lo compensamos con más tracking en vez de asumir
+  // que 300px siempre basta.
+  if (bgWordWidth < CARD_W * 1.1) ctx.letterSpacing = "0.12em";
+  ctx.fillStyle = `rgb(${COLOR_PRIMARY_MID})`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("STRANDIA", CARD_W / 2, NOTEBOOK_Y);
+  ctx.letterSpacing = "0";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+
   ctx.drawImage(notebookImg, NOTEBOOK_X, NOTEBOOK_Y, NOTEBOOK_W, NOTEBOOK_H);
 
   const board = prioritizeItems(items, 6);
@@ -285,20 +308,29 @@ export async function composeStyleJournalImage(
     }
   }
 
-  // ── Marca de agua — franja inferior, discreta ───────────────────────
-  const wmY = CARD_H - WATERMARK_AREA_H / 2;
-  const logoSize = 44;
-  const wordmarkFont = await resolveFont("--font-caslon", 400, 30);
-  ctx.font = wordmarkFont;
-  const wordmarkWidth = ctx.measureText("StrandIA").width;
-  const gap = 14;
-  const totalWidth = logoSize + gap + wordmarkWidth;
-  const startX = (CARD_W - totalWidth) / 2;
+  // ── Ancla inferior ───────────────────────────────────────────────────
+  // Línea fina + etiqueta editorial en mayúsculas — reemplaza el logo +
+  // wordmark de abajo: la marca ya vive arriba, en la palabra de fondo, no
+  // hace falta repetirla. Texto placeholder ("STYLE JOURNAL"); se define
+  // después.
+  const anchorY = CARD_H - WATERMARK_AREA_H / 2;
+  const lineW = 90;
+  ctx.strokeStyle = `rgba(${COLOR_TEXT_INVERSE}, 0.55)`;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(CARD_W / 2 - lineW / 2, anchorY - 16);
+  ctx.lineTo(CARD_W / 2 + lineW / 2, anchorY - 16);
+  ctx.stroke();
 
-  ctx.drawImage(logoImg, startX, wmY - logoSize / 2, logoSize, logoSize);
-  ctx.fillStyle = `rgba(${COLOR_TEXT}, 0.85)`;
-  ctx.textBaseline = "middle";
-  ctx.fillText("StrandIA", startX + logoSize + gap, wmY);
+  const anchorFont = await resolveFont("--font-hanken", 600, 18);
+  ctx.font = anchorFont;
+  ctx.fillStyle = `rgba(${COLOR_TEXT_INVERSE}, 0.85)`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.letterSpacing = "0.22em";
+  ctx.fillText("STYLE JOURNAL", CARD_W / 2, anchorY);
+  ctx.letterSpacing = "0";
+  ctx.textAlign = "left";
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
