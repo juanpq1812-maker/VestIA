@@ -213,26 +213,30 @@ export async function composeStyleJournalImage(
   // el cuaderno acá (~907px) en vez del ancho de pantalla (~300px). Ver el
   // comentario de cabecera de ese archivo antes de tocar cualquiera de los
   // dos.
-  const notebookImg = await loadImage("/cuaderno-export.svg");
+  const [notebookImg, logoImg] = await Promise.all([
+    loadImage("/cuaderno-export.svg"),
+    loadImage("/logo-mark-strandia.png"),
+  ]);
 
   // ── Palabra de fondo "STRANDIA" ──────────────────────────────────────
   // Grande, DETRÁS del cuaderno (se dibuja antes de drawImage) — la
   // oclusión parcial (el cuaderno la tapa) es lo que da profundidad. Tiene
-  // que sangrar por los bordes laterales del lienzo, no caber completa: el
-  // tamaño se elige para que el texto medido sea más ancho que CARD_W.
-  const bgWordFont = await resolveFont("--font-caslon", 700, 300);
+  // que sangrar apenas por los bordes laterales (una letra, no la mitad de
+  // la palabra) — a 300px fijo solo se leía "TRAND" en iPhone real. En vez
+  // de un tamaño fijo a ojo, se mide a un tamaño de referencia y se escala
+  // al tamaño que da el ancho objetivo (~1.15x CARD_W).
+  const bgWordRefPx = 100;
+  const bgWordRefFont = await resolveFont("--font-caslon", 700, bgWordRefPx);
+  ctx.font = bgWordRefFont;
+  const bgWordRefWidth = ctx.measureText("STRANDIA").width;
+  const bgWordTargetWidth = CARD_W * 1.15;
+  const bgWordPx = Math.round(bgWordRefPx * (bgWordTargetWidth / bgWordRefWidth));
+  const bgWordFont = await resolveFont("--font-caslon", 700, bgWordPx);
   ctx.font = bgWordFont;
-  ctx.letterSpacing = "0.02em";
-  const bgWordWidth = ctx.measureText("STRANDIA").width;
-  // Si el texto no alcanza a sangrar por los dos lados (fuente muy angosta
-  // en algún fallback), lo compensamos con más tracking en vez de asumir
-  // que 300px siempre basta.
-  if (bgWordWidth < CARD_W * 1.1) ctx.letterSpacing = "0.12em";
   ctx.fillStyle = `rgb(${COLOR_PRIMARY_MID})`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("STRANDIA", CARD_W / 2, NOTEBOOK_Y);
-  ctx.letterSpacing = "0";
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 
@@ -242,25 +246,30 @@ export async function composeStyleJournalImage(
   const template = getTemplate(board.length);
 
   // ── Encabezado ────────────────────────────────────────────────────────
-  const eyebrowFont = await resolveFont("--font-hanken", 700, 20);
-  ctx.font = eyebrowFont;
-  ctx.fillStyle = `rgb(${COLOR_PRIMARY})`;
-  ctx.textBaseline = "top";
-  ctx.letterSpacing = "0.12em";
-  ctx.fillText("STYLE JOURNAL", nx(HEADER_LEFT), ny(HEADER_TOP));
-  ctx.letterSpacing = "0";
-
-  const titleFont = await resolveFont("--font-caslon", 700, 46);
+  // Titular fijo ("Look del día", itálica) en vez del nombre del outfit —
+  // el nombre baja a una línea chica debajo, en mayúsculas. De paso resuelve
+  // el bug de título desbordado: "Look del día" es corto y constante, no
+  // depende de qué tan largo sea outfit.name.
+  const titleFont = await resolveFont("--font-caslon", 600, 46, true);
   ctx.font = titleFont;
   ctx.fillStyle = `rgb(${COLOR_TEXT})`;
-  // Ancho real del papel disponible para el título (x 80→366 del viewBox),
-  // NO un porcentaje arbitrario de NOTEBOOK_W — con 0.86 el título se salía
-  // del borde derecho de la hoja (medido en iPhone real: HEADER_RIGHT-
-  // HEADER_LEFT es 286 de 400 unidades, ≈0.715 de NOTEBOOK_W, bastante menos
-  // que 0.86).
-  const titleMaxWidth = nx(HEADER_RIGHT) - nx(HEADER_LEFT);
-  const titleText = truncateToFit(ctx, outfitName, titleMaxWidth);
-  ctx.fillText(titleText, nx(HEADER_LEFT), ny(HEADER_TOP) + 34);
+  ctx.textBaseline = "top";
+  ctx.fillText("Look del día", nx(HEADER_LEFT), ny(HEADER_TOP));
+
+  // Nombre del outfit — chico, Hanken Grotesk, tracking amplio, mayúsculas.
+  // Mismo tratamiento visual que tenía el eyebrow "STYLE JOURNAL" que se
+  // quita de acá (ver StyleJournal.tsx en pantalla).
+  const subtitleFont = await resolveFont("--font-hanken", 700, 20);
+  ctx.font = subtitleFont;
+  ctx.fillStyle = `rgb(${COLOR_TEXT_FAINT})`;
+  ctx.letterSpacing = "0.14em";
+  // Ancho real del papel disponible (x 80→366 del viewBox), NO un porcentaje
+  // arbitrario de NOTEBOOK_W — con 0.86 el título se salía del borde
+  // derecho de la hoja (medido en iPhone real).
+  const subtitleMaxWidth = nx(HEADER_RIGHT) - nx(HEADER_LEFT);
+  const subtitleText = truncateToFit(ctx, outfitName.toUpperCase(), subtitleMaxWidth);
+  ctx.fillText(subtitleText, nx(HEADER_LEFT), ny(HEADER_TOP) + 58);
+  ctx.letterSpacing = "0";
   void HEADER_BOTTOM; // banda reservada, ver styleJournalLayout.ts — no se dibuja nada más ahí.
 
   // ── Flechitas (antes que las prendas, igual z-order que en pantalla) ───
@@ -308,29 +317,29 @@ export async function composeStyleJournalImage(
     }
   }
 
-  // ── Ancla inferior ───────────────────────────────────────────────────
-  // Línea fina + etiqueta editorial en mayúsculas — reemplaza el logo +
-  // wordmark de abajo: la marca ya vive arriba, en la palabra de fondo, no
-  // hace falta repetirla. Texto placeholder ("STYLE JOURNAL"); se define
-  // después.
-  const anchorY = CARD_H - WATERMARK_AREA_H / 2;
-  const lineW = 90;
-  ctx.strokeStyle = `rgba(${COLOR_TEXT_INVERSE}, 0.55)`;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.moveTo(CARD_W / 2 - lineW / 2, anchorY - 16);
-  ctx.lineTo(CARD_W / 2 + lineW / 2, anchorY - 16);
-  ctx.stroke();
+  // ── Marca de agua — franja inferior, logo real ──────────────────────
+  // El logo es tinta oscura — sin chip claro detrás se pierde contra el
+  // fondo verde, mismo patrón que storyCardCanvas.ts usa sobre su degradado
+  // oscuro.
+  const wmY = CARD_H - WATERMARK_AREA_H / 2;
+  const logoSize = 40;
+  const chipR = 26;
+  const wordmarkFont = await resolveFont("--font-caslon", 400, 30);
+  ctx.font = wordmarkFont;
+  const wordmarkWidth = ctx.measureText("StrandIA").width;
+  const gap = 14;
+  const totalWidth = chipR * 2 + gap + wordmarkWidth;
+  const startX = (CARD_W - totalWidth) / 2;
 
-  const anchorFont = await resolveFont("--font-hanken", 600, 18);
-  ctx.font = anchorFont;
-  ctx.fillStyle = `rgba(${COLOR_TEXT_INVERSE}, 0.85)`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "top";
-  ctx.letterSpacing = "0.22em";
-  ctx.fillText("STYLE JOURNAL", CARD_W / 2, anchorY);
-  ctx.letterSpacing = "0";
-  ctx.textAlign = "left";
+  ctx.beginPath();
+  ctx.arc(startX + chipR, wmY, chipR, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(${COLOR_TEXT_INVERSE}, 0.95)`;
+  ctx.fill();
+  ctx.drawImage(logoImg, startX + chipR - logoSize / 2, wmY - logoSize / 2, logoSize, logoSize);
+
+  ctx.fillStyle = `rgb(${COLOR_TEXT_INVERSE})`;
+  ctx.textBaseline = "middle";
+  ctx.fillText("StrandIA", startX + chipR * 2 + gap, wmY);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(

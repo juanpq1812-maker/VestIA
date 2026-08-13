@@ -94,14 +94,15 @@ export default function StyleJournal({ items, outfitName, labelVariant = "name" 
           height: `${vy(HEADER_BOTTOM - HEADER_TOP)}%`,
         }}
       >
-        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-primary sm:text-xs">
-          <SparkleIcon className="h-2.5 w-2.5" />
-          Style Journal
-          <SparkleIcon className="h-2.5 w-2.5" />
-        </p>
-        <h3 className="mt-1 truncate font-display text-xl font-bold leading-tight text-text sm:text-2xl">
-          {outfitName}
+        {/* Titular fijo, no el nombre del outfit — ese baja a la línea de
+            abajo. Itálica de Libre Caslon Text es lo que carga la sensación
+            "manuscrita" acá, no una fuente nueva. */}
+        <h3 className="font-display text-xl italic font-semibold leading-tight text-text sm:text-2xl">
+          Look del día
         </h3>
+        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-widest text-text-muted sm:text-[11px]">
+          {outfitName}
+        </p>
       </div>
 
       {/* Flechitas — una sola capa SVG por encima de las prendas, por
@@ -255,15 +256,3 @@ function GarmentPhoto({ rawSrc, alt }: { rawSrc: string; alt: string }) {
   );
 }
 
-function SparkleIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className={className}
-    >
-      <path d="M12 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
-    </svg>
-  );
-}
