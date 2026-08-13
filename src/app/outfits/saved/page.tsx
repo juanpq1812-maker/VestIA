@@ -17,9 +17,10 @@ import SavedOutfitCard from "@/components/outfits/SavedOutfitCard";
 import RepeatedOutfitsSection, {
   type RepeatableOutfit,
 } from "@/components/outfits/RepeatedOutfitsSection";
-import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { createImageSignedUrlMap } from "@/lib/storage/imageSignedUrls";
 import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { getUserPlan } from "@/lib/plans/getUserPlan";
 import type { ClothingItem, Outfit, OutfitUse } from "@/types/database";
 
 export default async function SavedOutfitsPage() {
@@ -28,11 +29,14 @@ export default async function SavedOutfitsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user?.id ?? "")
-    .maybeSingle();
+  const [{ data: profile }, planInfo] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user?.id ?? "")
+      .maybeSingle(),
+    getUserPlan(user?.id ?? "", supabase),
+  ]);
 
   const { data: outfitsData } = await supabase
     .from("outfits")
@@ -94,7 +98,7 @@ export default async function SavedOutfitsPage() {
     const { data: itemsRaw } = await supabase
       .from("clothing_items")
       .select(
-        "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, thumbnail_path, source, created_at, updated_at"
+        "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, thumbnail_path, background_removed, source, created_at, updated_at"
       )
       .eq("status", CONFIRMED_STATUS)
       .in("id", allItemIds);
@@ -104,7 +108,7 @@ export default async function SavedOutfitsPage() {
       .map((i) => i.image_path)
       .filter((p): p is string => Boolean(p));
     const [signed, thumbs] = await Promise.all([
-      createSignedUrlMap(supabase, paths),
+      createImageSignedUrlMap(paths),
       createThumbnailSignedUrlMap(items.map((i) => i.thumbnail_path)),
     ]);
 
@@ -188,6 +192,7 @@ export default async function SavedOutfitsPage() {
                       .filter((it): it is ClothingItem => Boolean(it))}
                     uses={useRecordsByOutfit.get(o.id) ?? []}
                     sharedOutfitUseIds={sharedUseIdsByOutfit.get(o.id) ?? []}
+                    isPremium={planInfo.isPremium}
                   />
                 ))}
               </div>

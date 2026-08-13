@@ -34,6 +34,8 @@ import {
 import type { ClothingItem } from "@/types/database";
 
 import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
+import StyleJournal from "@/components/outfits/StyleJournal";
+import ShareStyleJournalButton from "@/components/outfits/ShareStyleJournalButton";
 
 type UseRecord = { id: string; usedDate: string };
 
@@ -48,6 +50,8 @@ type Props = {
   uses: UseRecord[];
   /** IDs de outfit_uses de ESTE outfit que ya se compartieron con la comunidad. */
   sharedOutfitUseIds?: string[];
+  /** Premium ve el cuaderno editorial en vez de la grilla simple. */
+  isPremium?: boolean;
 };
 
 export default function SavedOutfitCard({
@@ -59,6 +63,7 @@ export default function SavedOutfitCard({
   items,
   uses,
   sharedOutfitUseIds = [],
+  isPremium = false,
 }: Props) {
   const [isDeleting, startDelete] = useTransition();
   const [removed, setRemoved] = useState(false);
@@ -204,30 +209,36 @@ export default function SavedOutfitCard({
           </button>
         </header>
 
-        <ul className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5">
-          {items.slice(0, 5).map((it) => (
-            <li key={it.id} className="text-center">
-              <div
-                className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border"
-                style={{ backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
-                title={it.name ?? it.subcategory ?? it.category}
-              >
-                {it.thumbnail_url ?? it.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={(it.thumbnail_url ?? it.image_url) as string}
-                    alt={it.name ?? it.subcategory ?? it.category}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                ) : null}
-              </div>
-              <p className="mt-1.5 truncate text-[11px] text-text-muted">
-                {it.subcategory ?? it.category}
-              </p>
-            </li>
-          ))}
-        </ul>
+        {isPremium ? (
+          <div className="mt-4 max-w-[280px]">
+            <StyleJournal items={items} outfitName={titulo} />
+          </div>
+        ) : (
+          <ul className="mt-4 grid grid-cols-4 gap-2 sm:grid-cols-5">
+            {items.slice(0, 5).map((it) => (
+              <li key={it.id} className="text-center">
+                <div
+                  className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border"
+                  style={{ backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
+                  title={it.name ?? it.subcategory ?? it.category}
+                >
+                  {it.thumbnail_url ?? it.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={(it.thumbnail_url ?? it.image_url) as string}
+                      alt={it.name ?? it.subcategory ?? it.category}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : null}
+                </div>
+                <p className="mt-1.5 truncate text-[11px] text-text-muted">
+                  {it.subcategory ?? it.category}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {notes && (
           <p className="mt-3 text-xs leading-relaxed text-text-muted">
@@ -316,6 +327,10 @@ export default function SavedOutfitCard({
               </>
             )}
           </button>
+
+          {isPremium && (
+            <ShareStyleJournalButton outfitId={outfitId} outfitName={titulo} items={items} />
+          )}
         </div>
 
         {/* Estadisticas */}
