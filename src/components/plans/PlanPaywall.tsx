@@ -4,6 +4,7 @@
 // que se está perdiendo con free, con precio y sin boton de pago (todavia no
 // hay procesador; un boton que no hace nada es peor que no tener boton).
 
+import type { ReactNode } from "react";
 import { PREMIUM_PRICE_MONTHLY_COP, PREMIUM_PRICE_YEARLY_COP } from "@/lib/plans/constants";
 
 const BENEFICIOS_PREMIUM = [
@@ -20,9 +21,12 @@ function formatCOP(cop: number): string {
 type Props = {
   title: string;
   subtitle: string;
+  /** Imagen de ejemplo (el cuaderno) — vale más que la lista de texto sola.
+   * Opcional: el paywall de "Mejora esta foto" no la necesita. */
+  exampleImage?: ReactNode;
 };
 
-export default function PlanPaywall({ title, subtitle }: Props) {
+export default function PlanPaywall({ title, subtitle, exampleImage }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-primary-mid bg-surface">
       <div className="border-b border-border bg-primary-light px-6 py-6 sm:px-8">
@@ -36,6 +40,9 @@ export default function PlanPaywall({ title, subtitle }: Props) {
       </div>
 
       <div className="px-6 py-6 sm:px-8">
+        {exampleImage && (
+          <div className="mx-auto mb-5 max-w-[220px]">{exampleImage}</div>
+        )}
         <p className="text-sm font-semibold text-text">
           Con StrandIA Premium te estás perdiendo
         </p>

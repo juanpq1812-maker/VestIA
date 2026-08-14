@@ -13,7 +13,7 @@
 // El consumidor de esta funcion solo tiene que renderizar el resultado.
 
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
-import { createSignedUrlMap } from "@/lib/storage/clothingImages";
+import { createImageSignedUrlMap } from "@/lib/storage/imageSignedUrls";
 import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
 import { callAnthropicApi } from "@/lib/ai/aiClient";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
@@ -118,7 +118,7 @@ export async function generateOutfits(
   const { data: itemsData, error: itemsError } = await supabase
     .from("clothing_items")
     .select(
-      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, thumbnail_path, source, created_at, updated_at"
+      "id, user_id, category, subcategory, name, primary_color, secondary_colors, occasions, image_url, image_path, thumbnail_path, background_removed, source, created_at, updated_at"
     )
     .eq("user_id", input.userId)
     .eq("status", CONFIRMED_STATUS);
@@ -232,7 +232,7 @@ export async function generateOutfits(
     }
   }
   const [signedUrls, thumbUrls] = await Promise.all([
-    createSignedUrlMap(supabase, [...usedPaths]),
+    createImageSignedUrlMap([...usedPaths]),
     createThumbnailSignedUrlMap([...usedThumbPaths]),
   ]);
 

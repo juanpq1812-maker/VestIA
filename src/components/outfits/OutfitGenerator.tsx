@@ -38,6 +38,7 @@ import type { PlanInfo } from "@/lib/plans/getUserPlan";
 import { FREE_MONTHLY_GENERATIONS } from "@/lib/plans/constants";
 
 import OutfitMoodboard from "@/components/outfits/OutfitMoodboard";
+import StyleJournal from "@/components/outfits/StyleJournal";
 import { triggerFirstOutfitValueMoment } from "@/components/push/PushOptInFlow";
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
 // `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
@@ -214,7 +215,25 @@ export default function OutfitGenerator({
         Generar outfit
       </Button>
 
-      {planPaywall && <PlanPaywall title={planPaywall.title} subtitle={planPaywall.subtitle} />}
+      {planPaywall && (
+        <PlanPaywall
+          title={planPaywall.title}
+          subtitle={planPaywall.subtitle}
+          exampleImage={
+            // Captura real (no compuesta en vivo) — un cuaderno con prendas
+            // reales vende, tres swatches de color plano no. Ver
+            // public/paywall-journal.png.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/paywall-journal.png"
+              alt="Ejemplo de Style Journal: outfit compuesto en un cuaderno editorial con etiquetas y flechitas"
+              width={660}
+              height={825}
+              className="w-full rounded-xl"
+            />
+          }
+        />
+      )}
 
       {error && (
         <div
@@ -236,6 +255,7 @@ export default function OutfitGenerator({
           }
           modo={lastInput?.mode ?? "occasion"}
           onToast={(msg, kind) => setToast({ msg, kind })}
+          isPremium={planInfo.isPremium}
         />
       )}
 
@@ -487,12 +507,14 @@ function ResultsGrid({
   contextoOcasion,
   modo,
   onToast,
+  isPremium,
 }: {
   outfits: GeneratedOutfit[];
   onRegenerate: () => void;
   contextoOcasion: string | null;
   modo: GenerateMode;
   onToast: (msg: string, kind: "success" | "error") => void;
+  isPremium: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   // Índice de la tarjeta bajo el snap (se actualiza con el scroll)...
@@ -655,6 +677,7 @@ function ResultsGrid({
               modo={modo}
               onRegenerate={onRegenerate}
               onToast={onToast}
+              isPremium={isPremium}
             />
           </div>
         ))}
@@ -731,6 +754,7 @@ function OutfitCard({
   modo,
   onRegenerate,
   onToast,
+  isPremium,
 }: {
   outfit: GeneratedOutfit;
   index: number;
@@ -738,6 +762,7 @@ function OutfitCard({
   modo: GenerateMode;
   onRegenerate: () => void;
   onToast: (msg: string, kind: "success" | "error") => void;
+  isPremium: boolean;
 }) {
   const [estado, setEstado] = useState<CardEstado>("idle");
   const [feedbackAbierto, setFeedbackAbierto] = useState(false);
@@ -825,10 +850,14 @@ function OutfitCard({
         </span>
       </header>
 
-      {/* Moodboard editorial: prendas superpuestas sobre fondo de marca.
-          La justificación + % viven fuera del carrusel, sincronizadas con la
-          tarjeta activa (ver ResultsGrid). */}
-      <OutfitMoodboard items={outfit.items} index={index} />
+      {/* Premium ve el cuaderno editorial (Style Journal); free sigue viendo
+          el moodboard de siempre — la justificación + % viven fuera del
+          carrusel, sincronizadas con la tarjeta activa (ver ResultsGrid). */}
+      {isPremium ? (
+        <StyleJournal items={outfit.items} outfitName={outfit.name} index={index} />
+      ) : (
+        <OutfitMoodboard items={outfit.items} index={index} />
+      )}
 
       <div className="mt-2 flex flex-col gap-3">
         <Button
