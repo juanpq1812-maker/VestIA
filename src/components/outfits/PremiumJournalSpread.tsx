@@ -160,7 +160,12 @@ export default function PremiumJournalSpread({
   const usadoHoy = estado === "usedToday";
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col gap-3">
+    // pb-*: el BottomNav fijo de mobile (ver Header.tsx/BottomNav.tsx) tapaba
+    // los dots y parte de la fila de botones — mismo patrón que el resto de
+    // la app usa para dejarle espacio (pb-24 sm:pb-14), más
+    // env(safe-area-inset-bottom) porque este bloque puede terminar de
+    // pintarse muy cerca del borde inferior real del teléfono.
+    <div className="mx-auto flex w-full max-w-md flex-col gap-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-14">
       <header
         className="flex items-start justify-between gap-3 transition-opacity duration-150"
         style={{ opacity: chromeVisible ? 1 : 0 }}

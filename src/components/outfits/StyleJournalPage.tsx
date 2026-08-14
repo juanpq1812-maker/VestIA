@@ -18,7 +18,8 @@ import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
 import { useAlphaCroppedImage } from "@/lib/outfits/useAlphaCroppedImage";
 import {
   CATEGORY_SCALE,
-  HEADER_BOTTOM,
+  CONTENT_H,
+  CONTENT_TOP,
   HEADER_LEFT,
   HEADER_RIGHT,
   HEADER_TOP,
@@ -30,6 +31,8 @@ import {
   prioritizeItems,
   vx,
   vy,
+  vyContentDelta,
+  vyContentPos,
 } from "@/lib/outfits/styleJournalLayout";
 
 /** Etiqueta con el mismo criterio de fallback que el resto de la app:
@@ -74,34 +77,33 @@ export default function StyleJournalPage({
   const template = getTemplate(board.length);
 
   return (
-    <div className="absolute inset-0">
-      {/* Encabezado — banda reservada y=40 a y=CONTENT_TOP del viewBox,
-          nunca invadida por prendas ni etiquetas. El titular es el ancla
-          visual de toda la pieza (mismo diseño que composeStyleJournalImage.ts,
-          pantalla y export comparten intención): eyebrow chico arriba,
-          "Look"/"día" itálicos grandes flanqueando "del" (redonda, un poco
-          más chica) con destellos a los lados, nombre del outfit chico
-          debajo. Que varíe itálica/redonda entre líneas, no el tamaño —
-          las tres deben leerse como una sola frase. */}
+    <div className="absolute inset-0 flex flex-col">
+      {/* Encabezado — FLUJO NORMAL, no posicionado de forma absoluta: antes
+          reservaba una banda de alto FIJO (HEADER_TOP a CONTENT_TOP) que el
+          subtítulo (nombre del outfit) podía desbordar si envolvía a 2
+          líneas en pantallas angostas, tapando la primera fila de prendas.
+          Ahora el header mide lo que necesite (shrink-0, nunca se recorta)
+          y el área de prendas de abajo es lo que sobra (flex-1) — si el
+          nombre envuelve, la grilla se empuja sola, sin overlap posible.
+          El titular sigue siendo el ancla visual (mismo diseño que
+          composeStyleJournalImage.ts): eyebrow chico arriba, "Look"/"día"
+          itálicos grandes flanqueando "del" (redonda, un poco más chica)
+          con destellos a los lados, nombre del outfit chico debajo. */}
       <div
-        className="absolute flex flex-col items-center text-center"
+        className="flex shrink-0 flex-col items-center text-center"
         style={{
-          top: `${vy(HEADER_TOP)}%`,
-          left: `${vx(HEADER_LEFT)}%`,
+          marginLeft: `${vx(HEADER_LEFT)}%`,
           width: `${vx(HEADER_RIGHT - HEADER_LEFT)}%`,
-          height: `${vy(HEADER_BOTTOM - HEADER_TOP)}%`,
+          paddingTop: `${vy(HEADER_TOP)}%`,
         }}
       >
         {/* Sin sm: en el titular a propósito: esta pieza vive en marcos de
             ancho variable (angosto en el carrusel de tarjetas viejo,
             w-full max-w-md en el cuaderno de páginas) sin importar qué tan
             ancho sea el viewport del navegador — sm: es un breakpoint de
-            VIEWPORT, no del contenedor. El tamaño de fuente es px fijo
-            mientras que la banda del header es un % (vy()) del alto del
-            marco — ensanchar el marco (aspect-[4/5] fijo) agranda esa
-            banda en px reales sin agrandar el texto, lo que relaja el
-            riesgo de choque en vez de empeorarlo. Verificado en Chrome con
-            zoom, no por aritmética — ver plan del cuaderno de páginas. */}
+            VIEWPORT, no del contenedor. Tamaños fijos verificados en
+            Chrome con zoom, no por aritmética — ver plan del cuaderno de
+            páginas. */}
         <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
           Style Journal
         </p>
@@ -114,130 +116,151 @@ export default function StyleJournalPage({
           </span>
           <span className="block text-3xl italic font-bold">día</span>
         </h3>
-        <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+        {/* Sin truncate: el nombre completo tiene que verse siempre. Antes
+            se truncaba a 1 línea porque desbordar la banda fija de alto
+            tapaba la primera fila de prendas — ahora que el header mide lo
+            que necesite, envolver a 2 líneas es seguro. */}
+        <p className="mt-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
           {outfitName}
         </p>
       </div>
 
-      {/* Flechitas — una sola capa SVG por encima de las prendas, por
-          debajo de las etiquetas de texto. Mismo viewBox que el arte de
-          fondo, así las coordenadas de styleJournalLayout.ts valen tal cual. */}
-      <svg
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 h-full w-full"
-        viewBox="0 0 400 500"
-        preserveAspectRatio="none"
-      >
+      {/* Área de prendas: ocupa el alto que sobra debajo del header
+          (flex-1). Sus hijos siguen posicionados de forma absoluta (mismas
+          plantillas de styleJournalLayout.ts), pero las coordenadas Y ya no
+          son % del lienzo completo (vy(), que asumía una banda de header
+          fija) sino % de la altura PROPIA de este contenedor —
+          vyContentPos/vyContentDelta — así toda la grilla se reescala junto
+          con el espacio real que el header le dejó, sin importar cuánto
+          mida. El eje X no cambia: el ancho de este contenedor es igual al
+          del lienzo completo (el header no afecta el ancho), así que vx()
+          sigue siendo válido tal cual. */}
+      <div className="relative flex-1">
+        {/* Flechitas — una sola capa SVG por encima de las prendas, por
+            debajo de las etiquetas de texto. viewBox recortado a la altura
+            LOCAL de esta área (CONTENT_H) con un <g> que traslada los
+            puntos —ya en unidades absolutas del viewBox original, con
+            CONTENT_TOP incluido— a ese mismo sistema local, sin tener que
+            tocar arrowPath/arrowStartPoint. */}
+        <svg
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          viewBox={`0 0 400 ${CONTENT_H}`}
+          preserveAspectRatio="none"
+        >
+          <g transform={`translate(0, ${-CONTENT_TOP})`}>
+            {board.map((it, i) => {
+              const slot = template[i];
+              if (!slot) return null;
+              // La flecha arranca por FUERA de la caja de texto (abajo, con
+              // aire) — nunca desde la esquina de la etiqueta, o la curva
+              // atraviesa las letras y se lee como tachado.
+              const from = arrowStartPoint(slot);
+              return (
+                <path
+                  key={it.id}
+                  d={arrowPath(
+                    from.top,
+                    from.left,
+                    slot.arrowTargetTop,
+                    slot.arrowTargetLeft,
+                    slot.arrowCurve
+                  )}
+                  fill="none"
+                  stroke="var(--color-text-faint)"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  style={{
+                    opacity: shown ? 1 : 0,
+                    transition: "opacity 400ms ease-out",
+                    transitionDelay: `${300 + i * 70}ms`,
+                  }}
+                />
+              );
+            })}
+          </g>
+        </svg>
+
+        {/* Prendas */}
         {board.map((it, i) => {
           const slot = template[i];
           if (!slot) return null;
-          // La flecha arranca por FUERA de la caja de texto (abajo, con
-          // aire) — nunca desde la esquina de la etiqueta, o la curva
-          // atraviesa las letras y se lee como tachado.
-          const from = arrowStartPoint(slot);
+
+          const scale = CATEGORY_SCALE[it.category];
+          const w = slot.w * scale;
+          const h = slot.h * scale;
+          // Se re-centra sobre el mismo punto medio del slot al escalar, para
+          // que un accesorio chico no "flote" descentrado en su zona.
+          const top = slot.top - (h - slot.h) / 2;
+          const left = slot.left - (w - slot.w) / 2;
+          const rot = slot.rot + jitter(it.id);
+
+          // Solo se muestra la foto si el fondo SÍ se removió de verdad
+          // (background_removed medido, no supuesto — ver
+          // imageBackgroundRemoval.ts). Si no, cae al mismo swatch de color
+          // que el resto de la app usa cuando no hay imagen: mostrar la
+          // foto con fondo intacto rompería la composición (blanco/cuarto
+          // flotando junto a recortes limpios).
+          const hasUsablePhoto =
+            it.background_removed !== false && Boolean(it.image_url ?? it.thumbnail_url);
+
           return (
-            <path
+            <div
               key={it.id}
-              d={arrowPath(
-                from.top,
-                from.left,
-                slot.arrowTargetTop,
-                slot.arrowTargetLeft,
-                slot.arrowCurve
-              )}
-              fill="none"
-              stroke="var(--color-text-faint)"
-              strokeWidth={2}
-              strokeLinecap="round"
+              className="absolute transition-all duration-500 ease-out motion-reduce:transition-none"
               style={{
+                width: `${vx(w)}%`,
+                height: `${vyContentDelta(h)}%`,
+                top: `${vyContentPos(top)}%`,
+                left: `${vx(left)}%`,
+                zIndex: slot.z,
+                transitionDelay: `${i * 70}ms`,
+                opacity: shown ? 1 : 0,
+                transform: shown ? "translateY(0)" : "translateY(14px)",
+              }}
+            >
+              <div className="h-full w-full" style={{ transform: `rotate(${rot}deg)` }}>
+                {hasUsablePhoto ? (
+                  <GarmentPhoto
+                    rawSrc={(it.image_url ?? it.thumbnail_url) as string}
+                    alt={itemLabel(it, labelVariant)}
+                  />
+                ) : (
+                  <div
+                    className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border"
+                    style={{ backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
+                    title={itemLabel(it, labelVariant)}
+                  />
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Etiquetas de texto — capa más alta, siempre legibles */}
+        {board.map((it, i) => {
+          const slot = template[i];
+          if (!slot) return null;
+          return (
+            <p
+              key={it.id}
+              className="absolute font-display text-[11px] italic leading-tight text-text sm:text-xs"
+              style={{
+                width: `${slot.labelWidthPct ?? 30}%`,
+                top: `${vyContentPos(slot.labelTop)}%`,
+                left: slot.labelAlign === "left" ? `${vx(slot.labelLeft)}%` : undefined,
+                right: slot.labelAlign === "right" ? `${100 - vx(slot.labelLeft)}%` : undefined,
+                textAlign: slot.labelAlign,
                 opacity: shown ? 1 : 0,
                 transition: "opacity 400ms ease-out",
                 transitionDelay: `${300 + i * 70}ms`,
               }}
-            />
+            >
+              {itemLabel(it, labelVariant)}
+            </p>
           );
         })}
-      </svg>
-
-      {/* Prendas */}
-      {board.map((it, i) => {
-        const slot = template[i];
-        if (!slot) return null;
-
-        const scale = CATEGORY_SCALE[it.category];
-        const w = slot.w * scale;
-        const h = slot.h * scale;
-        // Se re-centra sobre el mismo punto medio del slot al escalar, para
-        // que un accesorio chico no "flote" descentrado en su zona.
-        const top = slot.top - (h - slot.h) / 2;
-        const left = slot.left - (w - slot.w) / 2;
-        const rot = slot.rot + jitter(it.id);
-
-        // Solo se muestra la foto si el fondo SÍ se removió de verdad
-        // (background_removed medido, no supuesto — ver
-        // imageBackgroundRemoval.ts). Si no, cae al mismo swatch de color
-        // que el resto de la app usa cuando no hay imagen: mostrar la
-        // foto con fondo intacto rompería la composición (blanco/cuarto
-        // flotando junto a recortes limpios).
-        const hasUsablePhoto =
-          it.background_removed !== false && Boolean(it.image_url ?? it.thumbnail_url);
-
-        return (
-          <div
-            key={it.id}
-            className="absolute transition-all duration-500 ease-out motion-reduce:transition-none"
-            style={{
-              width: `${vx(w)}%`,
-              height: `${vy(h)}%`,
-              top: `${vy(top)}%`,
-              left: `${vx(left)}%`,
-              zIndex: slot.z,
-              transitionDelay: `${i * 70}ms`,
-              opacity: shown ? 1 : 0,
-              transform: shown ? "translateY(0)" : "translateY(14px)",
-            }}
-          >
-            <div className="h-full w-full" style={{ transform: `rotate(${rot}deg)` }}>
-              {hasUsablePhoto ? (
-                <GarmentPhoto
-                  rawSrc={(it.image_url ?? it.thumbnail_url) as string}
-                  alt={itemLabel(it, labelVariant)}
-                />
-              ) : (
-                <div
-                  className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border"
-                  style={{ backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
-                  title={itemLabel(it, labelVariant)}
-                />
-              )}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Etiquetas de texto — capa más alta, siempre legibles */}
-      {board.map((it, i) => {
-        const slot = template[i];
-        if (!slot) return null;
-        return (
-          <p
-            key={it.id}
-            className="absolute font-display text-[11px] italic leading-tight text-text sm:text-xs"
-            style={{
-              width: `${slot.labelWidthPct ?? 30}%`,
-              top: `${vy(slot.labelTop)}%`,
-              left: slot.labelAlign === "left" ? `${vx(slot.labelLeft)}%` : undefined,
-              right: slot.labelAlign === "right" ? `${100 - vx(slot.labelLeft)}%` : undefined,
-              textAlign: slot.labelAlign,
-              opacity: shown ? 1 : 0,
-              transition: "opacity 400ms ease-out",
-              transitionDelay: `${300 + i * 70}ms`,
-            }}
-          >
-            {itemLabel(it, labelVariant)}
-          </p>
-        );
-      })}
+      </div>
 
       {/* Lista accesible: las capas absolutas no son interpretables por
           lectores de pantalla. */}

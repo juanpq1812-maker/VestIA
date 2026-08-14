@@ -26,28 +26,57 @@ export function useSnapPager({ count, gap = 0, gutters = false }: Options) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [activeIdx, setActiveIdx] = useState(0);
 
-  // Chrome + snap-mandatory: los scrolls PROGRAMÁTICOS se cancelan porque el
-  // navegador re-snappea al elemento que "recuerda" como target (la posición
-  // actual). El workaround estándar: apagar el snap durante el scroll
-  // programático y restaurarlo al llegar (la posición destino es un snap
-  // point exacto, así que restaurar no salta). El swipe del usuario no pasa
-  // por aquí y conserva su snap nativo.
+  // Chrome, en ciertas condiciones, cancela scrolls PROGRAMÁTICOS bajo
+  // snap-mandatory (el navegador re-snappea al elemento que "recuerda" como
+  // target). Pero apagar el snap ANTES de pedir el scroll suave —lo que
+  // hacía esta función antes— resulta en un salto instantáneo en Chrome y
+  // Safari reales (verificado en preview de Vercel, desktop + iPhone): el
+  // navegador no anima un scroll hacia un destino donde el snap acaba de
+  // desactivarse en el mismo tick. El bug de cancelación solo se reprodujo
+  // en el entorno de automatización de este proyecto (rAF/CSS transitions
+  // no corren ahí porque el tab queda `document.hidden`), no en un
+  // navegador real.
+  //
+  // Por eso el camino por defecto es el scroll suave nativo, SIN tocar
+  // scroll-snap-type — funciona en Chrome/Safari reales y se anima. Solo si
+  // se detecta que el scroll realmente no arrancó (el caso raro que el
+  // comentario original describía) se cae al workaround de apagar/restaurar
+  // el snap, como último recurso — no como camino preferido.
   function snapSafeScrollTo(el: HTMLElement, left: number, smooth: boolean) {
-    el.style.scrollSnapType = "none";
-    let restored = false;
-    const restore = () => {
-      if (restored) return;
-      restored = true;
-      el.style.scrollSnapType = "";
-      el.removeEventListener("scrollend", restore);
-    };
-    el.scrollTo({ left, behavior: smooth ? "smooth" : "auto" });
     if (!smooth) {
-      restore();
+      el.scrollTo({ left, behavior: "auto" });
       return;
     }
-    el.addEventListener("scrollend", restore);
-    setTimeout(restore, 700); // fallback por si scrollend no dispara
+
+    const startLeft = el.scrollLeft;
+    if (startLeft === left) return; // ya está ahí, nada que animar
+
+    el.scrollTo({ left, behavior: "smooth" });
+
+    // Dos rAF: le da tiempo al navegador a arrancar la animación antes de
+    // comprobar si de verdad se movió. Si sí, no tocamos nada más — el
+    // scroll nativo se encarga de todo (incluye su propio snap al llegar).
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (el.scrollLeft !== startLeft) return;
+
+        // Camino de último recurso: el scroll suave normal no arrancó.
+        // Apagamos el snap, reintentamos, y lo restauramos al terminar (la
+        // posición destino es un snap point exacto, así que restaurar no
+        // salta).
+        el.style.scrollSnapType = "none";
+        let restored = false;
+        const restore = () => {
+          if (restored) return;
+          restored = true;
+          el.style.scrollSnapType = "";
+          el.removeEventListener("scrollend", restore);
+        };
+        el.scrollTo({ left, behavior: "smooth" });
+        el.addEventListener("scrollend", restore);
+        setTimeout(restore, 700); // fallback por si scrollend no dispara
+      });
+    });
   }
 
   // Gutters simétricos (solo si `gutters` está activo): con snap-center esto
