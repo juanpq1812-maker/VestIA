@@ -89,7 +89,6 @@ export default function PremiumJournalSpread({
 }: Props) {
   const [pageIdx, setPageIdx] = useState<0 | 1>(0);
   const [chromeVisible, setChromeVisible] = useState(true);
-  const [isDragging, setIsDragging] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
 
   const frameRef = useRef<HTMLDivElement>(null);
@@ -203,7 +202,6 @@ export default function PremiumJournalSpread({
         return;
       }
       drag.committed = true;
-      setIsDragging(true);
       frameRef.current?.setPointerCapture(drag.pointerId);
     }
 
@@ -222,7 +220,6 @@ export default function PremiumJournalSpread({
     const drag = dragRef.current;
     if (!drag || e.pointerId !== drag.pointerId) return;
     dragRef.current = null;
-    setIsDragging(false);
     if (!drag.committed || drag.aborted) return; // nunca fue un gesto horizontal
 
     // Umbral: pasado el 50% del recorrido (90°) completa el volteo hacia
@@ -325,11 +322,6 @@ export default function PremiumJournalSpread({
   const errMsg = errMsgs[pageIdx];
   const yaGuardado = estado === "saved" || estado === "usedToday";
   const usadoHoy = estado === "usedToday";
-  // Página 1 encima salvo que esté completamente asentada en la página 2
-  // (nada arrastrándose ni animando) — así, apenas arranca un volteo hacia
-  // atrás, la tarjeta ya está por encima desde el primer frame (tiene que
-  // tapar la página 2 en cuanto empieza a hacerse visible de nuevo).
-  const cardZ = !isDragging && !isAnimating && pageIdx === 1 ? 5 : 20;
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-14">
@@ -367,77 +359,94 @@ export default function PremiumJournalSpread({
           className="pointer-events-none absolute inset-0 h-full w-full"
         />
 
-        {/* z=10 — página 2, estática. Se apoya en el papel de la capa de
-            atrás; se revela en cuanto la tarjeta de encima deja de
-            cubrirla (ver cardZ). */}
-        <div className="absolute inset-0" style={{ zIndex: 10 }}>
-          <StyleJournalPage items={outfits[1].items} outfitName={outfits[1].name} index={1} />
-        </div>
-
-        {/* z=20/5 — la tarjeta que voltea (página 1). El rotateY vive acá,
-            en el padre — las dos caras de abajo comparten el mismo
-            transform-origin y giran juntas sin transform propio de giro
-            (la trasera solo lleva su rotateY(180deg) FIJO, para plegarse
-            "hacia atrás" de la delantera). preserve-3d es necesario para
-            que ese pliegue de la trasera se componga en 3D respecto al
-            giro del padre en vez de aplanarse antes. */}
+        {/* Escena 3D compartida: página 2 y la tarjeta que voltea viven
+            DENTRO del mismo transform-style: preserve-3d, y su orden se
+            resuelve por profundidad real (translateZ), no por z-index.
+            z-index entre un hermano 3D-transformado (la tarjeta) y uno
+            plano (la página 2) es exactamente el patrón que Safari/iOS
+            resuelve mal — medido: la página 2 se transparentaba a través
+            de la 1 en iPhone real aunque en Chrome desktop se veía bien.
+            Empujar la página 2 un poco atrás en profundidad real (en vez
+            de solo "z-index más bajo") es la técnica estándar para volteos
+            de tarjeta que Safari respeta de forma consistente. */}
         <div
-          ref={cardRef}
           className="absolute inset-0"
-          style={{
-            zIndex: cardZ,
-            transformOrigin: "left center",
-            transformStyle: "preserve-3d",
-            WebkitTransformStyle: "preserve-3d",
-            transform: `rotateY(${angleForPage(pageIdx)}deg)`,
-          }}
+          style={{ transformStyle: "preserve-3d", WebkitTransformStyle: "preserve-3d" }}
         >
-          {/* Cara frontal — outfit 1. */}
+          {/* Página 2, estática — 1px de profundidad real detrás de la
+              tarjeta (imperceptible en escala, ~0.08% con perspective de
+              1200px) para que el orden de pintado no dependa de z-index. */}
           <div
             className="absolute inset-0"
-            style={{
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
-              transformOrigin: "left center",
-            }}
+            style={{ transform: "translateZ(-1px)" }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/cuaderno.svg"
-              alt=""
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 h-full w-full"
-            />
-            <StyleJournalPage items={outfits[0].items} outfitName={outfits[0].name} index={0} />
-            <div
-              ref={frontShadowRef}
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0"
-              style={{ background: SHADOW_GRADIENT, opacity: 0 }}
-            />
+            <StyleJournalPage items={outfits[1].items} outfitName={outfits[1].name} index={1} />
           </div>
 
-          {/* Cara trasera — el dorso de la hoja: papel en blanco, sin
-              contenido de outfit ni espiral (el espiral es la capa fija de
-              z=30, siempre por encima de ambas caras). Sin esto, la hoja
-              desaparece de golpe al cruzar los 90° (backface-visibility la
-              esconde) y se pierde toda la segunda mitad del volteo. */}
+          {/* La tarjeta que voltea (página 1). El rotateY vive acá, en el
+              padre — las dos caras de abajo comparten el mismo
+              transform-origin y giran juntas sin transform propio de giro
+              (la trasera solo lleva su rotateY(180deg) FIJO, para plegarse
+              "hacia atrás" de la delantera). preserve-3d es necesario para
+              que ese pliegue de la trasera se componga en 3D respecto al
+              giro del padre en vez de aplanarse antes. */}
           <div
-            className="pointer-events-none absolute inset-0"
+            ref={cardRef}
+            className="absolute inset-0"
             style={{
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
               transformOrigin: "left center",
-              transform: "rotateY(180deg)",
-              backgroundColor: "#FAF6F0",
+              transformStyle: "preserve-3d",
+              WebkitTransformStyle: "preserve-3d",
+              transform: `rotateY(${angleForPage(pageIdx)}deg)`,
             }}
           >
+            {/* Cara frontal — outfit 1. */}
             <div
-              ref={backShadowRef}
-              aria-hidden="true"
+              className="absolute inset-0"
+              style={{
+                backfaceVisibility: "hidden",
+                WebkitBackfaceVisibility: "hidden",
+                transformOrigin: "left center",
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/cuaderno.svg"
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 h-full w-full"
+              />
+              <StyleJournalPage items={outfits[0].items} outfitName={outfits[0].name} index={0} />
+              <div
+                ref={frontShadowRef}
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0"
+                style={{ background: SHADOW_GRADIENT, opacity: 0 }}
+              />
+            </div>
+
+            {/* Cara trasera — el dorso de la hoja: papel en blanco, sin
+                contenido de outfit ni espiral (el espiral es la capa fija de
+                z=30, siempre por encima de ambas caras). Sin esto, la hoja
+                desaparece de golpe al cruzar los 90° (backface-visibility la
+                esconde) y se pierde toda la segunda mitad del volteo. */}
+            <div
               className="pointer-events-none absolute inset-0"
-              style={{ background: SHADOW_GRADIENT, opacity: 0 }}
-            />
+              style={{
+                backfaceVisibility: "hidden",
+                WebkitBackfaceVisibility: "hidden",
+                transformOrigin: "left center",
+                transform: "rotateY(180deg)",
+                backgroundColor: "#FAF6F0",
+              }}
+            >
+              <div
+                ref={backShadowRef}
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0"
+                style={{ background: SHADOW_GRADIENT, opacity: 0 }}
+              />
+            </div>
           </div>
         </div>
 
