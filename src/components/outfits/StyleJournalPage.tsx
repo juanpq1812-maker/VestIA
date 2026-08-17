@@ -202,7 +202,7 @@ export default function StyleJournalPage({
           // foto con fondo intacto rompería la composición (blanco/cuarto
           // flotando junto a recortes limpios).
           const hasUsablePhoto =
-            it.background_removed !== false && Boolean(it.image_url ?? it.thumbnail_url);
+            it.background_removed !== false && Boolean(it.thumbnail_url ?? it.image_url);
 
           return (
             <div
@@ -222,7 +222,14 @@ export default function StyleJournalPage({
               <div className="h-full w-full" style={{ transform: `rotate(${rot}deg)` }}>
                 {hasUsablePhoto ? (
                   <GarmentPhoto
-                    rawSrc={(it.image_url ?? it.thumbnail_url) as string}
+                    // Miniatura primero (WebP, ~27KB) en vez del PNG
+                    // full-size (~350-400KB, medido): 13-15× más liviano y,
+                    // al tamaño real en que se muestra una prenda acá
+                    // (fracción del ancho del cuaderno, no la pantalla
+                    // completa), 512px alcanza de sobra. El full-size sigue
+                    // siendo el que usa composeStyleJournalImage.ts para el
+                    // export 9:16 — ahí sí importa la resolución real.
+                    rawSrc={(it.thumbnail_url ?? it.image_url) as string}
                     alt={itemLabel(it, labelVariant)}
                   />
                 ) : (
@@ -299,7 +306,12 @@ function GarmentPhoto({ rawSrc, alt }: { rawSrc: string; alt: string }) {
       alt={alt}
       className="h-full w-full object-contain"
       style={{ filter: "drop-shadow(0 8px 12px rgba(45,49,46,0.2))" }}
-      loading="lazy"
+      // Sin loading="lazy" a propósito: las dos páginas del cuaderno están
+      // montadas en la MISMA posición de pantalla (apiladas por transform
+      // 3D, no fuera del viewport) — el heurístico de lazy-loading del
+      // navegador mira el layout box, no si algo queda oculto por z-index,
+      // así que acá no evita ninguna descarga real, solo puede sumar
+      // latencia (medido: no era la causa del retraso reportado).
     />
   );
 }
