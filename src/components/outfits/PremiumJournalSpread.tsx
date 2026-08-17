@@ -1,19 +1,34 @@
 // Cuaderno de 2 páginas (Premium): un solo objeto Style Journal — no dos
-// tarjetas — con el mismo swipe horizontal ahora pasando página en vez de
-// cambiar de tarjeta. Reemplaza, para Premium, el carrusel de OutfitCard de
-// ResultsGrid (que sigue existiendo tal cual para Free, ver
-// OutfitGenerator.tsx). El marco físico (papel + espiral) se dibuja UNA
-// sola vez; StyleJournalPage.tsx aporta el contenido de cada página.
+// tarjetas — donde pasar de un outfit a otro es un volteo de página 3D
+// real (la hoja se levanta, gira sobre el espiral y revela la siguiente),
+// no un scroll horizontal. Reemplaza, para Premium, el carrusel de
+// OutfitCard de ResultsGrid (que sigue existiendo tal cual para Free, ver
+// OutfitGenerator.tsx — ese camino sigue usando useSnapPager sin cambios,
+// este componente ya NO lo usa).
 //
-// Botones (Guardar / Lo usaré hoy / Compartir / No me convence) viven
-// AFUERA del marco del cuaderno, no dentro de cada página — ver la sección
-// "Botones" del plan de este cambio: el cuaderno es una pieza visual, no un
-// panel de control, y una fila fija que solo cambia de texto al pasar
-// página es más legible que botones que se arrastran con el swipe.
+// Geometría del volteo (de atrás hacia adelante, ver capas abajo):
+//   z=0  fondo base (papel + espiral + sombra), estático.
+//   z=10 página 2, estática — contenido solo, se apoya en el papel de z=0.
+//   z=20/5 (dinámico) la TARJETA que voltea — lleva su propia copia de
+//        cuaderno.svg (para ser opaca mientras cubre la página 2) + el
+//        contenido del outfit 1 en la cara frontal, y el papel en blanco
+//        (sin contenido, sin espiral) en la cara trasera. Ambas caras
+//        comparten transform-origin: left center (el eje es el espiral) y
+//        rotan JUNTAS porque el rotateY vive en la tarjeta (el padre), no
+//        en cada cara — así no hay que sincronizar dos transforms.
+//   z=30 espiral recortado (clip-path a la franja del arte donde vive,
+//        x=34–66 del viewBox), estático, SIEMPRE encima — para que la hoja
+//        pase por detrás de los anillos en vez de por encima.
+//
+// Botones (Guardar / Lo usaré hoy / Compartir / No me convence) siguen
+// afuera del objeto cuaderno — ver la justificación en el plan de este
+// cambio: es una pieza visual, no un panel de control, y una fila fija que
+// solo cambia de texto al voltear es más legible que botones que giran con
+// la hoja.
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import OutfitFeedbackSheet from "@/components/outfits/OutfitFeedbackSheet";
 import StyleJournalPage from "@/components/outfits/StyleJournalPage";
@@ -24,7 +39,8 @@ import {
   saveAndUseOutfitTodayAction,
 } from "@/app/outfits/actions";
 import type { GenerateMode, GeneratedOutfit } from "@/lib/ai/generateOutfits";
-import { useSnapPager } from "@/lib/outfits/useSnapPager";
+import { vx } from "@/lib/outfits/styleJournalLayout";
+import { runFlipTween, shadowOpacityForAngle } from "@/lib/outfits/pageFlipTween";
 import type { CardEstado } from "@/components/outfits/OutfitGenerator";
 
 type Props = {
@@ -35,6 +51,35 @@ type Props = {
   onToast: (msg: string, kind: "success" | "error") => void;
 };
 
+// Overlay de sombra: mismo gradiente para ambas caras, solo cambia su
+// opacidad (ver shadowOpacityForAngle). El "pliegue" siempre cae del lado
+// del espiral (izquierda), sin importar cuál cara esté visible.
+const SHADOW_GRADIENT = "linear-gradient(to right, rgba(0,0,0,0.45), transparent 55%)";
+
+// Franja del arte donde vive el espiral, en % del lienzo (viewBox 0-400) —
+// ver el comentario de CONTENT_LEFT en styleJournalLayout.ts. Recorta la
+// segunda copia de cuaderno.svg a solo esa franja para la capa z=30.
+const SPIRAL_CLIP_PATH = `inset(0 ${100 - vx(66)}% 0 ${vx(34)}%)`;
+
+function angleForPage(idx: 0 | 1): number {
+  return idx === 0 ? 0 : -180;
+}
+
+// Umbral de dirección: por debajo de esto en ambos ejes, un pointerdown
+// todavía no se decidió como gesto horizontal (voltear) ni vertical
+// (scroll de la página) — se espera al siguiente move.
+const DIRECTION_THRESHOLD_PX = 8;
+
+type DragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  baseAngle: number;
+  committed: boolean; // ya se decidió que es un gesto horizontal
+  aborted: boolean; // ya se decidió que es vertical — se le cede el scroll nativo
+  lastAngle: number;
+};
+
 export default function PremiumJournalSpread({
   outfits,
   onRegenerate,
@@ -42,27 +87,149 @@ export default function PremiumJournalSpread({
   modo,
   onToast,
 }: Props) {
-  const { scrollerRef, activeIdx, onScroll, scrollToIdx } = useSnapPager({
-    count: outfits.length,
-    // Sin gap ni gutters: cada página ocupa el 100% del marco — es un solo
-    // objeto de ancho fijo, no hay "siguiente tarjeta" asomando del viewport.
-  });
-
-  // Header (nombre + badge "IA") y fila de botones van afuera del marco;
-  // ambos siguen a `activeIdx` con el mismo fade corto que ya usaba la
-  // descripción sincronizada del carrusel de tarjetas, para no cambiar de
-  // texto en seco a mitad del swipe.
-  const [shownIdx, setShownIdx] = useState(0);
+  const [pageIdx, setPageIdx] = useState<0 | 1>(0);
   const [chromeVisible, setChromeVisible] = useState(true);
-  useEffect(() => {
-    if (activeIdx === shownIdx) return;
+  const [isDragging, setIsDragging] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  const frameRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const frontShadowRef = useRef<HTMLDivElement>(null);
+  const backShadowRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const cancelTweenRef = useRef<(() => void) | null>(null);
+
+  // Escribe ángulo + sombra DIRECTO al DOM vía refs — nunca por React
+  // state mientras gira (ni durante el arrastre ni durante el tween), para
+  // que no haya un re-render de por medio comiéndose frames. React solo se
+  // entera cuando el volteo termina (setPageIdx en onDone).
+  function applyAngle(angle: number) {
+    if (cardRef.current) cardRef.current.style.transform = `rotateY(${angle}deg)`;
+    const shadow = shadowOpacityForAngle(angle);
+    if (frontShadowRef.current) frontShadowRef.current.style.opacity = String(shadow);
+    if (backShadowRef.current) backShadowRef.current.style.opacity = String(shadow);
+  }
+
+  function flipTo(target: 0 | 1, fromAngle?: number) {
+    cancelTweenRef.current?.();
+    const from = fromAngle ?? angleForPage(pageIdx);
+    const to = angleForPage(target);
+
+    if (from === to) {
+      applyAngle(to);
+      return;
+    }
+
     setChromeVisible(false);
-    const t = setTimeout(() => {
-      setShownIdx(activeIdx);
+    setIsAnimating(true);
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      applyAngle(to);
+      setPageIdx(target);
+      setIsAnimating(false);
       setChromeVisible(true);
-    }, 150);
-    return () => clearTimeout(t);
-  }, [activeIdx, shownIdx]);
+      return;
+    }
+
+    cancelTweenRef.current = runFlipTween({
+      from,
+      to,
+      onFrame: applyAngle,
+      onDone: () => {
+        setPageIdx(target);
+        setIsAnimating(false);
+        setChromeVisible(true);
+      },
+    });
+  }
+
+  // Hint de primer render: un nudge chico (voltea ~14° y vuelve) para
+  // comunicar que la hoja se puede voltear — mismo lenguaje que el hint de
+  // "asomar" que ya usaba el carrusel de tarjetas, adaptado al volteo.
+  // Nunca con reduced-motion.
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setTimeout(() => {
+      cancelTweenRef.current = runFlipTween({
+        from: 0,
+        to: -14,
+        duration: 260,
+        onFrame: applyAngle,
+        onDone: () => {
+          cancelTweenRef.current = runFlipTween({
+            from: -14,
+            to: 0,
+            duration: 260,
+            onFrame: applyAngle,
+            onDone: () => {},
+          });
+        },
+      });
+    }, 500);
+    return () => {
+      clearTimeout(t);
+      cancelTweenRef.current?.();
+    };
+  }, []);
+
+  // ── Gesto: Pointer Events, no touch — unifica mouse/touch/pen. ─────────
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (isAnimating) return; // no interrumpir un volteo ya en curso
+    cancelTweenRef.current?.();
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseAngle: angleForPage(pageIdx),
+      committed: false,
+      aborted: false,
+      lastAngle: angleForPage(pageIdx),
+    };
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.aborted || e.pointerId !== drag.pointerId) return;
+    const deltaX = e.clientX - drag.startX;
+    const deltaY = e.clientY - drag.startY;
+
+    if (!drag.committed) {
+      if (Math.abs(deltaX) < DIRECTION_THRESHOLD_PX && Math.abs(deltaY) < DIRECTION_THRESHOLD_PX) {
+        return; // todavía no hay suficiente movimiento para decidir la dirección
+      }
+      if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        drag.aborted = true; // gesto vertical: se lo cedemos al scroll nativo de la página
+        return;
+      }
+      drag.committed = true;
+      setIsDragging(true);
+      frameRef.current?.setPointerCapture(drag.pointerId);
+    }
+
+    // Ya confirmado horizontal — evita que el navegador intente además su
+    // propio pan horizontal (touch-action: pan-y solo permite el vertical).
+    e.preventDefault();
+
+    const width = frameRef.current?.offsetWidth || 1;
+    const deltaAngle = (deltaX / width) * 180;
+    const angle = Math.max(-180, Math.min(0, drag.baseAngle + deltaAngle));
+    drag.lastAngle = angle;
+    applyAngle(angle);
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const drag = dragRef.current;
+    if (!drag || e.pointerId !== drag.pointerId) return;
+    dragRef.current = null;
+    setIsDragging(false);
+    if (!drag.committed || drag.aborted) return; // nunca fue un gesto horizontal
+
+    // Umbral: pasado el 50% del recorrido (90°) completa el volteo hacia
+    // el otro lado; si no, revierte al que ya estaba.
+    const target: 0 | 1 = drag.lastAngle <= -90 ? 1 : 0;
+    flipTo(target, drag.lastAngle);
+  }
 
   const [estados, setEstados] = useState<CardEstado[]>(() => outfits.map(() => "idle"));
   const [outfitIds, setOutfitIds] = useState<(string | null)[]>(() => outfits.map(() => null));
@@ -153,18 +320,18 @@ export default function PremiumJournalSpread({
     }
   }
 
-  const shown = outfits[shownIdx];
-  const estado = estados[shownIdx];
-  const errMsg = errMsgs[shownIdx];
+  const shown = outfits[pageIdx];
+  const estado = estados[pageIdx];
+  const errMsg = errMsgs[pageIdx];
   const yaGuardado = estado === "saved" || estado === "usedToday";
   const usadoHoy = estado === "usedToday";
+  // Página 1 encima salvo que esté completamente asentada en la página 2
+  // (nada arrastrándose ni animando) — así, apenas arranca un volteo hacia
+  // atrás, la tarjeta ya está por encima desde el primer frame (tiene que
+  // tapar la página 2 en cuanto empieza a hacerse visible de nuevo).
+  const cardZ = !isDragging && !isAnimating && pageIdx === 1 ? 5 : 20;
 
   return (
-    // pb-*: el BottomNav fijo de mobile (ver Header.tsx/BottomNav.tsx) tapaba
-    // los dots y parte de la fila de botones — mismo patrón que el resto de
-    // la app usa para dejarle espacio (pb-24 sm:pb-14), más
-    // env(safe-area-inset-bottom) porque este bloque puede terminar de
-    // pintarse muy cerca del borde inferior real del teléfono.
     <div className="mx-auto flex w-full max-w-md flex-col gap-3 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:pb-14">
       <header
         className="flex items-start justify-between gap-3 transition-opacity duration-150"
@@ -176,10 +343,22 @@ export default function PremiumJournalSpread({
         </span>
       </header>
 
-      {/* Marco del cuaderno: papel + espiral se dibujan UNA sola vez. Las
-          páginas (una por outfit) viven en un carrusel de snap interno, sin
-          gap — cada una ocupa el 100% del marco. */}
-      <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl shadow-lg">
+      {/* Marco del cuaderno — overflow-hidden recorta la hoja limpio
+          cuando pasa del canto hacia la izquierda durante el volteo. */}
+      <div
+        ref={frameRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className="relative aspect-[4/5] w-full select-none overflow-hidden rounded-2xl shadow-lg"
+        style={{
+          perspective: "1200px",
+          WebkitPerspective: "1200px",
+          touchAction: "pan-y",
+        }}
+      >
+        {/* z=0 — fondo base: papel + espiral + sombra, estático. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/cuaderno.svg"
@@ -187,25 +366,100 @@ export default function PremiumJournalSpread({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 h-full w-full"
         />
-        <div
-          ref={scrollerRef}
-          onScroll={onScroll}
-          className="absolute inset-0 flex snap-x snap-mandatory overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {outfits.map((o, idx) => (
-            <div key={`${o.name}-${idx}`} className="relative h-full w-full shrink-0 snap-center">
-              <StyleJournalPage items={o.items} outfitName={o.name} index={idx} />
-            </div>
-          ))}
+
+        {/* z=10 — página 2, estática. Se apoya en el papel de la capa de
+            atrás; se revela en cuanto la tarjeta de encima deja de
+            cubrirla (ver cardZ). */}
+        <div className="absolute inset-0" style={{ zIndex: 10 }}>
+          <StyleJournalPage items={outfits[1].items} outfitName={outfits[1].name} index={1} />
         </div>
 
+        {/* z=20/5 — la tarjeta que voltea (página 1). El rotateY vive acá,
+            en el padre — las dos caras de abajo comparten el mismo
+            transform-origin y giran juntas sin transform propio de giro
+            (la trasera solo lleva su rotateY(180deg) FIJO, para plegarse
+            "hacia atrás" de la delantera). preserve-3d es necesario para
+            que ese pliegue de la trasera se componga en 3D respecto al
+            giro del padre en vez de aplanarse antes. */}
+        <div
+          ref={cardRef}
+          className="absolute inset-0"
+          style={{
+            zIndex: cardZ,
+            transformOrigin: "left center",
+            transformStyle: "preserve-3d",
+            WebkitTransformStyle: "preserve-3d",
+            transform: `rotateY(${angleForPage(pageIdx)}deg)`,
+          }}
+        >
+          {/* Cara frontal — outfit 1. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transformOrigin: "left center",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/cuaderno.svg"
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 h-full w-full"
+            />
+            <StyleJournalPage items={outfits[0].items} outfitName={outfits[0].name} index={0} />
+            <div
+              ref={frontShadowRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{ background: SHADOW_GRADIENT, opacity: 0 }}
+            />
+          </div>
+
+          {/* Cara trasera — el dorso de la hoja: papel en blanco, sin
+              contenido de outfit ni espiral (el espiral es la capa fija de
+              z=30, siempre por encima de ambas caras). Sin esto, la hoja
+              desaparece de golpe al cruzar los 90° (backface-visibility la
+              esconde) y se pierde toda la segunda mitad del volteo. */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backfaceVisibility: "hidden",
+              WebkitBackfaceVisibility: "hidden",
+              transformOrigin: "left center",
+              transform: "rotateY(180deg)",
+              backgroundColor: "#FAF6F0",
+            }}
+          >
+            <div
+              ref={backShadowRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0"
+              style={{ background: SHADOW_GRADIENT, opacity: 0 }}
+            />
+          </div>
+        </div>
+
+        {/* z=30 — espiral recortado del mismo arte, siempre por encima de
+            ambas caras: la hoja tiene que pasar por DETRÁS de los anillos
+            al girar, no por encima. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/cuaderno.svg"
+          alt=""
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full"
+          style={{ zIndex: 30, clipPath: SPIRAL_CLIP_PATH, WebkitClipPath: SPIRAL_CLIP_PATH }}
+        />
+
         {/* Chevron persistente: affordance de "hay otra página" para quien
-            se perdió el hint de entrada del carrusel (ver useSnapPager). Se
-            oculta en la última página — llegar ahí ya confirma el gesto. */}
-        {outfits.length > 1 && activeIdx < outfits.length - 1 && (
+            se perdió el nudge de entrada. Se oculta en la última página —
+            llegar ahí ya confirma el gesto. */}
+        {pageIdx === 0 && (
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-2xl text-text-faint/70"
+            className="pointer-events-none absolute right-2 top-1/2 z-40 -translate-y-1/2 text-2xl text-text-faint/70"
           >
             ›
           </span>
@@ -213,33 +467,31 @@ export default function PremiumJournalSpread({
       </div>
 
       {/* Dots indicadores */}
-      {outfits.length > 1 && (
-        <div className="flex justify-center gap-2" role="tablist" aria-label="Página del cuaderno">
-          {outfits.map((o, idx) => (
-            <button
-              key={idx}
-              type="button"
-              role="tab"
-              aria-selected={idx === activeIdx}
-              aria-label={`Ver página ${idx + 1}: ${o.name}`}
-              onClick={() => scrollToIdx(idx)}
-              className="flex h-6 w-6 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              <span
-                aria-hidden="true"
-                className={[
-                  "block rounded-full transition-all duration-200",
-                  idx === activeIdx
-                    ? "h-2.5 w-2.5 bg-primary"
-                    : "h-2 w-2 bg-primary-mid opacity-60",
-                ].join(" ")}
-              />
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="flex justify-center gap-2" role="tablist" aria-label="Página del cuaderno">
+        {outfits.map((o, idx) => (
+          <button
+            key={idx}
+            type="button"
+            role="tab"
+            aria-selected={idx === pageIdx}
+            aria-label={`Ver página ${idx + 1}: ${o.name}`}
+            onClick={() => {
+              if (!isAnimating) flipTo(idx as 0 | 1);
+            }}
+            className="flex h-6 w-6 items-center justify-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <span
+              aria-hidden="true"
+              className={[
+                "block rounded-full transition-all duration-200",
+                idx === pageIdx ? "h-2.5 w-2.5 bg-primary" : "h-2 w-2 bg-primary-mid opacity-60",
+              ].join(" ")}
+            />
+          </button>
+        ))}
+      </div>
 
-      {/* Fila de acciones — fija, enlazada a la página visible (shownIdx),
+      {/* Fila de acciones — fija, enlazada a la página visible (pageIdx),
           nunca duplicada por página (ver justificación en el header del
           archivo). */}
       <div
@@ -250,7 +502,7 @@ export default function PremiumJournalSpread({
           variant={yaGuardado ? "secondary" : "primary"}
           size="lg"
           fullWidth
-          onClick={() => onGuardar(shownIdx)}
+          onClick={() => onGuardar(pageIdx)}
           isLoading={estado === "saving"}
           loadingText="Guardando..."
           disabled={yaGuardado || estado === "saving" || estado === "usingToday"}
@@ -267,7 +519,7 @@ export default function PremiumJournalSpread({
           variant={usadoHoy ? "secondary" : "ghost"}
           size="lg"
           fullWidth
-          onClick={() => onUsarHoy(shownIdx)}
+          onClick={() => onUsarHoy(pageIdx)}
           isLoading={estado === "usingToday"}
           loadingText="Registrando..."
           disabled={usadoHoy || estado === "saving" || estado === "usingToday"}
@@ -279,8 +531,8 @@ export default function PremiumJournalSpread({
 
         <div className="mx-auto">
           <ShareStyleJournalButton
-            key={shownIdx}
-            outfitId={outfitIds[shownIdx] ?? syntheticIds[shownIdx]}
+            key={pageIdx}
+            outfitId={outfitIds[pageIdx] ?? syntheticIds[pageIdx]}
             outfitName={shown.name}
             items={shown.items}
           />
