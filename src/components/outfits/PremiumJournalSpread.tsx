@@ -70,6 +70,27 @@ function angleForPage(idx: 0 | 1): number {
 // (scroll de la página) — se espera al siguiente move.
 const DIRECTION_THRESHOLD_PX = 8;
 
+// Umbral de distancia para completar el volteo al soltar: fracción del
+// recorrido total (180°) que hay que haber recorrido en NETO desde donde
+// arrancó el gesto. 50% (el estándar de "carrusel") resultó demasiado
+// exigente para un volteo de página en mobile — medio ancho de pantalla de
+// arrastre se siente pesado. 28% deja completar con un gesto más corto,
+// sin que un roce accidental dispare el volteo.
+const DISTANCE_THRESHOLD_RATIO = 0.28;
+
+// Umbral de velocidad: un flick corto y rápido completa el volteo aunque
+// no haya llegado al umbral de distancia — así se siente como pasar una
+// página real, no como arrastrar una barra hasta el final. Medido en
+// px/ms del puntero en el momento de soltar (ver velocityFromSamples).
+const VELOCITY_THRESHOLD_PX_MS = 0.4;
+
+// Cuántas muestras recientes de posición se guardan para calcular la
+// velocidad al soltar — 3 alcanza para promediar sin arrastrar ruido de
+// muestras viejas si el usuario hizo una pausa a mitad del gesto.
+const VELOCITY_SAMPLE_WINDOW = 3;
+
+type PointerSample = { t: number; x: number };
+
 type DragState = {
   pointerId: number;
   startX: number;
@@ -78,7 +99,20 @@ type DragState = {
   committed: boolean; // ya se decidió que es un gesto horizontal
   aborted: boolean; // ya se decidió que es vertical — se le cede el scroll nativo
   lastAngle: number;
+  samples: PointerSample[]; // últimas posiciones, para la velocidad al soltar
 };
+
+/** Velocidad neta (px/ms, con signo) entre la primera y la última muestra
+ * de la ventana — no el desplazamiento total desde pointerdown, que
+ * promediaría de más un gesto que empezó lento y terminó en flick. */
+function velocityFromSamples(samples: PointerSample[]): number {
+  if (samples.length < 2) return 0;
+  const first = samples[0];
+  const last = samples[samples.length - 1];
+  const dt = last.t - first.t;
+  if (dt <= 0) return 0;
+  return (last.x - first.x) / dt;
+}
 
 export default function PremiumJournalSpread({
   outfits,
@@ -184,6 +218,7 @@ export default function PremiumJournalSpread({
       committed: false,
       aborted: false,
       lastAngle: angleForPage(pageIdx),
+      samples: [{ t: performance.now(), x: e.clientX }],
     };
   }
 
@@ -214,6 +249,9 @@ export default function PremiumJournalSpread({
     const angle = Math.max(-180, Math.min(0, drag.baseAngle + deltaAngle));
     drag.lastAngle = angle;
     applyAngle(angle);
+
+    drag.samples.push({ t: performance.now(), x: e.clientX });
+    if (drag.samples.length > VELOCITY_SAMPLE_WINDOW) drag.samples.shift();
   }
 
   function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
@@ -222,9 +260,26 @@ export default function PremiumJournalSpread({
     dragRef.current = null;
     if (!drag.committed || drag.aborted) return; // nunca fue un gesto horizontal
 
-    // Umbral: pasado el 50% del recorrido (90°) completa el volteo hacia
-    // el otro lado; si no, revierte al que ya estaba.
-    const target: 0 | 1 = drag.lastAngle <= -90 ? 1 : 0;
+    // Página de origen y "hacia adelante" en términos de este gesto —
+    // baseAngle es 0 (viniendo de la página 1) o -180 (viniendo de la 2).
+    const startedAtZero = drag.baseAngle === 0;
+    const otherPage: 0 | 1 = startedAtZero ? 1 : 0;
+    const samePage: 0 | 1 = startedAtZero ? 0 : 1;
+
+    // Umbral de distancia: neto recorrido desde donde arrancó el gesto,
+    // sin importar el camino (si volvió sobre sus pasos, cuenta el neto).
+    const traveled = Math.abs(drag.lastAngle - drag.baseAngle);
+    const passedDistance = traveled >= 180 * DISTANCE_THRESHOLD_RATIO;
+
+    // Umbral de velocidad: un flick corto y rápido en la dirección
+    // correcta completa el volteo aunque no haya llegado muy lejos.
+    // Arrastrar hacia la izquierda (deltaX negativo) avanza desde la
+    // página 1; hacia la derecha, vuelve desde la página 2.
+    const velocity = velocityFromSamples(drag.samples);
+    const movingForward = startedAtZero ? velocity < 0 : velocity > 0;
+    const passedVelocity = Math.abs(velocity) >= VELOCITY_THRESHOLD_PX_MS && movingForward;
+
+    const target: 0 | 1 = passedDistance || passedVelocity ? otherPage : samePage;
     flipTo(target, drag.lastAngle);
   }
 
