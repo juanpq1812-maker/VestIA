@@ -92,21 +92,22 @@ export default function EventOutfitBody({
     <div className="sm:mx-auto sm:flex sm:max-w-3xl sm:items-center sm:gap-10">
       <div className="sm:w-1/2 sm:shrink-0">
         {data ? (
-          <OutfitMoodboard items={data.items} />
+          // Papel sobre lino, igual que el estado "look" del hero.
+          <OutfitMoodboard items={data.items} background="#ffffff" />
         ) : (
           <div
-            className="aspect-square w-full animate-pulse rounded-2xl bg-primary-light sm:aspect-[4/5]"
+            className="aspect-square w-full animate-pulse rounded-2xl bg-surface sm:aspect-[4/5]"
             aria-hidden="true"
           />
         )}
       </div>
 
-      <div className="mt-6 flex flex-col gap-5 sm:mt-0 sm:w-1/2">
+      <div className="mt-6 flex flex-col items-center gap-4 text-center sm:mt-0 sm:w-1/2 sm:items-start sm:text-left">
         <div className="flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
             La IA vistió tu agenda
           </p>
-          <h2 className="font-display text-3xl leading-[1.1] tracking-tight text-text sm:text-4xl">
+          <h2 className="font-display text-2xl leading-[1.15] tracking-tight text-text sm:text-3xl">
             {eventTitle}
           </h2>
           <p className="text-sm text-text-muted">

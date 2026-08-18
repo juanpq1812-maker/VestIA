@@ -309,7 +309,6 @@ export default async function RootPage() {
     allItems,
     allOutfits,
     allUses,
-    weather,
     nextEvent,
     nextEventTime,
     cachedEventOutfit,
@@ -344,7 +343,6 @@ async function resolverHeroState(params: {
   allItems: { id: string; category: ClothingCategory }[];
   allOutfits: { id: string; clothing_item_ids: string[] }[];
   allUses: { outfit_id: string; used_date: string }[];
-  weather: Awaited<ReturnType<typeof getCurrentWeather>>;
   nextEvent: AgendaEvent | null;
   nextEventTime: string | null;
   cachedEventOutfit: EventOutfitData | null;
@@ -356,7 +354,6 @@ async function resolverHeroState(params: {
     allItems,
     allOutfits,
     allUses,
-    weather,
     nextEvent,
     nextEventTime,
     cachedEventOutfit,
@@ -420,7 +417,6 @@ async function resolverHeroState(params: {
     outfitId: look.id,
     name: look.name?.trim() || "Tu look de hoy",
     occasion: look.occasion,
-    tempC: weather?.tempC ?? null,
     items: itemsDelLook.map((i) => ({
       id: i.id,
       category: i.category,

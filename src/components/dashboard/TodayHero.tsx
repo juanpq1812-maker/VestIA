@@ -42,8 +42,6 @@ export type TodayHeroState =
       name: string;
       occasion: string | null;
       items: MoodboardItem[];
-      /** Temperatura de hoy, para justificar la propuesta. */
-      tempC: number | null;
     }
   | { kind: "incomplete"; minimums: WardrobeMinimums }
   | { kind: "empty" };
@@ -82,33 +80,32 @@ function LookDelDia({
   return (
     <div className="sm:mx-auto sm:flex sm:max-w-3xl sm:items-center sm:gap-10">
       <div className="sm:w-1/2 sm:shrink-0">
-        <OutfitMoodboard items={state.items} />
+        {/* Papel, no los verdes rotatorios de BOARD_BG: el lienzo va sobre
+            lino y necesita leerse como lámina, no como otro tono más. */}
+        <OutfitMoodboard items={state.items} background="#ffffff" />
       </div>
 
-      <div className="mt-6 flex flex-col gap-5 sm:mt-0 sm:w-1/2">
+      {/* Centrado en mobile (el moodboard manda y el texto lo acompaña),
+          alineado a la izquierda desde sm, donde son dos columnas. */}
+      <div className="mt-6 flex flex-col items-center gap-4 text-center sm:mt-0 sm:w-1/2 sm:items-start sm:text-left">
         <div className="flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
             El look de hoy
           </p>
-          <h2 className="font-display text-3xl leading-[1.1] tracking-tight text-text sm:text-4xl">
+          <h2 className="font-display text-2xl leading-[1.15] tracking-tight text-text sm:text-3xl">
             {state.name}
           </h2>
-          <p className="text-sm text-text-muted">
-            {[
-              state.tempC !== null ? `${state.tempC}°C` : null,
-              state.occasion,
-              "de tus looks guardados",
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+          {/* Sin clima: ya está en la cabecera, arriba de este mismo hero. */}
+          {state.occasion && (
+            <p className="text-sm text-text-muted">{state.occasion}</p>
+          )}
         </div>
 
         <p className="max-w-[42ch] text-sm leading-relaxed text-text-muted">
           Lo elegimos entre los que ya guardaste y no has usado esta semana.
         </p>
 
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:justify-start">
           <Link
             href={`/outfits/saved#${state.outfitId}`}
             className={buttonClasses({ size: "lg" })}
@@ -142,7 +139,7 @@ function ArmarioIncompleto({ minimums }: { minimums: WardrobeMinimums }) {
       <ProgressRing value={listas} max={CATEGORIAS.length} />
 
       <div>
-        <h2 className="font-display text-3xl leading-[1.1] tracking-tight text-text sm:text-4xl">
+        <h2 className="font-display text-2xl leading-[1.15] tracking-tight text-text sm:text-3xl">
           Casi listo
         </h2>
         <p className="mx-auto mt-3 max-w-[42ch] text-sm leading-relaxed text-text-muted">
@@ -181,7 +178,7 @@ function PrimerPaso() {
     <div className="mx-auto flex max-w-md flex-col items-center gap-7 text-center">
       <PercheroVacio />
       <div>
-        <h2 className="font-display text-3xl leading-[1.1] tracking-tight text-text sm:text-4xl">
+        <h2 className="font-display text-2xl leading-[1.15] tracking-tight text-text sm:text-3xl">
           Tu armario digital te espera
         </h2>
         <p className="mx-auto mt-3 max-w-[42ch] text-sm leading-relaxed text-text-muted">

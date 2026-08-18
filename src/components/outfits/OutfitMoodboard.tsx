@@ -69,9 +69,17 @@ type Props = {
   items: MoodboardItem[];
   /** Posición del outfit en la lista, para rotar el color de fondo. */
   index?: number;
+  /**
+   * Fondo fijo del lienzo, en vez de rotar por `index`.
+   *
+   * El hero del home lo usa: el moodboard va sobre lino (#ebe1d7) y los
+   * verdes de BOARD_BG chocan con él. Papel sobre lino se lee como una
+   * lámina, que es justo lo que queremos ahí.
+   */
+  background?: string;
 };
 
-export default function OutfitMoodboard({ items, index = 0 }: Props) {
+export default function OutfitMoodboard({ items, index = 0, background }: Props) {
   // Estado inicial oculto SOLO como punto de partida de la transición; el
   // efecto lo revela apenas monta. Como el moodboard solo existe tras una
   // acción del usuario (generar), el JS siempre corre y esto nunca se queda
@@ -82,7 +90,7 @@ export default function OutfitMoodboard({ items, index = 0 }: Props) {
   }, []);
 
   const board = items.slice(0, 6);
-  const bg = BOARD_BG[index % BOARD_BG.length];
+  const bg = background ?? BOARD_BG[index % BOARD_BG.length];
 
   // Contador por categoría para desplazar prendas repetidas dentro de su zona.
   const perCategory: Partial<Record<ClothingCategory, number>> = {};
