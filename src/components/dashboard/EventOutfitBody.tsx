@@ -22,6 +22,7 @@ import OutfitMoodboard, {
   type MoodboardItem,
 } from "@/components/outfits/OutfitMoodboard";
 import { generateEventOutfitAction } from "@/app/outfits/actions";
+import UsarEsteLookButton from "@/components/dashboard/UsarEsteLookButton";
 
 /**
  * Las prendas llegan ya en la forma que consume el moodboard. `category` no es
@@ -124,9 +125,21 @@ export default function EventOutfitBody({
         </div>
 
         {data ? (
-          <p className="max-w-[42ch] text-sm leading-relaxed text-text-muted">
-            {data.explanation}
-          </p>
+          <>
+            <p className="max-w-[42ch] text-sm leading-relaxed text-text-muted">
+              {data.explanation}
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:justify-start">
+              {/* La sugerencia vive en event_outfit_suggestions y no tiene
+                  fila en `outfits`: el botón la materializa al usarla. */}
+              <UsarEsteLookButton
+                modo="suggestion"
+                name={data.name}
+                occasion={data.occasion}
+                clothingItemIds={data.items.map((i) => i.id)}
+              />
+            </div>
+          </>
         ) : error ? (
           <p
             role="alert"

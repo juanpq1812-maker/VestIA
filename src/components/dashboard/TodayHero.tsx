@@ -22,6 +22,7 @@ import EventOutfitBody, {
 import OutfitMoodboard, {
   type MoodboardItem,
 } from "@/components/outfits/OutfitMoodboard";
+import UsarEsteLookButton from "@/components/dashboard/UsarEsteLookButton";
 import {
   describeMissingMinimums,
   type WardrobeMinimums,
@@ -106,17 +107,13 @@ function LookDelDia({
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 sm:justify-start">
+          {/* El outfit ya existe en `outfits`: solo falta registrar el uso. */}
+          <UsarEsteLookButton modo="savedOutfit" outfitId={state.outfitId} />
           <Link
             href={`/outfits/saved#${state.outfitId}`}
-            className={buttonClasses({ size: "lg" })}
-          >
-            Ver este look
-          </Link>
-          <Link
-            href="/outfits"
             className="text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
-            Generar otro
+            Ver el detalle
           </Link>
         </div>
       </div>

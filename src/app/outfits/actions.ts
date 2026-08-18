@@ -522,6 +522,9 @@ export async function registerOutfitUseAction(
 
   revalidatePath("/outfits/saved");
   revalidatePath("/outfits");
+  // El home también cambia: el uso alimenta "Tu semana" y saca ese outfit
+  // del pool del que sale el look del día.
+  revalidatePath("/");
 
   return { ok: true, usedDate, useId: data.id };
 }
