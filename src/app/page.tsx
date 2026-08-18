@@ -17,6 +17,8 @@ import { computePetState } from "@/lib/pet/compute";
 import type { AgendaEvent } from "@/components/dashboard/AgendaCard";
 import type { EventOutfitData } from "@/components/dashboard/EventOutfitSection";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { bogotaDay, computeStreak, streakQuerySince } from "@/lib/pet/streak";
+import { getCurrentWeather } from "@/lib/weather/openMeteo";
 
 export const metadata: Metadata = {
   title: "StrandIA — Tu armario digital con IA",
@@ -55,6 +57,8 @@ export default async function RootPage() {
     allUsesRes,
     allOutfitsRes,
     allItemsRes,
+    streakRes,
+    weather,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -73,6 +77,18 @@ export default async function RootPage() {
       )
       .eq("status", CONFIRMED_STATUS)
       .order("created_at", { ascending: false }),
+    // Racha: días distintos con "app_opened" en la ventana. RLS ya lo acota al
+    // usuario. Índice: pet_activity_log_created_at_idx.
+    supabase
+      .from("pet_activity_log")
+      .select("created_at")
+      .eq("action_type", "app_opened")
+      .gte("created_at", streakQuerySince(today)),
+    // El clima ya no es exclusivo del estado vacío de la agenda: es contexto
+    // permanente de la cabecera. Cuesta ~0 — el fetch va con
+    // `next: { revalidate: 1800 }`, así que media hora de visitas comparte
+    // una sola llamada a Open-Meteo.
+    getCurrentWeather(),
   ]);
 
   const displayName =
@@ -82,6 +98,11 @@ export default async function RootPage() {
   const allUses = allUsesRes.data ?? [];
   const allOutfits = allOutfitsRes.data ?? [];
   const allItems = allItemsRes.data ?? [];
+
+  const streak = computeStreak(
+    (streakRes.data ?? []).map((row) => bogotaDay(new Date(row.created_at))),
+    today
+  );
 
   const petState = profileRes.data
     ? computePetState({
@@ -261,13 +282,6 @@ export default async function RootPage() {
         : null) ?? signedUrls.get(prendaOlvidada.image_path) ?? null;
   }
 
-  // Clima para el estado vacío de la agenda (feed conectado, día sin eventos).
-  // No se pide cuando hay eventos: ahí el protagonista es el outfit.
-  const weather =
-    hayFeed && agendaEvents.length === 0
-      ? await (await import("@/lib/weather/openMeteo")).getCurrentWeather()
-      : null;
-
   // Hora local del próximo evento, pre-formateada para el banner.
   const nextEventTime = nextEvent
     ? new Date(nextEvent.starts_at).toLocaleTimeString("es-CO", {
@@ -287,6 +301,7 @@ export default async function RootPage() {
       hasCalendarFeed={hayFeed}
       agendaEvents={agendaEvents}
       weather={weather}
+      streak={streak}
       eventOutfit={
         nextEvent && nextEventTime
           ? {

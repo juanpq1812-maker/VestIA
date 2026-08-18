@@ -3,11 +3,10 @@
 // Server Component: recibe todos los datos pre-calculados desde page.tsx.
 // Responsabilidad de este componente: solo UI.
 //
-// Estructura editorial (Design STRANDIA — strandia_home):
-//   1. Saludo personal en serif + fecha.
-//   2. Hero de Hebri (mascota de gamificación) — estado de ánimo, mensaje y
-//      CTA a /pet. Reemplaza el hero previo de "Outfit del día".
-//   3. Grid secundario: Tus más usados (prenda olvidada real) + Comunidad.
+// Estructura editorial:
+//   1. Cabecera: fecha + clima, saludo grande, racha  (DashboardHeadline).
+//   2. Hero de Hebri — se reemplaza por el hero "Hoy" en la fase 2.
+//   3. Grid secundario: prenda olvidada + Comunidad.
 //   4. Banner de inspiración → AI Studio.
 
 import Link from "next/link";
@@ -20,6 +19,7 @@ import EventOutfitSection, {
   type EventOutfitData,
 } from "@/components/dashboard/EventOutfitSection";
 import ConnectCalendarCard from "@/components/dashboard/ConnectCalendarCard";
+import DashboardHeadline from "@/components/dashboard/DashboardHeadline";
 import HebriSprite from "@/components/pet/HebriSprite";
 import {
   PET_DIRTY_MESSAGE,
@@ -28,6 +28,7 @@ import {
 } from "@/components/pet/moodMessages";
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
 import type { PetState } from "@/lib/pet/compute";
+import type { StreakState } from "@/lib/pet/streak";
 
 import { garmentSwatch } from "@/lib/ui/colors";
 // ── Tipos ────────────────────────────────────────────────────────────────────
@@ -57,23 +58,8 @@ type Props = {
   agendaEvents: AgendaEvent[];
   eventOutfit: EventOutfitProps;
   weather: CurrentWeather | null;
+  streak: StreakState;
 };
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fechaHoyEspanol(): string {
-  // Este componente se renderiza en el servidor (Vercel corre en UTC): sin
-  // timeZone explícita, un usuario en Colombia vería la fecha de "mañana"
-  // desde las 7 pm. El piloto es Colombia; si la app se expande a otras
-  // zonas, esta fecha debería calcularse en el cliente.
-  const fecha = new Date().toLocaleDateString("es-CO", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    timeZone: "America/Bogota",
-  });
-  return fecha.charAt(0).toUpperCase() + fecha.slice(1);
-}
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
@@ -86,28 +72,22 @@ export default function DashboardView({
   agendaEvents,
   eventOutfit,
   weather,
+  streak,
 }: Props) {
-  const fecha = fechaHoyEspanol();
   const esUsuarioNuevo = totalItems === 0;
-  const eventosHoy = agendaEvents.length;
 
   return (
     <div className="flex flex-1 flex-col">
       <Header displayName={displayName} />
 
-      <main className="flex-1 pb-24 pt-8 sm:pb-14 sm:pt-12">
+      <main className="flex-1 pb-24 pt-6 sm:pb-14 sm:pt-10">
         <Container size="lg">
-          {/* ── Saludo ──────────────────────────────────────────────────── */}
-          <div className="mb-8">
-            <h1 className="font-display text-3xl tracking-tight text-text sm:text-4xl">
-              Hola, {displayName}
-            </h1>
-            <p className="mt-2 text-sm text-text-muted">
-              {fecha}
-              {eventosHoy > 0
-                ? ` · Tienes ${eventosHoy} ${eventosHoy === 1 ? "evento" : "eventos"} hoy.`
-                : ""}
-            </p>
+          <div className="mb-12 sm:mb-16">
+            <DashboardHeadline
+              displayName={displayName}
+              weather={weather}
+              streak={streak}
+            />
           </div>
 
           {esUsuarioNuevo ? (
@@ -120,7 +100,6 @@ export default function DashboardView({
               hasCalendarFeed={hasCalendarFeed}
               agendaEvents={agendaEvents}
               eventOutfit={eventOutfit}
-              weather={weather}
             />
           )}
         </Container>
@@ -178,7 +157,6 @@ type DashboardConDatosProps = {
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
   eventOutfit: EventOutfitProps;
-  weather: CurrentWeather | null;
 };
 
 function DashboardConDatos({
@@ -188,7 +166,6 @@ function DashboardConDatos({
   hasCalendarFeed,
   agendaEvents,
   eventOutfit,
-  weather,
 }: DashboardConDatosProps) {
   return (
     <div className="flex flex-col gap-8">
@@ -201,7 +178,7 @@ function DashboardConDatos({
           cached={eventOutfit.cached}
         />
       )}
-      {hasCalendarFeed && <AgendaCard events={agendaEvents} weather={weather} />}
+      {hasCalendarFeed && <AgendaCard events={agendaEvents} />}
       {!hasCalendarFeed && <ConnectCalendarCard />}
 
       <HebriHero petState={petState} />
