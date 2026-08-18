@@ -15,10 +15,17 @@ import { feedNecesitaSync, syncCalendarFeed } from "@/lib/calendar/sync";
 import { recordPetAction } from "@/lib/pet/actions";
 import { computePetState } from "@/lib/pet/compute";
 import type { AgendaEvent } from "@/components/dashboard/AgendaCard";
-import type { EventOutfitData } from "@/components/dashboard/EventOutfitSection";
+import type { EventOutfitData } from "@/components/dashboard/EventOutfitBody";
+import type { TodayHeroState } from "@/components/dashboard/TodayHero";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import { bogotaDay, computeStreak, streakQuerySince } from "@/lib/pet/streak";
 import { getCurrentWeather } from "@/lib/weather/openMeteo";
+import { pickLookDelDia, seedDelDia } from "@/lib/outfits/lookDelDia";
+import {
+  checkWardrobeMinimums,
+  countByCategory,
+} from "@/lib/wardrobe/wardrobeMinimums";
+import type { ClothingCategory } from "@/types/database";
 
 export const metadata: Metadata = {
   title: "StrandIA — Tu armario digital con IA",
@@ -249,11 +256,14 @@ export default async function RootPage() {
             .filter((i): i is NonNullable<typeof i> => Boolean(i))
             .map((i) => ({
               id: i.id,
-              nombre: i.name?.trim() || i.subcategory?.trim() || i.category,
-              image_url:
-                (i.thumbnail_path ? sugThumbs.get(i.thumbnail_path) : null) ??
-                (i.image_path ? sugUrls.get(i.image_path) ?? null : null),
+              category: i.category,
+              subcategory: i.subcategory,
+              name: i.name,
               primary_color: i.primary_color,
+              image_url: i.image_path ? sugUrls.get(i.image_path) ?? null : null,
+              thumbnail_url: i.thumbnail_path
+                ? sugThumbs.get(i.thumbnail_path) ?? null
+                : null,
             })),
         };
       }
@@ -282,7 +292,7 @@ export default async function RootPage() {
         : null) ?? signedUrls.get(prendaOlvidada.image_path) ?? null;
   }
 
-  // Hora local del próximo evento, pre-formateada para el banner.
+  // Hora local del próximo evento, pre-formateada para el hero.
   const nextEventTime = nextEvent
     ? new Date(nextEvent.starts_at).toLocaleTimeString("es-CO", {
         hour: "2-digit",
@@ -291,6 +301,19 @@ export default async function RootPage() {
         timeZone: "America/Bogota",
       })
     : null;
+
+  const heroState = await resolverHeroState({
+    supabase,
+    userId: user.id,
+    today,
+    allItems,
+    allOutfits,
+    allUses,
+    weather,
+    nextEvent,
+    nextEventTime,
+    cachedEventOutfit,
+  });
 
   return (
     <DashboardView
@@ -302,19 +325,126 @@ export default async function RootPage() {
       agendaEvents={agendaEvents}
       weather={weather}
       streak={streak}
-      eventOutfit={
-        nextEvent && nextEventTime
-          ? {
-              eventId: nextEvent.id,
-              eventTitle: nextEvent.title,
-              eventTime: nextEventTime,
-              cached: cachedEventOutfit,
-            }
-          : null
-      }
+      heroState={heroState}
     />
   );
 }
+
+// ── Estado del hero ───────────────────────────────────────────────────────────
+//
+// El orden importa y es el del plan: un evento próximo gana siempre; sin
+// evento se propone un look guardado; si el armario no da, se explica qué
+// falta; y con cero prendas, el primer paso. El hero nunca queda vacío.
+
+async function resolverHeroState(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
+  userId: string;
+  today: Date;
+  allItems: { id: string; category: ClothingCategory }[];
+  allOutfits: { id: string; clothing_item_ids: string[] }[];
+  allUses: { outfit_id: string; used_date: string }[];
+  weather: Awaited<ReturnType<typeof getCurrentWeather>>;
+  nextEvent: AgendaEvent | null;
+  nextEventTime: string | null;
+  cachedEventOutfit: EventOutfitData | null;
+}): Promise<TodayHeroState> {
+  const {
+    supabase,
+    userId,
+    today,
+    allItems,
+    allOutfits,
+    allUses,
+    weather,
+    nextEvent,
+    nextEventTime,
+    cachedEventOutfit,
+  } = params;
+
+  // A — hay evento: la IA viste la agenda.
+  if (nextEvent && nextEventTime) {
+    return {
+      kind: "event",
+      eventId: nextEvent.id,
+      eventTitle: nextEvent.title,
+      eventTime: nextEventTime,
+      cached: cachedEventOutfit,
+    };
+  }
+
+  if (allItems.length === 0) return { kind: "empty" };
+
+  const minimums = checkWardrobeMinimums(countByCategory(allItems));
+  if (!minimums.ok) return { kind: "incomplete", minimums };
+
+  // B — sin evento: un look guardado, elegido de forma determinista por día.
+  // Sin IA: ver la nota de decisión en lib/outfits/lookDelDia.ts.
+  const sieteDiasAtras = offsetDate(today, -7);
+  const usadosRecientemente = new Set(
+    allUses.filter((u) => u.used_date >= sieteDiasAtras).map((u) => u.outfit_id)
+  );
+
+  const { data: outfitsGuardados } = await supabase
+    .from("outfits")
+    .select("id, name, occasion, clothing_item_ids");
+
+  const look = pickLookDelDia({
+    seed: seedDelDia(userId, bogotaDay(today)),
+    outfits: outfitsGuardados ?? [],
+    usadosRecientemente,
+  });
+
+  // Sin outfits guardados todavía: el armario da, pero no hay nada que
+  // proponer. Se trata como armario incompleto — el CTA lleva a generar.
+  if (!look) return { kind: "incomplete", minimums };
+
+  const itemsDelLook = look.clothing_item_ids
+    .map((id) => allItems.find((i) => i.id === id))
+    .filter((i): i is NonNullable<typeof i> => Boolean(i)) as HeroItemRow[];
+
+  const { createSignedUrlMap } = await import("@/lib/storage/clothingImages");
+  const { createThumbnailSignedUrlMap } = await import(
+    "@/lib/storage/thumbnailUrls"
+  );
+  const [lookUrls, lookThumbs] = await Promise.all([
+    createSignedUrlMap(
+      supabase,
+      itemsDelLook.map((i) => i.image_path).filter((p): p is string => Boolean(p))
+    ),
+    createThumbnailSignedUrlMap(itemsDelLook.map((i) => i.thumbnail_path)),
+  ]);
+
+  return {
+    kind: "look",
+    outfitId: look.id,
+    name: look.name?.trim() || "Tu look de hoy",
+    occasion: look.occasion,
+    tempC: weather?.tempC ?? null,
+    items: itemsDelLook.map((i) => ({
+      id: i.id,
+      category: i.category,
+      subcategory: i.subcategory,
+      name: i.name,
+      primary_color: i.primary_color,
+      image_url: i.image_path ? lookUrls.get(i.image_path) ?? null : null,
+      thumbnail_url: i.thumbnail_path
+        ? lookThumbs.get(i.thumbnail_path) ?? null
+        : null,
+    })),
+  };
+}
+
+/** Las columnas de `clothing_items` que el hero necesita de `allItems`. */
+type HeroItemRow = {
+  id: string;
+  category: ClothingCategory;
+  subcategory: string | null;
+  name: string | null;
+  primary_color: string | null;
+  image_path: string | null;
+  thumbnail_path: string | null;
+};
 
 // ── Helpers de fecha ──────────────────────────────────────────────────────────
 

@@ -46,8 +46,27 @@ function jitter(id: string, span = 3): number {
   return (h % (span * 2 + 1)) - span;
 }
 
+/**
+ * Lo que el moodboard realmente lee de una prenda.
+ *
+ * Se declara como subconjunto y no como `ClothingItem` completo para que
+ * pantallas que no traen todas las columnas (el hero del home, la tira
+ * semanal) puedan reusarlo. `ClothingItem[]` sigue siendo asignable, así que
+ * los llamadores existentes no cambian.
+ */
+export type MoodboardItem = Pick<
+  ClothingItem,
+  | "id"
+  | "category"
+  | "subcategory"
+  | "name"
+  | "primary_color"
+  | "image_url"
+  | "thumbnail_url"
+>;
+
 type Props = {
-  items: ClothingItem[];
+  items: MoodboardItem[];
   /** Posición del outfit en la lista, para rotar el color de fondo. */
   index?: number;
 };

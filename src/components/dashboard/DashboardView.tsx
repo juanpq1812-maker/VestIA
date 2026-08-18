@@ -5,7 +5,7 @@
 //
 // Estructura editorial:
 //   1. Cabecera: fecha + clima, saludo grande, racha  (DashboardHeadline).
-//   2. Hero de Hebri — se reemplaza por el hero "Hoy" en la fase 2.
+//   2. Hero "Hoy" — qué ponerse (TodayHero, 4 estados).
 //   3. Grid secundario: prenda olvidada + Comunidad.
 //   4. Banner de inspiración → AI Studio.
 
@@ -15,9 +15,7 @@ import Container from "@/components/ui/Container";
 import { buttonClasses } from "@/components/ui/Button";
 import LazyImage from "@/components/ui/LazyImage";
 import AgendaCard, { type AgendaEvent } from "@/components/dashboard/AgendaCard";
-import EventOutfitSection, {
-  type EventOutfitData,
-} from "@/components/dashboard/EventOutfitSection";
+import TodayHero, { type TodayHeroState } from "@/components/dashboard/TodayHero";
 import ConnectCalendarCard from "@/components/dashboard/ConnectCalendarCard";
 import DashboardHeadline from "@/components/dashboard/DashboardHeadline";
 import HebriSprite from "@/components/pet/HebriSprite";
@@ -42,13 +40,6 @@ type PrendaOlvidada = {
   diasOlvidada: number;
 } | null;
 
-type EventOutfitProps = {
-  eventId: string;
-  eventTitle: string;
-  eventTime: string;
-  cached: EventOutfitData | null;
-} | null;
-
 type Props = {
   displayName: string;
   totalItems: number;
@@ -56,7 +47,7 @@ type Props = {
   prendaOlvidada: PrendaOlvidada;
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
-  eventOutfit: EventOutfitProps;
+  heroState: TodayHeroState;
   weather: CurrentWeather | null;
   streak: StreakState;
 };
@@ -70,7 +61,7 @@ export default function DashboardView({
   prendaOlvidada,
   hasCalendarFeed,
   agendaEvents,
-  eventOutfit,
+  heroState,
   weather,
   streak,
 }: Props) {
@@ -90,60 +81,17 @@ export default function DashboardView({
             />
           </div>
 
-          {esUsuarioNuevo ? (
-            <NuevoUsuario />
-          ) : (
-            <DashboardConDatos
-              totalItems={totalItems}
-              petState={petState}
-              prendaOlvidada={prendaOlvidada}
-              hasCalendarFeed={hasCalendarFeed}
-              agendaEvents={agendaEvents}
-              eventOutfit={eventOutfit}
-            />
-          )}
+          <DashboardConDatos
+            totalItems={totalItems}
+            petState={petState}
+            prendaOlvidada={prendaOlvidada}
+            hasCalendarFeed={hasCalendarFeed}
+            agendaEvents={agendaEvents}
+            heroState={heroState}
+            esUsuarioNuevo={esUsuarioNuevo}
+          />
         </Container>
       </main>
-    </div>
-  );
-}
-
-// ── Estado usuario nuevo (0 prendas) ─────────────────────────────────────────
-
-function NuevoUsuario() {
-  return (
-    <div className="flex flex-col items-center gap-6 rounded-xl bg-surface-offset px-6 py-14 text-center">
-      <span
-        aria-hidden="true"
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-primary-light text-primary"
-      >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 21v-8" />
-          <path d="M12 13c0-3.5-2.5-6-6-6H4c0 3.5 2.5 6 6 6h2Z" />
-          <path d="M12 11c0-2.8 2-4.8 4.8-4.8H20c0 2.8-2 4.8-4.8 4.8H12Z" />
-        </svg>
-      </span>
-      <div>
-        <h2 className="font-display text-2xl text-text sm:text-3xl">
-          Tu armario digital te espera
-        </h2>
-        <p className="mx-auto mt-3 max-w-sm text-sm text-text-muted">
-          Para tu primer outfit solo necesitas{" "}
-          <strong>6 prendas</strong>: 2 tops + 2 bottoms + 1 zapato +
-          1 accesorio. ¡En 10 minutos tienes tu primer look!
-        </p>
-      </div>
-      <div className="flex flex-col items-center gap-3 sm:flex-row">
-        <Link href="/wardrobe/upload" className={buttonClasses({ size: "lg" })}>
-          Sube tu primera prenda
-        </Link>
-        <Link
-          href="/outfits"
-          className={buttonClasses({ size: "lg", variant: "ghost" })}
-        >
-          Genera un outfit
-        </Link>
-      </div>
     </div>
   );
 }
@@ -156,7 +104,8 @@ type DashboardConDatosProps = {
   prendaOlvidada: PrendaOlvidada;
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
-  eventOutfit: EventOutfitProps;
+  heroState: TodayHeroState;
+  esUsuarioNuevo: boolean;
 };
 
 function DashboardConDatos({
@@ -165,41 +114,44 @@ function DashboardConDatos({
   prendaOlvidada,
   hasCalendarFeed,
   agendaEvents,
-  eventOutfit,
+  heroState,
+  esUsuarioNuevo,
 }: DashboardConDatosProps) {
   return (
-    <div className="flex flex-col gap-8">
-      {/* ── Calendario: la IA viste tu agenda ─────────────────────────── */}
-      {eventOutfit && (
-        <EventOutfitSection
-          eventId={eventOutfit.eventId}
-          eventTitle={eventOutfit.eventTitle}
-          eventTime={eventOutfit.eventTime}
-          cached={eventOutfit.cached}
-        />
+    <div className="flex flex-col gap-12 sm:gap-16">
+      <TodayHero state={heroState} />
+
+      {/* Con cero prendas el hero ya dice todo lo que hay que decir: apilar
+          agenda, mascota y comunidad debajo solo diluye el primer paso. */}
+      {esUsuarioNuevo ? null : (
+        <>
+          {hasCalendarFeed && <AgendaCard events={agendaEvents} />}
+          {!hasCalendarFeed && <ConnectCalendarCard />}
+
+          <HebriHero petState={petState} />
+
+          {/* ── Grid secundario: más usados / comunidad ───────────────────
+              Grid de 2 items fijos — en desktop se limita el ancho en vez de
+              estirar las cards a lo ancho del Container. */}
+          <div className="grid grid-cols-2 gap-4 lg:mx-auto lg:max-w-2xl lg:gap-6">
+            <MasUsadosCard
+              prendaOlvidada={prendaOlvidada}
+              totalItems={totalItems}
+            />
+            <ComunidadCard />
+          </div>
+
+          <InspiracionBanner />
+        </>
       )}
-      {hasCalendarFeed && <AgendaCard events={agendaEvents} />}
-      {!hasCalendarFeed && <ConnectCalendarCard />}
-
-      <HebriHero petState={petState} />
-
-      {/* ── Grid secundario: más usados / comunidad ───────────────────────
-          Grid de 2 items fijos — en desktop se limita el ancho en vez de
-          estirar las cards a lo ancho del Container. */}
-      <div className="grid grid-cols-2 gap-4 lg:mx-auto lg:max-w-2xl lg:gap-6">
-        <MasUsadosCard prendaOlvidada={prendaOlvidada} totalItems={totalItems} />
-        <ComunidadCard />
-      </div>
-
-      <InspiracionBanner />
     </div>
   );
 }
 
-// ── Hero: Hebri ──────────────────────────────────────────────────────────────
-// Reemplaza el hero previo de "Outfit del día". Es la card principal del
-// Home: el estado de ánimo de Hebri (mascota de gamificación) refleja qué
-// tan activo estuvo el usuario, e invita a volver a visitarla en /pet.
+// ── Hebri ────────────────────────────────────────────────────────────────────
+// Ya no es el hero — ese lugar lo ocupa TodayHero, que responde "¿qué me
+// pongo?". Esta card baja a HebriWidget en la fase 4; mientras tanto sigue
+// aquí para no perder el acceso a /pet.
 
 function HebriHero({ petState }: { petState: PetState }) {
   const { score, mood, isDirty } = petState;
