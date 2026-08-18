@@ -444,7 +444,30 @@ export default function PremiumJournalSpread({
               (la trasera solo lleva su rotateY(180deg) FIJO, para plegarse
               "hacia atrás" de la delantera). preserve-3d es necesario para
               que ese pliegue de la trasera se componga en 3D respecto al
-              giro del padre en vez de aplanarse antes. */}
+              giro del padre en vez de aplanarse antes.
+
+              Profundidad: además de rotar, este transform lleva un
+              translateZ que solo importa cuando está ASENTADA en la
+              página 2 (translateZ(-2px), más atrás que el -1px de esa
+              página, para que su dorso en blanco no la tape). Va ANTES del
+              rotateY a propósito — CSS compone los transforms de derecha a
+              izquierda, así que un translateZ puesto DESPUÉS de
+              rotateY(-180deg) queda adentro de esa rotación y el giro le
+              invierte el signo (medido: translateZ(-2px) después del
+              rotateY terminaba componiendo a +2, es decir MÁS adelante, no
+              atrás). Puesto antes, se aplica en el marco del padre, ya
+              fuera de la rotación, y el signo se respeta.
+
+              Mientras gira — arrastre o tween — applyAngle() pisa este
+              mismo `style.transform` en cada frame escribiendo SOLO
+              `rotateY(...)`, sin Z (Z implícito 0, o sea "adelante") — así
+              que el translateZ de acá abajo solo aplica en el instante en
+              que React vuelve a renderizar con un pageIdx nuevo (justo
+              cuando el volteo termina), nunca a mitad de un frame animado.
+              Y por la misma razón, ni bien arranca un arrastre hacia atrás
+              (pageIdx todavía en 1) el primer applyAngle() borra ese
+              translateZ y la trae al frente de inmediato — no hace falta
+              ningún estado de "isDragging" para eso. */}
           <div
             ref={cardRef}
             className="absolute inset-0"
@@ -452,7 +475,7 @@ export default function PremiumJournalSpread({
               transformOrigin: "left center",
               transformStyle: "preserve-3d",
               WebkitTransformStyle: "preserve-3d",
-              transform: `rotateY(${angleForPage(pageIdx)}deg)`,
+              transform: `translateZ(${pageIdx === 1 ? -2 : 0}px) rotateY(${angleForPage(pageIdx)}deg)`,
             }}
           >
             {/* Cara frontal — outfit 1. */}
