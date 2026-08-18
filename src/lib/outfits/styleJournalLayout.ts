@@ -34,7 +34,11 @@ export const HEADER_RIGHT = CONTENT_RIGHT;
 export const HEADER_BOTTOM = CONTENT_TOP;
 
 const CONTENT_W = CONTENT_RIGHT - CONTENT_LEFT;
-const CONTENT_H = CONTENT_BOTTOM - CONTENT_TOP;
+// Exportado: StyleJournalPage.tsx lo usa como base de vyContentPos/Delta —
+// el header ya no reserva una banda de alto fijo (ver esas funciones), así
+// que el área de prendas necesita su propio sistema % basado en CONTENT_H,
+// no en el alto total del lienzo (vy()).
+export const CONTENT_H = CONTENT_BOTTOM - CONTENT_TOP;
 
 /** viewBox unit (eje x, 0-400) → % del lienzo completo. */
 export function vx(n: number): number {
@@ -43,6 +47,28 @@ export function vx(n: number): number {
 /** viewBox unit (eje y, 0-500) → % del lienzo completo. */
 export function vy(n: number): number {
   return (n / 500) * 100;
+}
+
+// ── Coordenadas LOCALES al área de contenido (ver StyleJournalPage.tsx) ──
+//
+// El header vive en flujo normal, con alto dinámico (el nombre del outfit
+// puede envolver a 2 líneas en pantallas angostas) — ya no reserva una
+// banda fija de HEADER_TOP a CONTENT_TOP. El área de prendas es lo que
+// sobra debajo (flex-1), así que sus posiciones ya no pueden expresarse
+// como % del lienzo COMPLETO (vy(), que asume que el área de contenido
+// siempre empieza en el mismo y): tienen que expresarse como % de su
+// propia altura real, la que sea que el header le haya dejado.
+//
+// `absoluteY` es una posición ya calculada por toAbsolute() (viewBox
+// 0-500, con CONTENT_TOP sumado) — vyContentPos la re-basea a 0% = borde
+// superior del área de contenido. `n` en vyContentDelta es una MAGNITUD
+// (alto de una prenda, no una posición) y no resta CONTENT_TOP, solo
+// reescala contra CONTENT_H.
+export function vyContentPos(absoluteY: number): number {
+  return ((absoluteY - CONTENT_TOP) / CONTENT_H) * 100;
+}
+export function vyContentDelta(n: number): number {
+  return (n / CONTENT_H) * 100;
 }
 
 // ── Rotación determinista (mismo algoritmo que OutfitMoodboard.tsx) ────────

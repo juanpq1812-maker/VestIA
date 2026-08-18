@@ -13,7 +13,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import Button from "@/components/ui/Button";
 import {
@@ -38,7 +38,8 @@ import type { PlanInfo } from "@/lib/plans/getUserPlan";
 import { FREE_MONTHLY_GENERATIONS } from "@/lib/plans/constants";
 
 import OutfitMoodboard from "@/components/outfits/OutfitMoodboard";
-import StyleJournal from "@/components/outfits/StyleJournal";
+import PremiumJournalSpread from "@/components/outfits/PremiumJournalSpread";
+import { useSnapPager } from "@/lib/outfits/useSnapPager";
 import { triggerFirstOutfitValueMoment } from "@/components/push/PushOptInFlow";
 // Las ocasiones que ofrecemos en el modo "por ocasion". Coinciden con
 // `ITEM_OCCASIONS` de wardrobe (asi la IA encuentra match).
@@ -516,121 +517,6 @@ function ResultsGrid({
   onToast: (msg: string, kind: "success" | "error") => void;
   isPremium: boolean;
 }) {
-  const scrollerRef = useRef<HTMLDivElement>(null);
-  // Índice de la tarjeta bajo el snap (se actualiza con el scroll)...
-  const [activeIdx, setActiveIdx] = useState(0);
-  // ...y el que la descripción está mostrando (va detrás, con fade).
-  const [shownIdx, setShownIdx] = useState(0);
-  const [descVisible, setDescVisible] = useState(true);
-
-  // Descripción sincronizada: fade-out 150ms → cambia el texto → fade-in.
-  useEffect(() => {
-    if (activeIdx === shownIdx) return;
-    setDescVisible(false);
-    const t = setTimeout(() => {
-      setShownIdx(activeIdx);
-      setDescVisible(true);
-    }, 150);
-    return () => clearTimeout(t);
-  }, [activeIdx, shownIdx]);
-
-  // Chrome + snap-mandatory: los scrolls PROGRAMÁTICOS se cancelan porque el
-  // navegador re-snappea al elemento que "recuerda" como target (la tarjeta
-  // actual). El workaround estándar: apagar el snap durante el scroll
-  // programático y restaurarlo al llegar (la posición destino es un snap point
-  // exacto, así que restaurar no salta). El swipe del usuario no pasa por aquí
-  // y conserva su snap nativo.
-  function snapSafeScrollTo(el: HTMLElement, left: number, smooth: boolean) {
-    el.style.scrollSnapType = "none";
-    let restored = false;
-    const restore = () => {
-      if (restored) return;
-      restored = true;
-      el.style.scrollSnapType = "";
-      el.removeEventListener("scrollend", restore);
-    };
-    el.scrollTo({ left, behavior: smooth ? "smooth" : "auto" });
-    if (!smooth) {
-      restore();
-      return;
-    }
-    el.addEventListener("scrollend", restore);
-    setTimeout(restore, 700); // fallback por si scrollend no dispara
-  }
-
-  // Gutters simétricos: padding horizontal = (ancho visible - tarjeta) / 2.
-  // Con snap-center esto centra la tarjeta activa en cualquier viewport y
-  // hace alcanzable el centro de la primera y la última (con ellos, la
-  // posición de snap i es exactamente i*(tarjeta+gap)).
-  useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const setGutters = () => {
-      const card = el.firstElementChild as HTMLElement | null;
-      if (!card) return;
-      const gutter = Math.max(16, (el.clientWidth - card.offsetWidth) / 2);
-      el.style.paddingLeft = `${gutter}px`;
-      el.style.paddingRight = `${gutter}px`;
-    };
-    setGutters();
-    const ro = new ResizeObserver(setGutters);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [outfits.length]);
-
-  // Hint de primer render: micro-scroll de 20px y de vuelta, para comunicar
-  // que hay más outfits a la derecha. Nunca con reduced-motion. El snap se
-  // apaga durante toda la coreografía (20px no es un snap point).
-  useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (el.scrollWidth <= el.clientWidth) return; // no hay nada que asomar
-    el.style.scrollSnapType = "none";
-    const t1 = setTimeout(() => el.scrollTo({ left: 20, behavior: "smooth" }), 400);
-    const t2 = setTimeout(() => el.scrollTo({ left: 0, behavior: "smooth" }), 850);
-    const t3 = setTimeout(() => {
-      el.style.scrollSnapType = "";
-    }, 1400);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      el.style.scrollSnapType = "";
-    };
-  }, []);
-
-  // El índice activo se deriva del rango REAL de scroll (no del ancho de
-  // tarjeta): en contenedores anchos la última tarjeta ancla con snap-end y
-  // su posición es maxScroll, no idx*step.
-  function onScroll() {
-    const el = scrollerRef.current;
-    if (!el || outfits.length < 2) return;
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    if (maxScroll <= 0) return;
-    const per = maxScroll / (outfits.length - 1);
-    const idx = Math.round(el.scrollLeft / per);
-    setActiveIdx(Math.max(0, Math.min(outfits.length - 1, idx)));
-  }
-
-  function scrollToIdx(idx: number) {
-    const el = scrollerRef.current;
-    if (!el) return;
-    const card = el.firstElementChild as HTMLElement | null;
-    if (!card) return;
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    // Con gutters simétricos y snap-center, la posición de la tarjeta i es
-    // exactamente i*(ancho+gap); el clamp cubre redondeos de subpíxel.
-    const target = Math.min(idx * (card.offsetWidth + CAROUSEL_GAP), maxScroll);
-    snapSafeScrollTo(
-      el,
-      target,
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    );
-  }
-
-  const shown = outfits[shownIdx];
-
   return (
     <section aria-label="Outfits propuestos" className="space-y-5">
       <div className="flex items-center justify-between">
@@ -651,6 +537,71 @@ function ResultsGrid({
         </Button>
       </div>
 
+      {/* Premium: un solo cuaderno de 2 páginas, sin carrusel de tarjetas —
+          ver PremiumJournalSpread.tsx. Free: el carrusel de tarjetas de
+          siempre, sin cambios. */}
+      {isPremium ? (
+        <PremiumJournalSpread
+          outfits={outfits}
+          onRegenerate={onRegenerate}
+          contextoOcasion={contextoOcasion}
+          modo={modo}
+          onToast={onToast}
+        />
+      ) : (
+        <FreeCardCarousel
+          outfits={outfits}
+          onRegenerate={onRegenerate}
+          contextoOcasion={contextoOcasion}
+          modo={modo}
+          onToast={onToast}
+        />
+      )}
+    </section>
+  );
+}
+
+// Carrusel de tarjetas (Free) — código sin cambios de comportamiento, solo
+// movido a su propio componente y usando el hook compartido useSnapPager en
+// vez de su lógica inline de scroll-snap.
+function FreeCardCarousel({
+  outfits,
+  onRegenerate,
+  contextoOcasion,
+  modo,
+  onToast,
+}: {
+  outfits: GeneratedOutfit[];
+  onRegenerate: () => void;
+  contextoOcasion: string | null;
+  modo: GenerateMode;
+  onToast: (msg: string, kind: "success" | "error") => void;
+}) {
+  const { scrollerRef, activeIdx, onScroll, scrollToIdx } = useSnapPager({
+    count: outfits.length,
+    gap: CAROUSEL_GAP,
+    gutters: true,
+  });
+  // El índice activo del pager (con fade en la descripción sincronizada,
+  // igual que antes).
+  const [shownIdx, setShownIdx] = useState(0);
+  const [descVisible, setDescVisible] = useState(true);
+
+  // Descripción sincronizada: fade-out 150ms → cambia el texto → fade-in.
+  useEffect(() => {
+    if (activeIdx === shownIdx) return;
+    setDescVisible(false);
+    const t = setTimeout(() => {
+      setShownIdx(activeIdx);
+      setDescVisible(true);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [activeIdx, shownIdx]);
+
+  const shown = outfits[shownIdx];
+
+  return (
+    <>
       {/* Carrusel horizontal con snap. La siguiente tarjeta asoma por la
           derecha (ancho de tarjeta < ancho del contenedor + padding final). */}
       <div
@@ -677,7 +628,6 @@ function ResultsGrid({
               modo={modo}
               onRegenerate={onRegenerate}
               onToast={onToast}
-              isPremium={isPremium}
             />
           </div>
         ))}
@@ -728,7 +678,7 @@ function ResultsGrid({
           )}
         </div>
       )}
-    </section>
+    </>
   );
 }
 
@@ -739,7 +689,9 @@ function ResultsGrid({
 //   - usingToday:  llamando registerOutfitUseAction o saveAndUse...
 //   - usedToday:   guardado + uso de hoy registrado. Estado terminal.
 //   - error:       el ultimo intento fallo (mostramos mensaje).
-type CardEstado =
+// Exportado: PremiumJournalSpread.tsx lo reusa tal cual — es el mismo
+// flujo guardar/usar, solo que con un estado por página en vez de uno solo.
+export type CardEstado =
   | "idle"
   | "saving"
   | "saved"
@@ -754,7 +706,6 @@ function OutfitCard({
   modo,
   onRegenerate,
   onToast,
-  isPremium,
 }: {
   outfit: GeneratedOutfit;
   index: number;
@@ -762,7 +713,6 @@ function OutfitCard({
   modo: GenerateMode;
   onRegenerate: () => void;
   onToast: (msg: string, kind: "success" | "error") => void;
-  isPremium: boolean;
 }) {
   const [estado, setEstado] = useState<CardEstado>("idle");
   const [feedbackAbierto, setFeedbackAbierto] = useState(false);
@@ -850,14 +800,9 @@ function OutfitCard({
         </span>
       </header>
 
-      {/* Premium ve el cuaderno editorial (Style Journal); free sigue viendo
-          el moodboard de siempre — la justificación + % viven fuera del
-          carrusel, sincronizadas con la tarjeta activa (ver ResultsGrid). */}
-      {isPremium ? (
-        <StyleJournal items={outfit.items} outfitName={outfit.name} index={index} />
-      ) : (
-        <OutfitMoodboard items={outfit.items} index={index} />
-      )}
+      {/* Solo Free llega a este componente — Premium usa
+          PremiumJournalSpread (ver ResultsGrid), no OutfitCard. */}
+      <OutfitMoodboard items={outfit.items} index={index} />
 
       <div className="mt-2 flex flex-col gap-3">
         <Button
