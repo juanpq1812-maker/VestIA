@@ -13,7 +13,7 @@
 import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
-import Button from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import LazyImage from "@/components/ui/LazyImage";
 import AgendaCard, { type AgendaEvent } from "@/components/dashboard/AgendaCard";
 import EventOutfitSection, {
@@ -29,7 +29,7 @@ import {
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
 import type { PetState } from "@/lib/pet/compute";
 
-import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
+import { garmentSwatch } from "@/lib/ui/colors";
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
 type PrendaOlvidada = {
@@ -155,13 +155,14 @@ function NuevoUsuario() {
         </p>
       </div>
       <div className="flex flex-col items-center gap-3 sm:flex-row">
-        <Link href="/wardrobe/upload">
-          <Button size="lg">Sube tu primera prenda</Button>
+        <Link href="/wardrobe/upload" className={buttonClasses({ size: "lg" })}>
+          Sube tu primera prenda
         </Link>
-        <Link href="/outfits">
-          <Button size="lg" variant="ghost">
-            Genera un outfit
-          </Button>
+        <Link
+          href="/outfits"
+          className={buttonClasses({ size: "lg", variant: "ghost" })}
+        >
+          Genera un outfit
         </Link>
       </div>
     </div>
@@ -259,19 +260,22 @@ function HebriHero({ petState }: { petState: PetState }) {
             <p className="text-xs font-semibold text-danger">{PET_DIRTY_MESSAGE}</p>
           )}
 
-          <div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-surface">
-              <div
-                className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
-                style={{ width: `${score}%` }}
-              />
-            </div>
+          <div
+            role="progressbar"
+            aria-valuenow={score}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Ánimo de Hebri: ${score} de 100`}
+            className="h-1.5 overflow-hidden rounded-full bg-surface"
+          >
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
+              style={{ width: `${score}%` }}
+            />
           </div>
 
-          <Link href="/pet">
-            <Button size="lg" fullWidth>
-              Ver a Hebri
-            </Button>
+          <Link href="/pet" className={buttonClasses({ size: "lg", fullWidth: true })}>
+            Ver a Hebri
           </Link>
         </div>
       </div>
@@ -293,7 +297,7 @@ function MasUsadosCard({
       <div
         className="aspect-square w-full overflow-hidden"
         style={{
-          backgroundColor: prendaOlvidada?.primary_color ?? GARMENT_PLACEHOLDER_COLOR,
+          backgroundColor: garmentSwatch(prendaOlvidada?.primary_color),
         }}
       >
         {prendaOlvidada?.image_url ? (
@@ -305,10 +309,15 @@ function MasUsadosCard({
         ) : null}
       </div>
       <div className="flex flex-1 flex-col p-4">
-        <h3 className="font-display text-base text-text">Tus más usados</h3>
+        {/* El título decía "Tus más usados" pero la prenda que se muestra es la
+            OLVIDADA — page.tsx ordena las candidatas por `diasOlvidada` desc.
+            Título y contenido decían cosas opuestas. */}
+        <h3 className="font-display text-base text-text">
+          {prendaOlvidada ? "Rescata esta prenda" : "Tu armario"}
+        </h3>
         <p className="mt-1 flex-1 text-xs leading-relaxed text-text-muted">
           {prendaOlvidada
-            ? `Redescubre tus favoritos: ${prendaOlvidada.nombre} lleva ${prendaOlvidada.diasOlvidada} días sin salir del armario.`
+            ? `${prendaOlvidada.nombre} lleva ${prendaOlvidada.diasOlvidada} días sin salir del armario.`
             : `Tienes ${totalItems} ${totalItems === 1 ? "prenda" : "prendas"} en rotación. Dale una nueva oportunidad a las que menos usas.`}
         </p>
         <Link
@@ -317,7 +326,7 @@ function MasUsadosCard({
               ? `/outfits?prenda=${prendaOlvidada.id}&nombre=${encodeURIComponent(prendaOlvidada.nombre)}`
               : "/wardrobe"
           }
-          className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-primary-mid/60 px-4 py-2 text-xs font-semibold text-text transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-primary-mid/60 px-4 py-2 text-xs font-semibold text-text transition-all duration-200 ease-out hover:bg-primary hover:text-white active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Revisar armario
           <span aria-hidden="true">→</span>
@@ -351,7 +360,7 @@ function ComunidadCard() {
         </p>
         <Link
           href="/comunidad"
-          className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-primary-mid/60 px-4 py-2 text-xs font-semibold text-text transition-colors hover:bg-primary hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-primary-mid/60 px-4 py-2 text-xs font-semibold text-text transition-all duration-200 ease-out hover:bg-primary hover:text-white active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Explora la comunidad
           <span aria-hidden="true">→</span>

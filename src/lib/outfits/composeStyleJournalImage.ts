@@ -14,7 +14,7 @@
 "use client";
 
 import type { ClothingItem } from "@/types/database";
-import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
+import { garmentSwatch } from "@/lib/ui/colors";
 import { cropImageToAlphaBBoxCanvas } from "./alphaBBox";
 import {
   CATEGORY_SCALE,
@@ -206,7 +206,7 @@ async function drawGarment(
 
 function drawSwatch(ctx: CanvasRenderingContext2D, it: ClothingItem, w: number, h: number) {
   const r = Math.min(16, w * 0.08, h * 0.08);
-  ctx.fillStyle = it.primary_color ?? GARMENT_PLACEHOLDER_COLOR;
+  ctx.fillStyle = garmentSwatch(it.primary_color);
   ctx.beginPath();
   ctx.roundRect(-w / 2, -h / 2, w, h, r);
   ctx.fill();

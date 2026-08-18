@@ -11,8 +11,8 @@
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
 
-type Variant = "primary" | "secondary" | "ghost";
-type Size = "md" | "lg";
+export type Variant = "primary" | "secondary" | "ghost";
+export type Size = "md" | "lg";
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
@@ -38,6 +38,37 @@ const sizeClasses: Record<Size, string> = {
   lg: "px-8 py-4 text-base",
 };
 
+const baseClasses =
+  "inline-flex items-center justify-center gap-2 rounded-full font-semibold " +
+  "transition-all duration-200 ease-out " +
+  "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none " +
+  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
+/**
+ * Clases de botón para elementos que NO son `<button>`.
+ *
+ * Existe para los enlaces que deben verse como botón: `<Link><Button>` produce
+ * `<a><button>`, que es HTML inválido (contenido interactivo anidado) y rompe
+ * la navegación por teclado. En su lugar: `<Link className={buttonClasses()}>`.
+ */
+export function buttonClasses(opts?: {
+  variant?: Variant;
+  size?: Size;
+  fullWidth?: boolean;
+  className?: string;
+}): string {
+  const { variant = "primary", size = "md", fullWidth = false, className } = opts ?? {};
+  return [
+    baseClasses,
+    variantClasses[variant],
+    sizeClasses[size],
+    fullWidth ? "w-full" : "",
+    className ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 const Button = forwardRef<HTMLButtonElement, Props>(function Button(
   {
     variant = "primary",
@@ -55,27 +86,13 @@ const Button = forwardRef<HTMLButtonElement, Props>(function Button(
   },
   ref
 ) {
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-full font-semibold " +
-    "transition-all duration-200 ease-out " +
-    "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:shadow-none " +
-    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
-
   return (
     <button
       ref={ref}
       type={type}
       disabled={disabled || isLoading}
       aria-busy={isLoading || undefined}
-      className={[
-        base,
-        variantClasses[variant],
-        sizeClasses[size],
-        fullWidth ? "w-full" : "",
-        className ?? "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={buttonClasses({ variant, size, fullWidth, className })}
       {...rest}
     >
       {leftIcon ? <span aria-hidden="true">{leftIcon}</span> : null}
