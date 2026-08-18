@@ -28,7 +28,7 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import OutfitFeedbackSheet from "@/components/outfits/OutfitFeedbackSheet";
 import StyleJournalPage from "@/components/outfits/StyleJournalPage";
@@ -135,13 +135,43 @@ export default function PremiumJournalSpread({
   // Escribe ángulo + sombra DIRECTO al DOM vía refs — nunca por React
   // state mientras gira (ni durante el arrastre ni durante el tween), para
   // que no haya un re-render de por medio comiéndose frames. React solo se
-  // entera cuando el volteo termina (setPageIdx en onDone).
+  // entera cuando el volteo termina (setPageIdx en onDone). A propósito
+  // NUNCA escribe profundidad (translateZ) — mientras gira, la tarjeta
+  // siempre está "adelante" (Z implícito 0); la profundidad final la fija
+  // el useLayoutEffect de abajo, una sola vez, cuando pageIdx se asienta.
   function applyAngle(angle: number) {
     if (cardRef.current) cardRef.current.style.transform = `rotateY(${angle}deg)`;
     const shadow = shadowOpacityForAngle(angle);
     if (frontShadowRef.current) frontShadowRef.current.style.opacity = String(shadow);
     if (backShadowRef.current) backShadowRef.current.style.opacity = String(shadow);
   }
+
+  // Asienta el transform final (rotación + profundidad) cada vez que
+  // pageIdx cambia — nunca a mitad de un frame animado, porque solo se
+  // dispara cuando React realmente commitea el nuevo pageIdx.
+  //
+  // Por qué acá y no en el propio onDone del tween (como estaba antes):
+  // el último onFrame() del tween deja la tarjeta en rotateY(-180deg) SIN
+  // profundidad (la cara trasera, en blanco, todavía "adelante" de la
+  // página 2 real) — ese es un estado real e intermedio, no un bug de por
+  // sí. El bug era que nada garantizaba que el navegador NUNCA pintara ese
+  // frame: el reordenamiento en Z (lo que revela la página 2 de verdad)
+  // dependía de que el commit de React con el pageIdx nuevo terminara
+  // antes de que el navegador pintara, y nada forzaba ese orden — de ahí
+  // el flash de ~1 frame yendo 1→2 (nunca yendo 2→1, porque ahí la cara a
+  // la que se llega — la frontal — ya trae el contenido real, sin
+  // necesitar un reordenamiento posterior para verse completa).
+  //
+  // useLayoutEffect es la herramienta correcta para esto: React lo corre
+  // de forma síncrona después de aplicar las mutaciones del DOM de un
+  // render pero ANTES de que el navegador pinte — sin importar qué disparó
+  // el setState (acá, un callback de requestAnimationFrame, no un evento
+  // de React). Determinista, sin setTimeout de por medio.
+  useLayoutEffect(() => {
+    if (!cardRef.current) return;
+    cardRef.current.style.transform =
+      `translateZ(${pageIdx === 1 ? -2 : 0}px) rotateY(${angleForPage(pageIdx)}deg)`;
+  }, [pageIdx]);
 
   function flipTo(target: 0 | 1, fromAngle?: number) {
     cancelTweenRef.current?.();
@@ -446,28 +476,24 @@ export default function PremiumJournalSpread({
               que ese pliegue de la trasera se componga en 3D respecto al
               giro del padre en vez de aplanarse antes.
 
-              Profundidad: además de rotar, este transform lleva un
-              translateZ que solo importa cuando está ASENTADA en la
-              página 2 (translateZ(-2px), más atrás que el -1px de esa
-              página, para que su dorso en blanco no la tape). Va ANTES del
-              rotateY a propósito — CSS compone los transforms de derecha a
-              izquierda, así que un translateZ puesto DESPUÉS de
-              rotateY(-180deg) queda adentro de esa rotación y el giro le
-              invierte el signo (medido: translateZ(-2px) después del
-              rotateY terminaba componiendo a +2, es decir MÁS adelante, no
-              atrás). Puesto antes, se aplica en el marco del padre, ya
-              fuera de la rotación, y el signo se respeta.
+              Profundidad: mientras gira (arrastre o tween), el transform
+              es SOLO `rotateY(...)` — lo escribe applyAngle() en cada
+              frame, sin Z (Z implícito 0, o sea "adelante" siempre, sea
+              cual sea el sentido). Recién cuando pageIdx se asienta, el
+              useLayoutEffect de arriba reemplaza ese transform por uno con
+              translateZ(-2px) — más atrás que el -1px de la página 2, para
+              que el dorso en blanco no la tape — puesto ANTES del
+              rotateY(-180deg) a propósito: CSS compone los transforms de
+              derecha a izquierda, así que un translateZ puesto DESPUÉS de
+              esa rotación queda adentro de ella y el giro le invierte el
+              signo (medido: componía a +2, MÁS adelante, no atrás).
 
-              Mientras gira — arrastre o tween — applyAngle() pisa este
-              mismo `style.transform` en cada frame escribiendo SOLO
-              `rotateY(...)`, sin Z (Z implícito 0, o sea "adelante") — así
-              que el translateZ de acá abajo solo aplica en el instante en
-              que React vuelve a renderizar con un pageIdx nuevo (justo
-              cuando el volteo termina), nunca a mitad de un frame animado.
-              Y por la misma razón, ni bien arranca un arrastre hacia atrás
-              (pageIdx todavía en 1) el primer applyAngle() borra ese
-              translateZ y la trae al frente de inmediato — no hace falta
-              ningún estado de "isDragging" para eso. */}
+              El transform NO se declara acá en el JSX — lo controla
+              enteramente el código imperativo (applyAngle + el
+              useLayoutEffect) para que no haya dos fuentes de verdad
+              compitiendo por la misma propiedad; el valor inicial en el
+              primer render lo fija ese mismo useLayoutEffect antes del
+              primer paint. */}
           <div
             ref={cardRef}
             className="absolute inset-0"
@@ -475,7 +501,6 @@ export default function PremiumJournalSpread({
               transformOrigin: "left center",
               transformStyle: "preserve-3d",
               WebkitTransformStyle: "preserve-3d",
-              transform: `translateZ(${pageIdx === 1 ? -2 : 0}px) rotateY(${angleForPage(pageIdx)}deg)`,
             }}
           >
             {/* Cara frontal — outfit 1. */}
