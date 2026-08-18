@@ -169,7 +169,14 @@ export default function OutfitMoodboard({ items, index = 0, background }: Props)
     <div
       // Cuadrado en mobile para que tarjeta + descripción quepan en una
       // pantalla sin deslizar; editorial 4/5 desde sm.
-      className="relative aspect-square w-full overflow-hidden rounded-2xl sm:aspect-[4/5]"
+      // `isolate` NO es decorativo. Las prendas llevan z-index propio (los
+      // accesorios van en 40) y `relative` a secas no crea contexto de
+      // apilamiento: esos z-index competían contra el Header sticky, que es
+      // z-30. El overflow-hidden recorta las prendas a la lámina, pero la
+      // lámina pasa por debajo del header al hacer scroll — y ahí las gorras
+      // se pintaban ENCIMA de la barra del logo. Con isolation:isolate los
+      // z-index quedan confinados a este lienzo.
+      className="relative isolate aspect-square w-full overflow-hidden rounded-2xl sm:aspect-[4/5]"
       style={{ backgroundColor: bg }}
     >
       {/* Luz superior sutil para dar profundidad sin dejar de ser fondo sólido */}
