@@ -14,7 +14,7 @@
 
 import { useEffect, useState } from "react";
 import type { ClothingItem } from "@/types/database";
-import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
+import { garmentSwatch } from "@/lib/ui/colors";
 import { useAlphaCroppedImage } from "@/lib/outfits/useAlphaCroppedImage";
 import {
   CATEGORY_SCALE,
@@ -235,7 +235,7 @@ export default function StyleJournalPage({
                 ) : (
                   <div
                     className="flex h-full w-full items-center justify-center rounded-lg border border-dashed border-border"
-                    style={{ backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
+                    style={{ backgroundColor: garmentSwatch(it.primary_color) }}
                     title={itemLabel(it, labelVariant)}
                   />
                 )}

@@ -13,7 +13,7 @@
 
 import { useEffect, useState } from "react";
 import type { ClothingItem, ClothingCategory } from "@/types/database";
-import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
+import { garmentSwatch } from "@/lib/ui/colors";
 
 // Fondos sólidos de marca, rotados por posición del outfit para dar variedad.
 const BOARD_BG = ["#e6ece5", "#ebe1d7", "#eef1e9", "#f0edea"] as const;
@@ -122,7 +122,7 @@ export default function OutfitMoodboard({ items, index = 0 }: Props) {
                 <div
                   className="h-full w-full rounded-xl"
                   style={{
-                    backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR,
+                    backgroundColor: garmentSwatch(it.primary_color),
                     filter: "drop-shadow(0 10px 14px rgba(45,49,46,0.18))",
                   }}
                   title={nombre}

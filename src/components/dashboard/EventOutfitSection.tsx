@@ -11,7 +11,7 @@
 import { useEffect, useRef, useState } from "react";
 import LazyImage from "@/components/ui/LazyImage";
 import { generateEventOutfitAction } from "@/app/outfits/actions";
-import { GARMENT_PLACEHOLDER_COLOR } from "@/lib/ui/colors";
+import { garmentSwatch } from "@/lib/ui/colors";
 
 export type EventOutfitItem = {
   id: string;
@@ -119,7 +119,7 @@ export default function EventOutfitSection({
               <li key={it.id} className="w-20 shrink-0">
                 <div
                   className="aspect-[3/4] w-full overflow-hidden rounded-lg"
-                  style={{ backgroundColor: it.primary_color ?? GARMENT_PLACEHOLDER_COLOR }}
+                  style={{ backgroundColor: garmentSwatch(it.primary_color) }}
                 >
                   {it.image_url ? (
                     <LazyImage
