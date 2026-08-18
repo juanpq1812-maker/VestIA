@@ -38,6 +38,78 @@ const CATEGORIA_LABELS: Record<ClothingCategory, string> = {
   accessory: "Accesorio",
 };
 
+// ── Encuadre ─────────────────────────────────────────────────────────────────
+//
+// ZONES cubre el lienzo entero SOLO si el outfit trae todas las categorías.
+// Un look sin calzado deja muerto el 22% inferior (la zona de footwear
+// arranca en top 73), y uno de puro top+bottom deja además aire a los lados.
+// Con el fondo salvia apenas se notaba; sobre papel blanco el hueco salta.
+//
+// La solución no es mover ZONES —la composición relativa entre prendas es
+// buena— sino medir la caja que ocupan las prendas presentes y escalarla para
+// que llene el lienzo. La escala es uniforme, así que las proporciones entre
+// prendas no cambian: solo desaparece el margen sobrante.
+
+/** Margen en % que se deja libre a cada lado del grupo. */
+const PAD = 4;
+/** Tope de ampliación: sin él, un outfit de una sola prenda la mostraría gigante. */
+const MAX_SCALE = 1.5;
+
+type Placement = {
+  item: MoodboardItem;
+  w: number;
+  h: number;
+  top: number;
+  left: number;
+  z: number;
+  rot: number;
+};
+
+function encuadrar(board: MoodboardItem[]): Placement[] {
+  // Contador por categoría para desplazar prendas repetidas dentro de su zona.
+  const perCategory: Partial<Record<ClothingCategory, number>> = {};
+  const crudos: Placement[] = board.map((it) => {
+    const zone = ZONES[it.category] ?? ZONES.accessory;
+    const dup = perCategory[it.category] ?? 0;
+    perCategory[it.category] = dup + 1;
+    return {
+      item: it,
+      w: zone.w,
+      h: zone.h,
+      top: zone.top + dup * 7,
+      left: zone.left + dup * 9,
+      z: zone.z + dup,
+      rot: zone.rot + jitter(it.id) + dup * 3,
+    };
+  });
+
+  if (crudos.length === 0) return crudos;
+
+  const minTop = Math.min(...crudos.map((p) => p.top));
+  const maxBottom = Math.max(...crudos.map((p) => p.top + p.h));
+  const minLeft = Math.min(...crudos.map((p) => p.left));
+  const maxRight = Math.max(...crudos.map((p) => p.left + p.w));
+
+  const cajaAlto = maxBottom - minTop;
+  const cajaAncho = maxRight - minLeft;
+  if (cajaAlto <= 0 || cajaAncho <= 0) return crudos;
+
+  const util = 100 - 2 * PAD;
+  const escala = Math.min(util / cajaAncho, util / cajaAlto, MAX_SCALE);
+
+  // Centra el grupo ya escalado dentro del lienzo.
+  const offsetX = (100 - cajaAncho * escala) / 2 - minLeft * escala;
+  const offsetY = (100 - cajaAlto * escala) / 2 - minTop * escala;
+
+  return crudos.map((p) => ({
+    ...p,
+    w: p.w * escala,
+    h: p.h * escala,
+    top: p.top * escala + offsetY,
+    left: p.left * escala + offsetX,
+  }));
+}
+
 // Hash estable del id → jitter en [-span, span]. Determinista: mismo id, misma
 // rotación en servidor y cliente.
 function jitter(id: string, span = 3): number {
@@ -91,9 +163,7 @@ export default function OutfitMoodboard({ items, index = 0, background }: Props)
 
   const board = items.slice(0, 6);
   const bg = background ?? BOARD_BG[index % BOARD_BG.length];
-
-  // Contador por categoría para desplazar prendas repetidas dentro de su zona.
-  const perCategory: Partial<Record<ClothingCategory, number>> = {};
+  const placements = encuadrar(board);
 
   return (
     <div
@@ -112,12 +182,8 @@ export default function OutfitMoodboard({ items, index = 0, background }: Props)
         }}
       />
 
-      {board.map((it, order) => {
-        const zone = ZONES[it.category] ?? ZONES.accessory;
-        const dup = perCategory[it.category] ?? 0;
-        perCategory[it.category] = dup + 1;
-
-        const rot = zone.rot + jitter(it.id) + dup * 3;
+      {placements.map((p, order) => {
+        const it = p.item;
         const nombre = it.name ?? it.subcategory ?? CATEGORIA_LABELS[it.category];
 
         return (
@@ -125,17 +191,17 @@ export default function OutfitMoodboard({ items, index = 0, background }: Props)
             key={it.id}
             className="absolute transition-all duration-500 ease-out motion-reduce:transition-none"
             style={{
-              width: `${zone.w}%`,
-              height: `${zone.h}%`,
-              top: `${zone.top + dup * 7}%`,
-              left: `${zone.left + dup * 9}%`,
-              zIndex: zone.z + dup,
+              width: `${p.w}%`,
+              height: `${p.h}%`,
+              top: `${p.top}%`,
+              left: `${p.left}%`,
+              zIndex: p.z,
               transitionDelay: `${order * 70}ms`,
               opacity: shown ? 1 : 0,
               transform: shown ? "translateY(0)" : "translateY(14px)",
             }}
           >
-            <div className="h-full w-full" style={{ transform: `rotate(${rot}deg)` }}>
+            <div className="h-full w-full" style={{ transform: `rotate(${p.rot}deg)` }}>
               {it.thumbnail_url ?? it.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
