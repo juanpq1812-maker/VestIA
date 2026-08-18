@@ -28,7 +28,7 @@
 
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Button from "@/components/ui/Button";
 import OutfitFeedbackSheet from "@/components/outfits/OutfitFeedbackSheet";
 import StyleJournalPage from "@/components/outfits/StyleJournalPage";
@@ -134,11 +134,10 @@ export default function PremiumJournalSpread({
 
   // Escribe ángulo + sombra DIRECTO al DOM vía refs — nunca por React
   // state mientras gira (ni durante el arrastre ni durante el tween), para
-  // que no haya un re-render de por medio comiéndose frames. React solo se
-  // entera cuando el volteo termina (setPageIdx en onDone). A propósito
+  // que no haya un re-render de por medio comiéndose frames. A propósito
   // NUNCA escribe profundidad (translateZ) — mientras gira, la tarjeta
   // siempre está "adelante" (Z implícito 0); la profundidad final la fija
-  // el useLayoutEffect de abajo, una sola vez, cuando pageIdx se asienta.
+  // settleCard(), abajo.
   function applyAngle(angle: number) {
     if (cardRef.current) cardRef.current.style.transform = `rotateY(${angle}deg)`;
     const shadow = shadowOpacityForAngle(angle);
@@ -146,32 +145,37 @@ export default function PremiumJournalSpread({
     if (backShadowRef.current) backShadowRef.current.style.opacity = String(shadow);
   }
 
-  // Asienta el transform final (rotación + profundidad) cada vez que
-  // pageIdx cambia — nunca a mitad de un frame animado, porque solo se
-  // dispara cuando React realmente commitea el nuevo pageIdx.
+  // Asienta el transform final (rotación + profundidad) de la tarjeta.
+  // SIEMPRE se llama de forma síncrona, en la misma tarea de JS que el
+  // último applyAngle() del volteo — NUNCA delegado a un efecto de React
+  // (useLayoutEffect) ni a un setState.
   //
-  // Por qué acá y no en el propio onDone del tween (como estaba antes):
-  // el último onFrame() del tween deja la tarjeta en rotateY(-180deg) SIN
-  // profundidad (la cara trasera, en blanco, todavía "adelante" de la
-  // página 2 real) — ese es un estado real e intermedio, no un bug de por
-  // sí. El bug era que nada garantizaba que el navegador NUNCA pintara ese
-  // frame: el reordenamiento en Z (lo que revela la página 2 de verdad)
-  // dependía de que el commit de React con el pageIdx nuevo terminara
-  // antes de que el navegador pintara, y nada forzaba ese orden — de ahí
-  // el flash de ~1 frame yendo 1→2 (nunca yendo 2→1, porque ahí la cara a
-  // la que se llega — la frontal — ya trae el contenido real, sin
-  // necesitar un reordenamiento posterior para verse completa).
+  // Por qué: la primera versión de este fix movía esto a un
+  // useLayoutEffect(() => {...}, [pageIdx]), confiando en la garantía de
+  // React de correrlo antes del próximo paint. Esa garantía es real, pero
+  // solo protege el momento en que React de verdad ejecuta el ciclo de
+  // render para ese update — y setPageIdx() acá se llama desde un callback
+  // de requestAnimationFrame crudo, no desde un evento manejado por React.
+  // Para updates así, el scheduler de React no promete flushear
+  // sincrónicamente dentro del mismo frame: puede diferirlo a una tarea
+  // posterior (vía MessageChannel), que corre DESPUÉS de que el navegador
+  // ya pintó el frame intermedio. El layout effect entonces corría a
+  // tiempo relativo a SU PROPIO commit, pero ese commit podía llegar un
+  // frame tarde — de ahí que el flash siguiera. Medido: solo se reprodujo
+  // en el volteo real (rAF), no en el swap instantáneo forzando
+  // prefers-reduced-motion (ese camino no depende de rAF/scheduler, es
+  // todo síncrono).
   //
-  // useLayoutEffect es la herramienta correcta para esto: React lo corre
-  // de forma síncrona después de aplicar las mutaciones del DOM de un
-  // render pero ANTES de que el navegador pinte — sin importar qué disparó
-  // el setState (acá, un callback de requestAnimationFrame, no un evento
-  // de React). Determinista, sin setTimeout de por medio.
-  useLayoutEffect(() => {
+  // La solución no puede depender de CUÁNDO React decide correr su ciclo
+  // de render — tiene que ser una mutación de DOM síncrona, pegada al
+  // mismo frame donde el ángulo llega a destino, sin ningún límite de
+  // tarea/microtarea de por medio. React (pageIdx, para el header/dots/
+  // botones) se entera después — eso sí puede esperar, no es visual.
+  function settleCard(target: 0 | 1) {
     if (!cardRef.current) return;
     cardRef.current.style.transform =
-      `translateZ(${pageIdx === 1 ? -2 : 0}px) rotateY(${angleForPage(pageIdx)}deg)`;
-  }, [pageIdx]);
+      `translateZ(${target === 1 ? -2 : 0}px) rotateY(${angleForPage(target)}deg)`;
+  }
 
   function flipTo(target: 0 | 1, fromAngle?: number) {
     cancelTweenRef.current?.();
@@ -189,6 +193,7 @@ export default function PremiumJournalSpread({
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion) {
       applyAngle(to);
+      settleCard(target);
       setPageIdx(target);
       setIsAnimating(false);
       setChromeVisible(true);
@@ -200,6 +205,10 @@ export default function PremiumJournalSpread({
       to,
       onFrame: applyAngle,
       onDone: () => {
+        // settleCard() ANTES que cualquier setState — ver el porqué
+        // arriba: esta línea tiene que quedar pintada sin depender de
+        // cuándo React decida commitear pageIdx.
+        settleCard(target);
         setPageIdx(target);
         setIsAnimating(false);
         setChromeVisible(true);
@@ -479,21 +488,25 @@ export default function PremiumJournalSpread({
               Profundidad: mientras gira (arrastre o tween), el transform
               es SOLO `rotateY(...)` — lo escribe applyAngle() en cada
               frame, sin Z (Z implícito 0, o sea "adelante" siempre, sea
-              cual sea el sentido). Recién cuando pageIdx se asienta, el
-              useLayoutEffect de arriba reemplaza ese transform por uno con
-              translateZ(-2px) — más atrás que el -1px de la página 2, para
-              que el dorso en blanco no la tape — puesto ANTES del
-              rotateY(-180deg) a propósito: CSS compone los transforms de
-              derecha a izquierda, así que un translateZ puesto DESPUÉS de
-              esa rotación queda adentro de ella y el giro le invierte el
+              cual sea el sentido). Recién al asentarse, settleCard()
+              reemplaza ese transform por uno con translateZ(-2px) — más
+              atrás que el -1px de la página 2, para que el dorso en
+              blanco no la tape — puesto ANTES del rotateY(-180deg) a
+              propósito: CSS compone los transforms de derecha a
+              izquierda, así que un translateZ puesto DESPUÉS de esa
+              rotación queda adentro de ella y el giro le invierte el
               signo (medido: componía a +2, MÁS adelante, no atrás).
 
               El transform NO se declara acá en el JSX — lo controla
-              enteramente el código imperativo (applyAngle + el
-              useLayoutEffect) para que no haya dos fuentes de verdad
-              compitiendo por la misma propiedad; el valor inicial en el
-              primer render lo fija ese mismo useLayoutEffect antes del
-              primer paint. */}
+              enteramente el código imperativo (applyAngle + settleCard),
+              llamado siempre de forma síncrona, nunca desde un efecto de
+              React (ver el comentario de settleCard: un useLayoutEffect
+              acá NO alcanza, porque el setState que lo dispararía viene
+              de un callback de rAF crudo, no de un evento de React, y el
+              scheduler no promete flushearlo a tiempo). El estado de
+              reposo de la página 1 (Z=0, rotateY(0deg)) coincide con
+              `transform: none` — no hace falta ninguna escritura en el
+              primer render. */}
           <div
             ref={cardRef}
             className="absolute inset-0"
