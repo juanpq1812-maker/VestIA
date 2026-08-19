@@ -136,8 +136,10 @@ function ArmarioIncompleto({ minimums }: { minimums: WardrobeMinimums }) {
       <ProgressRing value={listas} max={CATEGORIAS.length} />
 
       <div>
+        {/* El título tiene que estar de acuerdo con el anillo que tiene al
+            lado: "Casi listo" sobre un 0/3 se desmiente solo. */}
         <h2 className="font-display text-2xl leading-[1.15] tracking-tight text-text sm:text-3xl">
-          Casi listo
+          {listas === 0 ? "Vamos a completar tu armario" : "Casi listo"}
         </h2>
         <p className="mx-auto mt-3 max-w-[42ch] text-sm leading-relaxed text-text-muted">
           {describeMissingMinimums(minimums)}
