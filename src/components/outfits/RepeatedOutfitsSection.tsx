@@ -13,7 +13,7 @@ import Toast from "@/components/ui/Toast";
 import { lastUsedLabel, todayIso } from "@/lib/outfits/dateUtils";
 import type { ClothingItem } from "@/types/database";
 
-import { garmentSwatch } from "@/lib/ui/colors";
+import { GARMENT_PLATE_COLOR } from "@/lib/ui/colors";
 export type RepeatableOutfit = {
   id: string;
   name: string | null;
@@ -101,7 +101,7 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
                 <div
                   className="relative aspect-square w-full overflow-hidden"
                   style={{
-                    backgroundColor: garmentSwatch(o.cover?.primary_color),
+                    backgroundColor: GARMENT_PLATE_COLOR,
                   }}
                 >
                   {o.cover?.image_url ? (
