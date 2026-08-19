@@ -4,51 +4,72 @@
 // ("¿qué me pongo?"). Pero tampoco es una nota al pie: la mascota es el pilar
 // de gamificación junto a los Fashion Quests, y merece su propio bloque.
 //
-// Fila editorial sobre el crema, sin caja: el sprite a la izquierda, el estado
-// a la derecha. Misma gramática que el resto del home.
+// Composición: Hebri lidera. Es el mismo movimiento que hace el hero con el
+// moodboard y la tira semanal con las prendas — en este sistema el sujeto es
+// el protagonista y la UI se aparta. La primera versión de este bloque hacía
+// lo contrario: sprite de 112px arrinconado a la izquierda y una columna de
+// texto ocupando el resto, con el aviso de "despeinada" en rojo como el
+// elemento más fuerte de la pantalla. Hebri era el tema y la copy el
+// protagonista.
 
 import Link from "next/link";
 import HebriSprite from "@/components/pet/HebriSprite";
 import {
   PET_DIRTY_MESSAGE,
-  PET_MOOD_LABEL,
   PET_MOOD_SHORT_MESSAGE,
 } from "@/components/pet/moodMessages";
 import type { PetState } from "@/lib/pet/compute";
+
+/**
+ * Tamaño del sprite. Fijo en px porque HebriSprite escribe width/height
+ * inline. 280 cabe incluso a 320px de viewport (menos los 32px de padding
+ * del Container), que es más angosto que cualquier teléfono que soportemos.
+ */
+const SPRITE_SIZE = 280;
 
 export default function HebriSection({ petState }: { petState: PetState }) {
   const { score, mood, isDirty } = petState;
 
   return (
-    <section className="flex flex-col gap-5">
+    <section className="flex flex-col gap-6">
       <h2 className="font-display text-xl leading-tight tracking-tight text-text sm:text-2xl">
         Hebri
       </h2>
 
-      <div className="flex items-center gap-5 sm:gap-8">
-        <HebriSprite
-          mood={mood}
-          isDirty={isDirty}
-          size={112}
-          className="shrink-0"
-        />
+      <div className="flex flex-col items-center gap-6 text-center">
+        {/* El halo es el motivo que HebriHero ya usaba para ella: el único
+            momento del home donde algo "vive". Sobre crema se lee como luz,
+            no como caja. */}
+        <div className="relative flex items-center justify-center">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute h-[22rem] w-[22rem] rounded-full bg-primary-light blur-3xl"
+          />
+          <HebriSprite
+            mood={mood}
+            isDirty={isDirty}
+            size={SPRITE_SIZE}
+            className="relative max-w-full"
+          />
+        </div>
 
-        <div className="flex min-w-0 flex-col items-start gap-3">
-          <div>
-            <h3 className="font-display text-lg leading-tight text-text sm:text-xl">
-              Está {PET_MOOD_LABEL[mood].toLowerCase()}
-            </h3>
-            <p className="mt-1.5 max-w-[38ch] text-sm leading-relaxed text-text-muted">
-              {PET_MOOD_SHORT_MESSAGE[mood]}
+        <div className="flex max-w-xs flex-col items-center gap-4">
+          {/* Una sola línea de estado, en la voz editorial del sistema. Antes
+              iban dos —"Está feliz" y el mensaje de ánimo— diciendo lo mismo. */}
+          <p className="font-display text-xl leading-snug text-text sm:text-2xl">
+            {PET_MOOD_SHORT_MESSAGE[mood]}
+          </p>
+
+          {isDirty && (
+            // En muted y no en `text-danger`: el rojo del sistema es para
+            // errores y acciones destructivas. Que la mascota esté despeinada
+            // es un empujón, no una falla — y la marca no comunica con culpa.
+            <p className="text-sm leading-relaxed text-text-muted">
+              {PET_DIRTY_MESSAGE}
             </p>
-            {isDirty && (
-              <p className="mt-1.5 max-w-[38ch] text-sm leading-relaxed text-danger">
-                {PET_DIRTY_MESSAGE}
-              </p>
-            )}
-          </div>
+          )}
 
-          <div className="w-full max-w-[16rem]">
+          <div className="w-full max-w-[13rem]">
             <div
               role="progressbar"
               aria-valuenow={score}
@@ -62,7 +83,9 @@ export default function HebriSection({ petState }: { petState: PetState }) {
                 style={{ width: `${score}%` }}
               />
             </div>
-            <p className="mt-1.5 text-xs text-text-faint">{score} de 100</p>
+            <p className="mt-2 text-xs tabular-nums text-text-faint">
+              {score} de 100
+            </p>
           </div>
 
           <Link
