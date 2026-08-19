@@ -90,7 +90,7 @@ export default function HebriSection({ petState }: { petState: PetState }) {
 
           <Link
             href="/pet"
-            className="text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="inline-flex items-center py-3 -my-3 text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Ver a Hebri
           </Link>

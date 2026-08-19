@@ -111,7 +111,7 @@ function LookDelDia({
           <UsarEsteLookButton modo="savedOutfit" outfitId={state.outfitId} />
           <Link
             href={`/outfits/saved#${state.outfitId}`}
-            className="text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            className="inline-flex items-center py-3 -my-3 text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Ver el detalle
           </Link>
@@ -189,7 +189,7 @@ function PrimerPaso() {
         </Link>
         <Link
           href="/outfits"
-          className="text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex items-center py-3 -my-3 text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           ¿Cómo funciona?
         </Link>

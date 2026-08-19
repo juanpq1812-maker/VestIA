@@ -1,6 +1,9 @@
-// Card AGENDA del dashboard: los eventos de hoy del calendario conectado,
-// con hora local y la ocasión inferida. Server Component (los eventos ya
-// vienen cacheados de la DB).
+// Agenda del día en el home: los eventos de hoy del calendario conectado, con
+// hora local y la ocasión inferida. Server Component (los eventos ya vienen
+// cacheados de la DB).
+//
+// Sin caja: filetes de 1px y un título en Caslon, como el resto del home. La
+// única superficie con relleno de la pantalla es el hero.
 //
 // El clima vivía acá, dentro del estado vacío. Se movió a DashboardHeadline,
 // que lo muestra siempre: tenerlo en los dos lados imprimía la temperatura dos
@@ -26,35 +29,28 @@ function horaBogota(iso: string): string {
 
 export default function AgendaCard({ events }: { events: AgendaEvent[] }) {
   return (
-    <section
-      aria-label="Agenda de hoy"
-      className="rounded-xl bg-surface p-5 shadow-sm"
-    >
-      <div className="flex items-center gap-2">
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" />
-        </svg>
-        <h2 className="font-display text-base text-text">Agenda de hoy</h2>
-      </div>
+    <section aria-label="Agenda de hoy" className="flex flex-col gap-5">
+      <h2 className="font-display text-xl leading-tight tracking-tight text-text sm:text-2xl">
+        Agenda de hoy
+      </h2>
 
       {events.length === 0 ? (
-        <p className="mt-4 text-sm text-text-muted">
+        <p className="max-w-[52ch] text-sm leading-relaxed text-text-muted">
           Sin eventos en tu calendario hoy. Cuando agendes uno, la IA te
           preparará el look.
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-divider">
+        <ul className="divide-y divide-divider border-t border-divider">
           {events.map((ev) => (
-            <li key={ev.id} className="flex items-baseline gap-4 py-3 first:pt-0 last:pb-0">
-              <span className="min-w-12 shrink-0 text-sm font-semibold tabular-nums text-text">
+            <li key={ev.id} className="flex items-baseline gap-5 py-4">
+              <span className="min-w-12 shrink-0 text-sm font-medium tabular-nums text-text">
                 {ev.all_day ? "Hoy" : horaBogota(ev.starts_at)}
               </span>
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-text" title={ev.title}>
+                <p className="truncate text-sm text-text" title={ev.title}>
                   {ev.title}
                 </p>
-                <p className="mt-0.5 text-xs text-text-muted">
+                <p className="mt-0.5 text-xs text-text-faint">
                   {clasificarOcasion(ev.title)}
                 </p>
               </div>

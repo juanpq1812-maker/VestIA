@@ -29,7 +29,7 @@ export default function WeekStrip({ looks }: { looks: LookDeLaSemana[] }) {
         </h2>
         <Link
           href="/outfits/saved"
-          className="shrink-0 text-sm text-text-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex items-center py-3 -my-3 shrink-0 text-sm text-text-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Ver todo
         </Link>

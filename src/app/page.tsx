@@ -27,6 +27,8 @@ import {
   SEMANA_DIAS,
 } from "@/lib/outfits/semana";
 import { calcularPaleta } from "@/lib/wardrobe/paleta";
+import { getLatestPublishedPosts } from "@/lib/editorial/query";
+import type { EditorialPostListItem } from "@/lib/editorial/query";
 import type { LookDeLaSemana } from "@/components/dashboard/WeekStrip";
 import {
   checkWardrobeMinimums,
@@ -280,6 +282,9 @@ export default async function RootPage() {
 
   const paleta = calcularPaleta(allItems.map((i) => i.primary_color));
 
+  // El Hilo: solo el último. RLS ya filtra a status='published'.
+  const [ultimoPost] = await getLatestPublishedPosts(supabase, 1);
+
   // Hora local del próximo evento, pre-formateada para el hero.
   const nextEventTime = nextEvent
     ? new Date(nextEvent.starts_at).toLocaleTimeString("es-CO", {
@@ -314,6 +319,7 @@ export default async function RootPage() {
       heroState={heroState}
       looksDeLaSemana={looksDeLaSemana}
       paleta={paleta}
+      ultimoPost={ultimoPost ?? null}
     />
   );
 }

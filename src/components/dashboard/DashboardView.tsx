@@ -13,7 +13,8 @@
 //   3. Tu semana: los looks que usaste de verdad       (WeekStrip)
 //   4. Hebri: la mascota de gamificación               (HebriSection)
 //   5. Agenda de hoy
-//   6. Pie: paleta del armario                         (PaletaArmario)
+//   6. El Hilo: último post editorial                  (HiloEntry)
+//   7. Pie: paleta del armario                         (PaletaArmario)
 //
 // "Rescata esta prenda" vivió acá y se fue: la misma función ya existe en
 // /wardrobe, y duplicarla en el home solo repetía trabajo del usuario.
@@ -27,6 +28,8 @@ import DashboardHeadline from "@/components/dashboard/DashboardHeadline";
 import WeekStrip, { type LookDeLaSemana } from "@/components/dashboard/WeekStrip";
 import HebriSection from "@/components/dashboard/HebriSection";
 import PaletaArmario from "@/components/dashboard/PaletaArmario";
+import HiloEntry from "@/components/dashboard/HiloEntry";
+import type { EditorialPostListItem } from "@/lib/editorial/query";
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
 import type { PetState } from "@/lib/pet/compute";
 import type { StreakState } from "@/lib/pet/streak";
@@ -43,6 +46,7 @@ type Props = {
   streak: StreakState;
   looksDeLaSemana: LookDeLaSemana[];
   paleta: TramoDePaleta[];
+  ultimoPost: EditorialPostListItem | null;
 };
 
 export default function DashboardView({
@@ -56,6 +60,7 @@ export default function DashboardView({
   streak,
   looksDeLaSemana,
   paleta,
+  ultimoPost,
 }: Props) {
   const esUsuarioNuevo = totalItems === 0;
 
@@ -87,6 +92,8 @@ export default function DashboardView({
                 ) : (
                   <ConnectCalendarCard />
                 )}
+
+                {ultimoPost && <HiloEntry post={ultimoPost} />}
 
                 <PaletaArmario paleta={paleta} />
               </>
