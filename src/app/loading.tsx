@@ -5,8 +5,10 @@
 // día" —con su imagen 4:5— mucho después de que ese hero dejara de existir, y
 // el salto se veía en cada carga.
 //
-// Si cambias el orden o el tamaño de los bloques del home, este archivo
-// cambia con ellos.
+// Las alturas no son a ojo: se midieron los bloques reales en el navegador
+// (146 / 576 / 238 / 568 / 96 / 242 / 95 px en desktop) y este skeleton los
+// espeja. Si cambias el orden o el tamaño de los bloques del home, este
+// archivo cambia con ellos — y vale la pena volver a medir.
 
 import HeaderSkeleton from "@/components/layout/HeaderSkeleton";
 
@@ -45,8 +47,8 @@ export default function Loading() {
               <div className="flex gap-5">
                 {[0, 1, 2].map((k) => (
                   <div key={k} className="flex w-28 shrink-0 flex-col gap-2 sm:w-32">
-                    <div className="aspect-square w-full animate-pulse rounded-2xl bg-surface-2" />
-                    <div className="h-3 w-14 animate-pulse rounded bg-surface-2" />
+                    <div className="aspect-square w-full animate-pulse rounded-2xl bg-surface-2 sm:aspect-[4/5]" />
+                    <div className="h-4 w-14 animate-pulse rounded bg-surface-2" />
                   </div>
                 ))}
               </div>
@@ -58,9 +60,10 @@ export default function Loading() {
               <div className="flex flex-col items-center gap-6">
                 <div className="h-[280px] w-[280px] max-w-full animate-pulse rounded-full bg-surface-2" />
                 <div className="flex w-full max-w-xs flex-col items-center gap-4">
-                  <div className="h-6 w-56 animate-pulse rounded bg-surface-2" />
-                  <div className="h-1.5 w-52 animate-pulse rounded-full bg-surface-2" />
-                  <div className="h-4 w-28 animate-pulse rounded bg-surface-2" />
+                  <div className="h-16 w-64 animate-pulse rounded bg-surface-2" />
+                  <div className="h-11 w-full animate-pulse rounded bg-surface-2" />
+                  <div className="h-[30px] w-52 animate-pulse rounded bg-surface-2" />
+                  <div className="h-6 w-28 animate-pulse rounded bg-surface-2" />
                 </div>
               </div>
             </div>
@@ -68,7 +71,7 @@ export default function Loading() {
             {/* 5 · Agenda */}
             <div className="flex flex-col gap-5">
               <div className="h-7 w-44 animate-pulse rounded bg-surface-2" />
-              <div className="h-4 w-full max-w-[52ch] animate-pulse rounded bg-surface-2" />
+              <div className="h-[46px] w-full max-w-[52ch] animate-pulse rounded bg-surface-2" />
             </div>
 
             {/* 6 · El Hilo: portada + texto */}
@@ -86,9 +89,9 @@ export default function Loading() {
 
             {/* 7 · Paleta */}
             <div className="flex flex-col gap-2.5 border-t border-divider pt-8">
-              <div className="h-4 w-24 animate-pulse rounded bg-surface-2" />
+              <div className="h-5 w-24 animate-pulse rounded bg-surface-2" />
               <div className="h-1.5 w-full max-w-md animate-pulse rounded-full bg-surface-2" />
-              <div className="h-3 w-72 max-w-full animate-pulse rounded bg-surface-2" />
+              <div className="h-4 w-72 max-w-full animate-pulse rounded bg-surface-2" />
             </div>
           </div>
         </div>
