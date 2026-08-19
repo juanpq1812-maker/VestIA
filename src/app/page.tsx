@@ -22,6 +22,14 @@ import { bogotaDay, computeStreak, streakQuerySince } from "@/lib/pet/streak";
 import { getCurrentWeather } from "@/lib/weather/openMeteo";
 import { pickLookDelDia, seedDelDia } from "@/lib/outfits/lookDelDia";
 import {
+  etiquetaDeDia,
+  outfitsDeLaSemana,
+  SEMANA_DIAS,
+} from "@/lib/outfits/semana";
+import { calcularPaleta } from "@/lib/wardrobe/paleta";
+import type { LookDeLaSemana } from "@/components/dashboard/WeekStrip";
+import type { PrendaOlvidada } from "@/components/dashboard/RescataPrenda";
+import {
   checkWardrobeMinimums,
   countByCategory,
 } from "@/lib/wardrobe/wardrobeMinimums";
@@ -80,7 +88,7 @@ export default async function RootPage() {
     supabase
       .from("clothing_items")
       .select(
-        "id, name, subcategory, category, primary_color, image_path, thumbnail_path, created_at"
+        "id, name, subcategory, category, primary_color, image_path, thumbnail_path, background_removed, created_at"
       )
       .eq("status", CONFIRMED_STATUS)
       .order("created_at", { ascending: false }),
@@ -270,27 +278,81 @@ export default async function RootPage() {
     }
   }
 
-  // ── Firmar URLs para imágenes que vamos a mostrar ────────────────────────
-  const { createSignedUrlMap } = await import("@/lib/storage/clothingImages");
-  const pathsToSign = [prendaOlvidada?.image_path].filter(
-    (p): p is string => Boolean(p)
+  // ── Tu semana: los outfits realmente usados en los últimos días ──────────
+  const semana = outfitsDeLaSemana(allUses, offsetDate(today, -SEMANA_DIAS));
+  const itemsPorOutfit = new Map(
+    semana.map((d) => [
+      d.outfitId,
+      (outfitMap.get(d.outfitId) ?? [])
+        .map((id) => allItems.find((i) => i.id === id))
+        .filter((i): i is NonNullable<typeof i> => Boolean(i)),
+    ])
   );
 
+  // ── Firmar URLs para TODAS las imágenes de la pantalla, en un solo lote ──
+  // Antes se firmaba solo la prenda olvidada. Ahora entran también las prendas
+  // de la tira semanal (~5 outfits × 4 prendas). Una llamada batch por bucket,
+  // no una por bloque de UI.
+  const { createSignedUrlMap } = await import("@/lib/storage/clothingImages");
   const { createThumbnailSignedUrlMap: signThumbs } = await import(
     "@/lib/storage/thumbnailUrls"
   );
-  const [signedUrls, olvidadaThumbs] = await Promise.all([
-    createSignedUrlMap(supabase, pathsToSign),
-    signThumbs([prendaOlvidada?.thumbnail_path]),
+
+  const itemsSemana = [...itemsPorOutfit.values()].flat();
+  const [signedUrls, thumbUrls] = await Promise.all([
+    createSignedUrlMap(
+      supabase,
+      [prendaOlvidada?.image_path, ...itemsSemana.map((i) => i.image_path)].filter(
+        (p): p is string => Boolean(p)
+      )
+    ),
+    signThumbs([
+      prendaOlvidada?.thumbnail_path,
+      ...itemsSemana.map((i) => i.thumbnail_path),
+    ]),
   ]);
 
-  // Inyectar URL firmada en el objeto: miniatura si la hay, si no la completa.
-  if (prendaOlvidada?.image_path) {
-    (prendaOlvidada as { image_url?: string | null }).image_url =
-      (prendaOlvidada.thumbnail_path
-        ? olvidadaThumbs.get(prendaOlvidada.thumbnail_path)
-        : null) ?? signedUrls.get(prendaOlvidada.image_path) ?? null;
-  }
+  // Miniatura si la hay; si no, la imagen completa. Se construye el objeto en
+  // vez de mutar la candidata: antes esto era un cast a un tipo inventado.
+  const prendaARescatar: PrendaOlvidada | null = prendaOlvidada
+    ? {
+        id: prendaOlvidada.id,
+        nombre: prendaOlvidada.nombre,
+        primary_color: prendaOlvidada.primary_color,
+        diasOlvidada: prendaOlvidada.diasOlvidada,
+        image_url:
+          (prendaOlvidada.thumbnail_path
+            ? thumbUrls.get(prendaOlvidada.thumbnail_path)
+            : null) ??
+          (prendaOlvidada.image_path
+            ? signedUrls.get(prendaOlvidada.image_path) ?? null
+            : null),
+      }
+    : null;
+
+  const hoyIso = bogotaDay(today);
+  const ayerIso = offsetDate(today, -1);
+  const looksDeLaSemana: LookDeLaSemana[] = semana
+    .map((d) => ({
+      outfitId: d.outfitId,
+      etiqueta: etiquetaDeDia(d.usedDate, hoyIso, ayerIso),
+      items: (itemsPorOutfit.get(d.outfitId) ?? []).map((i) => ({
+        id: i.id,
+        category: i.category,
+        subcategory: i.subcategory,
+        name: i.name,
+        primary_color: i.primary_color,
+        background_removed: i.background_removed,
+        image_url: i.image_path ? signedUrls.get(i.image_path) ?? null : null,
+        thumbnail_url: i.thumbnail_path
+          ? thumbUrls.get(i.thumbnail_path) ?? null
+          : null,
+      })),
+    }))
+    // Un outfit cuyas prendas ya no existen no tiene nada que mostrar.
+    .filter((l) => l.items.length > 0);
+
+  const paleta = calcularPaleta(allItems.map((i) => i.primary_color));
 
   // Hora local del próximo evento, pre-formateada para el hero.
   const nextEventTime = nextEvent
@@ -319,12 +381,14 @@ export default async function RootPage() {
       displayName={displayName}
       totalItems={allItems.length}
       petState={petState}
-      prendaOlvidada={prendaOlvidada as Parameters<typeof DashboardView>[0]["prendaOlvidada"]}
+      prendaOlvidada={prendaARescatar}
       hasCalendarFeed={hayFeed}
       agendaEvents={agendaEvents}
       weather={weather}
       streak={streak}
       heroState={heroState}
+      looksDeLaSemana={looksDeLaSemana}
+      paleta={paleta}
     />
   );
 }
@@ -423,6 +487,7 @@ async function resolverHeroState(params: {
       subcategory: i.subcategory,
       name: i.name,
       primary_color: i.primary_color,
+      background_removed: i.background_removed,
       image_url: i.image_path ? lookUrls.get(i.image_path) ?? null : null,
       thumbnail_url: i.thumbnail_path
         ? lookThumbs.get(i.thumbnail_path) ?? null
@@ -440,6 +505,7 @@ type HeroItemRow = {
   primary_color: string | null;
   image_path: string | null;
   thumbnail_path: string | null;
+  background_removed: boolean | null;
 };
 
 // ── Helpers de fecha ──────────────────────────────────────────────────────────

@@ -3,56 +3,47 @@
 // Server Component: recibe todos los datos pre-calculados desde page.tsx.
 // Responsabilidad de este componente: solo UI.
 //
-// Estructura editorial:
-//   1. Cabecera: fecha + clima, saludo grande, racha  (DashboardHeadline).
-//   2. Hero "Hoy" — qué ponerse (TodayHero, 4 estados).
-//   3. Grid secundario: prenda olvidada + Comunidad.
-//   4. Banner de inspiración → AI Studio.
+// Composición: el hero es la ÚNICA superficie con relleno de la pantalla. Todo
+// lo demás se apoya sobre el crema y se agrupa con aire y con los títulos en
+// Caslon, no con cajas. Una tarjeta por bloque era lo que hacía que el home se
+// leyera como plantilla.
+//
+//   1. Cabecera: fecha + clima, saludo grande, racha   (DashboardHeadline)
+//   2. Hero "Hoy": qué ponerse, 4 estados              (TodayHero)
+//   3. Tu semana: los looks que usaste de verdad       (WeekStrip)
+//   4. Rescata esta prenda                             (RescataPrenda)
+//   5. Agenda de hoy
+//   6. Pie: paleta del armario + Hebri                 (QuietFooter)
 
-import Link from "next/link";
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
-import { buttonClasses } from "@/components/ui/Button";
-import LazyImage from "@/components/ui/LazyImage";
 import AgendaCard, { type AgendaEvent } from "@/components/dashboard/AgendaCard";
 import TodayHero, { type TodayHeroState } from "@/components/dashboard/TodayHero";
 import ConnectCalendarCard from "@/components/dashboard/ConnectCalendarCard";
 import DashboardHeadline from "@/components/dashboard/DashboardHeadline";
-import HebriSprite from "@/components/pet/HebriSprite";
-import {
-  PET_DIRTY_MESSAGE,
-  PET_MOOD_LABEL,
-  PET_MOOD_SHORT_MESSAGE,
-} from "@/components/pet/moodMessages";
+import WeekStrip, { type LookDeLaSemana } from "@/components/dashboard/WeekStrip";
+import RescataPrenda, {
+  type PrendaOlvidada,
+} from "@/components/dashboard/RescataPrenda";
+import QuietFooter from "@/components/dashboard/QuietFooter";
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
 import type { PetState } from "@/lib/pet/compute";
 import type { StreakState } from "@/lib/pet/streak";
-
-import { garmentSwatch } from "@/lib/ui/colors";
-// ── Tipos ────────────────────────────────────────────────────────────────────
-
-type PrendaOlvidada = {
-  id: string;
-  nombre: string;
-  image_path: string | null;
-  image_url?: string | null;
-  primary_color: string | null;
-  diasOlvidada: number;
-} | null;
+import type { TramoDePaleta } from "@/lib/wardrobe/paleta";
 
 type Props = {
   displayName: string;
   totalItems: number;
   petState: PetState;
-  prendaOlvidada: PrendaOlvidada;
+  prendaOlvidada: PrendaOlvidada | null;
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
   heroState: TodayHeroState;
   weather: CurrentWeather | null;
   streak: StreakState;
+  looksDeLaSemana: LookDeLaSemana[];
+  paleta: TramoDePaleta[];
 };
-
-// ── Componente principal ──────────────────────────────────────────────────────
 
 export default function DashboardView({
   displayName,
@@ -64,6 +55,8 @@ export default function DashboardView({
   heroState,
   weather,
   streak,
+  looksDeLaSemana,
+  paleta,
 }: Props) {
   const esUsuarioNuevo = totalItems === 0;
 
@@ -73,263 +66,35 @@ export default function DashboardView({
 
       <main className="flex-1 pb-24 pt-6 sm:pb-14 sm:pt-10">
         <Container size="lg">
-          <div className="mb-12 sm:mb-16">
+          <div className="flex flex-col gap-12 sm:gap-16">
             <DashboardHeadline
               displayName={displayName}
               weather={weather}
               streak={streak}
             />
-          </div>
 
-          <DashboardConDatos
-            totalItems={totalItems}
-            petState={petState}
-            prendaOlvidada={prendaOlvidada}
-            hasCalendarFeed={hasCalendarFeed}
-            agendaEvents={agendaEvents}
-            heroState={heroState}
-            esUsuarioNuevo={esUsuarioNuevo}
-          />
+            <TodayHero state={heroState} />
+
+            {/* Con cero prendas el hero ya dice todo lo que hay que decir:
+                apilar semana, agenda y mascota debajo diluye el primer paso. */}
+            {esUsuarioNuevo ? null : (
+              <>
+                <WeekStrip looks={looksDeLaSemana} />
+
+                {prendaOlvidada && <RescataPrenda prenda={prendaOlvidada} />}
+
+                {hasCalendarFeed ? (
+                  <AgendaCard events={agendaEvents} />
+                ) : (
+                  <ConnectCalendarCard />
+                )}
+
+                <QuietFooter paleta={paleta} petState={petState} />
+              </>
+            )}
+          </div>
         </Container>
       </main>
-    </div>
-  );
-}
-
-// ── Dashboard con datos ───────────────────────────────────────────────────────
-
-type DashboardConDatosProps = {
-  totalItems: number;
-  petState: PetState;
-  prendaOlvidada: PrendaOlvidada;
-  hasCalendarFeed: boolean;
-  agendaEvents: AgendaEvent[];
-  heroState: TodayHeroState;
-  esUsuarioNuevo: boolean;
-};
-
-function DashboardConDatos({
-  totalItems,
-  petState,
-  prendaOlvidada,
-  hasCalendarFeed,
-  agendaEvents,
-  heroState,
-  esUsuarioNuevo,
-}: DashboardConDatosProps) {
-  return (
-    <div className="flex flex-col gap-12 sm:gap-16">
-      <TodayHero state={heroState} />
-
-      {/* Con cero prendas el hero ya dice todo lo que hay que decir: apilar
-          agenda, mascota y comunidad debajo solo diluye el primer paso. */}
-      {esUsuarioNuevo ? null : (
-        <>
-          {hasCalendarFeed && <AgendaCard events={agendaEvents} />}
-          {!hasCalendarFeed && <ConnectCalendarCard />}
-
-          <HebriHero petState={petState} />
-
-          {/* ── Grid secundario: más usados / comunidad ───────────────────
-              Grid de 2 items fijos — en desktop se limita el ancho en vez de
-              estirar las cards a lo ancho del Container. */}
-          <div className="grid grid-cols-2 gap-4 lg:mx-auto lg:max-w-2xl lg:gap-6">
-            <MasUsadosCard
-              prendaOlvidada={prendaOlvidada}
-              totalItems={totalItems}
-            />
-            <ComunidadCard />
-          </div>
-
-          <InspiracionBanner />
-        </>
-      )}
-    </div>
-  );
-}
-
-// ── Hebri ────────────────────────────────────────────────────────────────────
-// Ya no es el hero — ese lugar lo ocupa TodayHero, que responde "¿qué me
-// pongo?". Esta card baja a HebriWidget en la fase 4; mientras tanto sigue
-// aquí para no perder el acceso a /pet.
-
-function HebriHero({ petState }: { petState: PetState }) {
-  const { score, mood, isDirty } = petState;
-
-  return (
-    <section className="relative overflow-hidden rounded-xl bg-surface-offset p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-6">
-      {/* Halo suave detrás de Hebri — el único momento del dashboard donde
-          la mascota "vive"; el resto de las cards son estáticas. */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-4 h-96 w-96 -translate-x-1/2 rounded-full bg-primary-light/70 blur-3xl sm:top-2"
-      />
-
-      <div className="relative flex flex-col items-center gap-4 text-center">
-        <div className="flex w-full items-start justify-between gap-3 text-left">
-          <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-widest text-text-muted">
-              Tu compañera
-            </p>
-            <h2 className="font-display text-2xl text-text sm:text-3xl">Hebri</h2>
-          </div>
-          <span className="flex shrink-0 items-center gap-1 rounded-full bg-surface px-3 py-1 text-xs font-semibold text-text shadow-sm">
-            {PET_MOOD_LABEL[mood]}
-          </span>
-        </div>
-
-        <HebriSprite mood={mood} isDirty={isDirty} size={270} />
-
-        <div className="flex flex-col gap-3 sm:mx-auto sm:w-full sm:max-w-xs">
-          <p className="text-sm leading-relaxed text-text-muted">
-            {PET_MOOD_SHORT_MESSAGE[mood]}
-          </p>
-
-          {isDirty && (
-            <p className="text-xs font-semibold text-danger">{PET_DIRTY_MESSAGE}</p>
-          )}
-
-          <div
-            role="progressbar"
-            aria-valuenow={score}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-label={`Ánimo de Hebri: ${score} de 100`}
-            className="h-1.5 overflow-hidden rounded-full bg-surface"
-          >
-            <div
-              className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out"
-              style={{ width: `${score}%` }}
-            />
-          </div>
-
-          <Link href="/pet" className={buttonClasses({ size: "lg", fullWidth: true })}>
-            Ver a Hebri
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ── Tus más usados (prenda olvidada real) ────────────────────────────────────
-
-function MasUsadosCard({
-  prendaOlvidada,
-  totalItems,
-}: {
-  prendaOlvidada: PrendaOlvidada;
-  totalItems: number;
-}) {
-  return (
-    <div className="flex flex-col overflow-hidden rounded-xl bg-surface-2">
-      <div
-        className="aspect-square w-full overflow-hidden"
-        style={{
-          backgroundColor: garmentSwatch(prendaOlvidada?.primary_color),
-        }}
-      >
-        {prendaOlvidada?.image_url ? (
-          <LazyImage
-            src={prendaOlvidada.image_url}
-            alt={prendaOlvidada.nombre}
-            className="h-full w-full object-cover"
-          />
-        ) : null}
-      </div>
-      <div className="flex flex-1 flex-col p-4">
-        {/* El título decía "Tus más usados" pero la prenda que se muestra es la
-            OLVIDADA — page.tsx ordena las candidatas por `diasOlvidada` desc.
-            Título y contenido decían cosas opuestas. */}
-        <h3 className="font-display text-base text-text">
-          {prendaOlvidada ? "Rescata esta prenda" : "Tu armario"}
-        </h3>
-        <p className="mt-1 flex-1 text-xs leading-relaxed text-text-muted">
-          {prendaOlvidada
-            ? `${prendaOlvidada.nombre} lleva ${prendaOlvidada.diasOlvidada} días sin salir del armario.`
-            : `Tienes ${totalItems} ${totalItems === 1 ? "prenda" : "prendas"} en rotación. Dale una nueva oportunidad a las que menos usas.`}
-        </p>
-        <Link
-          href={
-            prendaOlvidada
-              ? `/outfits?prenda=${prendaOlvidada.id}&nombre=${encodeURIComponent(prendaOlvidada.nombre)}`
-              : "/wardrobe"
-          }
-          className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-primary-mid/60 px-4 py-2 text-xs font-semibold text-text transition-all duration-200 ease-out hover:bg-primary hover:text-white active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          Revisar armario
-          <span aria-hidden="true">→</span>
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-// ── Comunidad ────────────────────────────────────────────────────────────────
-
-function ComunidadCard() {
-  return (
-    <div className="flex flex-col overflow-hidden rounded-xl bg-surface-2">
-      <div
-        aria-hidden="true"
-        className="flex aspect-square w-full items-center justify-center bg-primary-light text-primary"
-      >
-        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="9" cy="8" r="3" />
-          <path d="M3.5 20c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
-          <circle cx="17" cy="9" r="2.4" />
-          <path d="M16.5 15.2c2.6.3 4.5 2.1 4.5 4.8" />
-        </svg>
-      </div>
-      <div className="flex flex-1 flex-col p-4">
-        <h3 className="font-display text-base text-text">Comunidad</h3>
-        <p className="mt-1 flex-1 text-xs leading-relaxed text-text-muted">
-          Descubre qué están usando tus amigos y gana puntos cumpliendo
-          nuestros Fashion Quests.
-        </p>
-        <Link
-          href="/comunidad"
-          className="mt-3 inline-flex w-fit items-center gap-2 rounded-full bg-primary-mid/60 px-4 py-2 text-xs font-semibold text-text transition-all duration-200 ease-out hover:bg-primary hover:text-white active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        >
-          Explora la comunidad
-          <span aria-hidden="true">→</span>
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-// ── Inspiración ──────────────────────────────────────────────────────────────
-
-function InspiracionBanner() {
-  return (
-    <div className="flex flex-col gap-3 rounded-xl bg-surface-offset p-5 sm:p-6">
-      <div className="flex items-center gap-2">
-        <svg
-          aria-hidden="true"
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          className="text-primary"
-        >
-          <path d="M12 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Zm7 12c0 1.66-1.34 3-3 3 1.66 0 3 1.34 3 3 0-1.66 1.34-3 3-3-1.66 0-3-1.34-3-3Z" />
-        </svg>
-        <h3 className="font-display text-xl text-text">
-          ¿Buscas inspiración?
-        </h3>
-      </div>
-      <p className="max-w-prose text-sm leading-relaxed text-text-muted">
-        ¡Deja que nuestra IA te inspire! Descubre qué prendas comprar o
-        encuentra el look perfecto explorando los outfits de nuestra comunidad.
-      </p>
-      <Link
-        href="/outfits"
-        className="inline-flex w-fit items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        Explorar más
-        <span aria-hidden="true">→</span>
-      </Link>
     </div>
   );
 }

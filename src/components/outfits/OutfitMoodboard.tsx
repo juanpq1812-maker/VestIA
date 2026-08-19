@@ -135,7 +135,15 @@ export type MoodboardItem = Pick<
   | "primary_color"
   | "image_url"
   | "thumbnail_url"
->;
+> & {
+  /**
+   * Si el recorte de fondo falló, la foto trae su fondo original. Apilarla
+   * junto a recortes limpios rompe la composición, así que cae al swatch de
+   * color — mismo criterio que StyleJournalPage. `undefined` = no se sabe, se
+   * intenta la foto.
+   */
+  background_removed?: boolean | null;
+};
 
 type Props = {
   items: MoodboardItem[];
@@ -209,7 +217,7 @@ export default function OutfitMoodboard({ items, index = 0, background }: Props)
             }}
           >
             <div className="h-full w-full" style={{ transform: `rotate(${p.rot}deg)` }}>
-              {it.thumbnail_url ?? it.image_url ? (
+              {it.background_removed !== false && (it.thumbnail_url ?? it.image_url) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={(it.thumbnail_url ?? it.image_url) as string}
