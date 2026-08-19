@@ -141,13 +141,15 @@ export default async function SavedOutfitsPage() {
     .map(([outfitId, lastUsedIso]) => {
       const outfit = outfits.find((o) => o.id === outfitId);
       if (!outfit) return null;
-      const cover = outfit.clothing_item_ids
+      // Todas las prendas, no solo la primera: la mini card dibuja el outfit
+      // completo con OutfitMoodboard, igual que la tira "Tu semana" del home.
+      const items = outfit.clothing_item_ids
         .map((id) => itemsById.get(id))
-        .find((it): it is ClothingItem => Boolean(it)) ?? null;
+        .filter((it): it is ClothingItem => Boolean(it));
       return {
         id: outfit.id,
         name: outfit.name,
-        cover,
+        items,
         lastUsedIso,
         usedDates: usesByOutfit.get(outfit.id) ?? [],
       };
