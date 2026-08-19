@@ -43,7 +43,7 @@ export default function HebriSection({ petState }: { petState: PetState }) {
         <div className="relative flex items-center justify-center">
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute h-[22rem] w-[22rem] rounded-full bg-primary-light blur-3xl"
+            className="pointer-events-none absolute h-80 w-80 rounded-full bg-primary-light blur-3xl sm:h-[22rem] sm:w-[22rem]"
           />
           <HebriSprite
             mood={mood}
