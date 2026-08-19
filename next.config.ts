@@ -13,6 +13,19 @@ const allowedOrigins = [
   ...(process.env.VERCEL_URL ? [process.env.VERCEL_URL] : []),
 ];
 
+// Identificador de build, para versionar la caché del service worker.
+//
+// El SW cacheaba con un nombre fijo ("strandia-v2") escrito a mano, así que
+// su `activate` —que solo borra cachés con OTRO nombre— nunca limpiaba nada
+// entre despliegues. El HTML precacheado sobrevivía indefinidamente
+// apuntando a chunks de `/_next/static` que el deploy siguiente ya había
+// borrado: de ahí los 404 al abrir la PWA.
+//
+// En Vercel sale del SHA del commit. En local cambia en cada `next build`,
+// que es justo lo que se quiere para no arrastrar caché entre pruebas.
+const BUILD_ID =
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 8) ?? `dev-${Date.now().toString(36)}`;
+
 const securityHeaders = [
   // Evita que la app se embeba en iframes (previene clickjacking).
   { key: "X-Frame-Options", value: "DENY" },
@@ -41,6 +54,10 @@ const IMGLY_ROUTES = [
 ];
 
 const nextConfig: NextConfig = {
+  // Se inyecta en el bundle del cliente para poder registrar el SW con
+  // `?v=<build>` y que el navegador lo trate como script nuevo.
+  env: { NEXT_PUBLIC_BUILD_ID: BUILD_ID },
+
   // node-ical (parser del calendario) no sobrevive el bundling de Turbopack
   // ("BigInt is not a function" al recolectar page data). Server-only: se
   // resuelve desde node_modules en runtime.
