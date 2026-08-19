@@ -1,23 +1,86 @@
 // Hero de la landing. Client component: orquesta la coreografía de entrada
-// (las líneas del titular suben tras una máscara, el panel-foto entra con
-// clip + scale) y el parallax sutil de la foto al hacer scroll. El CTA
-// secundario usa el scroll suave de Lenis para bajar a "Cómo funciona".
+// (las líneas del titular suben tras una máscara, el panel entra con clip +
+// scale) y el mockup interactivo de la app. El CTA secundario usa el scroll
+// suave de Lenis para bajar a "Cómo funciona".
+//
+// El panel derecho era una foto de stock de Unsplash: bonita y genérica, no
+// contaba qué hace el producto. Ahora es la app misma — un selector de ocasión
+// que cambia en vivo las prendas, el score y lo que dice Hebri. El visitante
+// entiende StrandIA tocándola.
 
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSmoothScroll } from "./SmoothScroll";
 
-// Foto verificada (Unsplash): knitwear cálido colgado, luz de boutique.
-const HERO_IMG =
-  "https://images.unsplash.com/photo-1445205170230-053b83016050?auto=format&fit=crop&w=900&q=80";
+// ── Datos del mockup ─────────────────────────────────────────────────────────
+//
+// Son datos de demo de la landing, no del producto: viven acá y no en lib/.
+// Las rutas apuntan a los PNG reales de /public/icons/prendas/ — ilustraciones
+// de línea con trazo oscuro, que es justo por lo que cada prenda va sobre una
+// lámina blanca: sobre el verde del hero el trazo desaparecería.
+
+type Prenda = { src: string; alt: string };
+
+type Ocasion = {
+  id: string;
+  /** Etiqueta del selector. */
+  label: string;
+  /** Nombre del look, como lo diría la app. */
+  look: string;
+  /** Afinidad 0-100, el mismo concepto que `match_percentage` en la app real. */
+  score: number;
+  prendas: [Prenda, Prenda, Prenda];
+  hebri: string;
+};
+
+const OCASIONES: Ocasion[] = [
+  {
+    id: "universitario",
+    label: "Casual universitario",
+    look: "Casual con capas",
+    score: 94,
+    prendas: [
+      { src: "/icons/prendas/tops/camiseta.png", alt: "Camiseta" },
+      { src: "/icons/prendas/bottoms/jean.png", alt: "Jean" },
+      { src: "/icons/prendas/calzado/tenis.png", alt: "Tenis" },
+    ],
+    hebri: "Vas a estar de pie todo el día: algodón y tenis.",
+  },
+  {
+    id: "oficina",
+    label: "Smart casual / Oficina",
+    look: "Smart casual sobrio",
+    score: 91,
+    prendas: [
+      { src: "/icons/prendas/tops/camisa.png", alt: "Camisa" },
+      { src: "/icons/prendas/bottoms/pantalon.png", alt: "Pantalón" },
+      { src: "/icons/prendas/calzado/mocasines.png", alt: "Mocasines" },
+    ],
+    hebri: "Camisa sin corbata: formal sin pasarte de formal.",
+  },
+  {
+    id: "noche",
+    label: "Cena & noche",
+    look: "Noche con intención",
+    score: 96,
+    prendas: [
+      { src: "/icons/prendas/tops/blusa.png", alt: "Blusa" },
+      { src: "/icons/prendas/bottoms/falda.png", alt: "Falda" },
+      { src: "/icons/prendas/calzado/tacones.png", alt: "Tacones" },
+    ],
+    hebri: "Una sola pieza que destaque. El resto, que acompañe.",
+  },
+];
 
 export default function LandingHero() {
   const { scrollTo } = useSmoothScroll();
   const rootRef = useRef<HTMLDivElement>(null);
-  const photoRef = useRef<HTMLDivElement>(null);
+  const [activa, setActiva] = useState(0);
+  const tabsId = useId();
+  const ocasion = OCASIONES[activa];
 
   // Dispara la coreografía de entrada solo cuando hay JS, la pestaña está
   // visible y se permite movimiento. Si no, el contenido queda en su estado
@@ -42,27 +105,15 @@ export default function LandingHero() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
-  // Parallax sutil: la foto se mueve un poco más lento que el scroll.
-  useEffect(() => {
-    const el = photoRef.current;
-    if (!el) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    let raf = 0;
-    const update = () => {
-      const shift = Math.max(-40, Math.min(40, window.scrollY * -0.05));
-      el.style.setProperty("--parallax", `${shift}px`);
-      raf = 0;
-    };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
+  // Flechas izquierda/derecha entre pestañas, que es lo que espera un tablist.
+  function onTabKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+    if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+    e.preventDefault();
+    const paso = e.key === "ArrowRight" ? 1 : -1;
+    const siguiente = (activa + paso + OCASIONES.length) % OCASIONES.length;
+    setActiva(siguiente);
+    document.getElementById(`${tabsId}-tab-${siguiente}`)?.focus();
+  }
 
   return (
     <div
@@ -108,44 +159,105 @@ export default function LandingHero() {
         </div>
       </div>
 
-      {/* Panel-foto con parallax */}
+      {/* Mockup interactivo.
+          Antes había un parallax sobre la foto. Se quitó: ese efecto era
+          gratis sobre una imagen, pero este panel tiene botones, y desplazar
+          el blanco mientras alguien intenta pulsarlo es hostil. */}
       <div className="hero-photo relative mx-auto w-full max-w-md lg:max-w-none">
-        <div
-          ref={photoRef}
-          className="relative aspect-[4/5] overflow-hidden rounded-[1.75rem] ring-1 ring-white/20 will-change-transform"
-          style={{ transform: "translateY(var(--parallax, 0px))" }}
-        >
-          <Image
-            src={HERO_IMG}
-            alt="Prendas de punto en tonos cálidos colgadas en una boutique, iluminadas con luz natural"
-            fill
-            priority
-            sizes="(max-width: 1024px) 90vw, 45vw"
-            className="object-cover"
-          />
+        <div className="overflow-hidden rounded-[1.75rem] bg-surface shadow-lg ring-1 ring-white/20">
+          {/* Cuerpo: el look propuesto */}
           <div
-            aria-hidden="true"
-            className="absolute inset-0 bg-gradient-to-t from-ink/35 via-transparent to-transparent"
-          />
-        </div>
-
-        {/* Chip flotante: comunica el producto sobre la foto */}
-        <div className="hero-chip absolute -bottom-4 -left-3 flex items-center gap-3 rounded-2xl bg-surface px-4 py-3 shadow-lg sm:-left-6">
-          <span
-            aria-hidden="true"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-light text-primary"
+            role="tabpanel"
+            id={`${tabsId}-panel`}
+            aria-labelledby={`${tabsId}-tab-${activa}`}
+            aria-live="polite"
+            className="flex flex-col gap-5 p-5 sm:p-6"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
-            </svg>
-          </span>
-          <div className="text-left">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-              Outfit del día
-            </p>
-            <p className="font-display text-sm text-text">Casual universitario</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                  El look de hoy
+                </p>
+                <p className="mt-1 font-display text-xl leading-tight text-text">
+                  {ocasion.look}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-primary-light px-3 py-1 text-xs font-semibold tabular-nums text-primary">
+                {ocasion.score}% afinidad
+              </span>
+            </div>
+
+            {/* Las prendas. `key` por ocasión para que React remonte y el
+                crossfade se dispare en cada cambio. */}
+            <ul
+              key={ocasion.id}
+              className="grid grid-cols-3 gap-3 motion-safe:animate-[fadeIn_260ms_ease-out]"
+            >
+              {ocasion.prendas.map((p) => (
+                <li
+                  key={p.src}
+                  className="flex aspect-square items-center justify-center rounded-xl border border-border bg-white p-3"
+                >
+                  <Image
+                    src={p.src}
+                    alt={p.alt}
+                    width={128}
+                    height={128}
+                    priority
+                    className="h-full w-full object-contain"
+                  />
+                </li>
+              ))}
+            </ul>
+
+            {/* Hebri comentando el look */}
+            <div className="flex items-center gap-3 rounded-xl bg-surface-2 px-3 py-2.5">
+              <Image
+                src="/hebri/estados/hebri_feliz.png"
+                alt=""
+                width={40}
+                height={40}
+                loading="eager"
+                className="h-10 w-10 shrink-0 object-contain"
+              />
+              <p key={ocasion.id} className="text-sm leading-snug text-text-muted motion-safe:animate-[fadeIn_260ms_ease-out]">
+                {ocasion.hebri}
+              </p>
+            </div>
+          </div>
+
+          {/* Selector de ocasión */}
+          <div
+            role="tablist"
+            aria-label="Elige una ocasión"
+            className="flex flex-wrap gap-2 border-t border-divider bg-surface-2/60 px-4 py-3"
+          >
+            {OCASIONES.map((o, i) => {
+              const activo = i === activa;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  role="tab"
+                  id={`${tabsId}-tab-${i}`}
+                  aria-selected={activo}
+                  aria-controls={`${tabsId}-panel`}
+                  tabIndex={activo ? 0 : -1}
+                  onClick={() => setActiva(i)}
+                  onKeyDown={onTabKeyDown}
+                  className={`inline-flex min-h-11 items-center rounded-full border px-4 py-2 text-xs font-medium transition-all duration-200 ease-out focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                    activo
+                      ? "border-primary bg-primary text-white shadow-sm"
+                      : "border-border bg-surface text-text-muted hover:border-primary-mid hover:bg-surface-2 hover:text-text active:translate-y-0"
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
           </div>
         </div>
+
       </div>
     </div>
   );
