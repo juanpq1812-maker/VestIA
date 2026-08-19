@@ -11,9 +11,12 @@
 //   1. Cabecera: fecha + clima, saludo grande, racha   (DashboardHeadline)
 //   2. Hero "Hoy": qué ponerse, 4 estados              (TodayHero)
 //   3. Tu semana: los looks que usaste de verdad       (WeekStrip)
-//   4. Rescata esta prenda                             (RescataPrenda)
+//   4. Hebri: la mascota de gamificación               (HebriSection)
 //   5. Agenda de hoy
-//   6. Pie: paleta del armario + Hebri                 (QuietFooter)
+//   6. Pie: paleta del armario                         (PaletaArmario)
+//
+// "Rescata esta prenda" vivió acá y se fue: la misma función ya existe en
+// /wardrobe, y duplicarla en el home solo repetía trabajo del usuario.
 
 import Header from "@/components/layout/Header";
 import Container from "@/components/ui/Container";
@@ -22,10 +25,8 @@ import TodayHero, { type TodayHeroState } from "@/components/dashboard/TodayHero
 import ConnectCalendarCard from "@/components/dashboard/ConnectCalendarCard";
 import DashboardHeadline from "@/components/dashboard/DashboardHeadline";
 import WeekStrip, { type LookDeLaSemana } from "@/components/dashboard/WeekStrip";
-import RescataPrenda, {
-  type PrendaOlvidada,
-} from "@/components/dashboard/RescataPrenda";
-import QuietFooter from "@/components/dashboard/QuietFooter";
+import HebriSection from "@/components/dashboard/HebriSection";
+import PaletaArmario from "@/components/dashboard/PaletaArmario";
 import type { CurrentWeather } from "@/lib/weather/openMeteo";
 import type { PetState } from "@/lib/pet/compute";
 import type { StreakState } from "@/lib/pet/streak";
@@ -35,7 +36,6 @@ type Props = {
   displayName: string;
   totalItems: number;
   petState: PetState;
-  prendaOlvidada: PrendaOlvidada | null;
   hasCalendarFeed: boolean;
   agendaEvents: AgendaEvent[];
   heroState: TodayHeroState;
@@ -49,7 +49,6 @@ export default function DashboardView({
   displayName,
   totalItems,
   petState,
-  prendaOlvidada,
   hasCalendarFeed,
   agendaEvents,
   heroState,
@@ -81,7 +80,7 @@ export default function DashboardView({
               <>
                 <WeekStrip looks={looksDeLaSemana} />
 
-                {prendaOlvidada && <RescataPrenda prenda={prendaOlvidada} />}
+                <HebriSection petState={petState} />
 
                 {hasCalendarFeed ? (
                   <AgendaCard events={agendaEvents} />
@@ -89,7 +88,7 @@ export default function DashboardView({
                   <ConnectCalendarCard />
                 )}
 
-                <QuietFooter paleta={paleta} petState={petState} />
+                <PaletaArmario paleta={paleta} />
               </>
             )}
           </div>

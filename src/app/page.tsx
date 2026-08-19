@@ -28,7 +28,6 @@ import {
 } from "@/lib/outfits/semana";
 import { calcularPaleta } from "@/lib/wardrobe/paleta";
 import type { LookDeLaSemana } from "@/components/dashboard/WeekStrip";
-import type { PrendaOlvidada } from "@/components/dashboard/RescataPrenda";
 import {
   checkWardrobeMinimums,
   countByCategory,
@@ -53,7 +52,6 @@ export default async function RootPage() {
 
   // ── Queries del dashboard (todas en paralelo) ─────────────────────────────
   const today = new Date();
-  const fifteenDaysAgoStr = offsetDate(today, -15);
   // Ventana de análisis: los cálculos de prenda estrella/olvidada solo miran
   // los últimos 90 días — evita que el payload de usos crezca sin límite con
   // el historial del usuario.
@@ -132,55 +130,6 @@ export default async function RootPage() {
   for (const outfit of allOutfits) {
     outfitMap.set(outfit.id, outfit.clothing_item_ids ?? []);
   }
-
-  // ── Prenda olvidada: sin uso en outfit_uses en los últimos 15 días ───────
-  const recentlyUsedItemIds = new Set<string>();
-  for (const use of allUses) {
-    if (use.used_date >= fifteenDaysAgoStr) {
-      for (const itemId of outfitMap.get(use.outfit_id) ?? []) {
-        recentlyUsedItemIds.add(itemId);
-      }
-    }
-  }
-
-  // Map de outfit_id → last used_date para buscar la fecha de último uso por prenda
-  const lastUsedByOutfit = new Map<string, string>();
-  for (const use of allUses) {
-    const prev = lastUsedByOutfit.get(use.outfit_id);
-    if (!prev || use.used_date > prev) {
-      lastUsedByOutfit.set(use.outfit_id, use.used_date);
-    }
-  }
-
-  // Candidatas: prendas no usadas en 15 días Y creadas hace 15+ días
-  type Candidata = { id: string; nombre: string; image_path: string | null; thumbnail_path: string | null; primary_color: string | null; diasOlvidada: number };
-  const candidatas: Candidata[] = [];
-  for (const item of allItems) {
-    if (recentlyUsedItemIds.has(item.id)) continue;
-    const createdDaysAgo = daysBetween(new Date(item.created_at), today);
-    if (createdDaysAgo < 15) continue;
-
-    // Buscar última fecha de uso (puede ser null si nunca se usó)
-    let lastUseDate: string | null = null;
-    for (const [outfitId, ids] of outfitMap.entries()) {
-      if (ids.includes(item.id)) {
-        const d = lastUsedByOutfit.get(outfitId);
-        if (d && (!lastUseDate || d > lastUseDate)) lastUseDate = d;
-      }
-    }
-    const refDate = lastUseDate ?? item.created_at.slice(0, 10);
-    const diasOlvidada = daysBetween(new Date(refDate), today);
-    candidatas.push({
-      id: item.id,
-      nombre: item.name?.trim() || item.subcategory?.trim() || item.category,
-      image_path: item.image_path,
-      thumbnail_path: item.thumbnail_path,
-      primary_color: item.primary_color,
-      diasOlvidada,
-    });
-  }
-  candidatas.sort((a, b) => b.diasOlvidada - a.diasOlvidada);
-  const prendaOlvidada = candidatas[0] ?? null;
 
   // ── Calendario: sync si está stale + eventos de hoy (Bogotá) ─────────────
   // Multi-feed: el usuario puede tener Google Y Apple conectados a la vez.
@@ -302,33 +251,10 @@ export default async function RootPage() {
   const [signedUrls, thumbUrls] = await Promise.all([
     createSignedUrlMap(
       supabase,
-      [prendaOlvidada?.image_path, ...itemsSemana.map((i) => i.image_path)].filter(
-        (p): p is string => Boolean(p)
-      )
+      itemsSemana.map((i) => i.image_path).filter((p): p is string => Boolean(p))
     ),
-    signThumbs([
-      prendaOlvidada?.thumbnail_path,
-      ...itemsSemana.map((i) => i.thumbnail_path),
-    ]),
+    signThumbs(itemsSemana.map((i) => i.thumbnail_path)),
   ]);
-
-  // Miniatura si la hay; si no, la imagen completa. Se construye el objeto en
-  // vez de mutar la candidata: antes esto era un cast a un tipo inventado.
-  const prendaARescatar: PrendaOlvidada | null = prendaOlvidada
-    ? {
-        id: prendaOlvidada.id,
-        nombre: prendaOlvidada.nombre,
-        primary_color: prendaOlvidada.primary_color,
-        diasOlvidada: prendaOlvidada.diasOlvidada,
-        image_url:
-          (prendaOlvidada.thumbnail_path
-            ? thumbUrls.get(prendaOlvidada.thumbnail_path)
-            : null) ??
-          (prendaOlvidada.image_path
-            ? signedUrls.get(prendaOlvidada.image_path) ?? null
-            : null),
-      }
-    : null;
 
   const hoyIso = bogotaDay(today);
   const ayerIso = offsetDate(today, -1);
@@ -381,7 +307,6 @@ export default async function RootPage() {
       displayName={displayName}
       totalItems={allItems.length}
       petState={petState}
-      prendaOlvidada={prendaARescatar}
       hasCalendarFeed={hayFeed}
       agendaEvents={agendaEvents}
       weather={weather}
@@ -514,8 +439,4 @@ function offsetDate(base: Date, days: number): string {
   const d = new Date(base);
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
-}
-
-function daysBetween(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
 }
