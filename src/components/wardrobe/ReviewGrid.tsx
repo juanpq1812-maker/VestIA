@@ -121,6 +121,11 @@ export default function ReviewGrid({ userId }: Props) {
   // nuevo si ya hay una pasada en vuelo desde esta misma pantalla — ver la
   // nota equivalente en BurstCapture.tsx.
   const processingRef = useRef(false);
+  // Minutos que faltan para que vuelva el presupuesto de análisis, o null si
+  // hay cuota. `processPendingForUser` ya emitía este dato vía
+  // `onBudgetExceeded` y nadie lo escuchaba: sin él, una prenda bloqueada por
+  // cuota se veía igual que una que simplemente tarda.
+  const [budgetResetMin, setBudgetResetMin] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     const fetched = await fetchPendingItems(supabase, userId);
@@ -156,7 +161,13 @@ export default function ReviewGrid({ userId }: Props) {
       // usuario no estaba en esta pantalla, o que quedaron a medias).
       if (!processingRef.current) {
         processingRef.current = true;
-        processPendingForUser(supabase, userId, { onItemChange: () => refresh() })
+        processPendingForUser(supabase, userId, {
+          onItemChange: () => {
+            setBudgetResetMin(null);
+            refresh();
+          },
+          onBudgetExceeded: (min) => setBudgetResetMin(min),
+        })
           .catch(() => {})
           .finally(() => {
             processingRef.current = false;
@@ -206,7 +217,13 @@ export default function ReviewGrid({ userId }: Props) {
       await refresh();
       if (!processingRef.current) {
         processingRef.current = true;
-        processPendingForUser(supabase, userId, { onItemChange: () => refresh() })
+        processPendingForUser(supabase, userId, {
+          onItemChange: () => {
+            setBudgetResetMin(null);
+            refresh();
+          },
+          onBudgetExceeded: (min) => setBudgetResetMin(min),
+        })
           .catch(() => {})
           .finally(() => {
             processingRef.current = false;
@@ -351,17 +368,32 @@ export default function ReviewGrid({ userId }: Props) {
       ) : null}
 
       {pendingItems.length > 0 ? (
-        <div
-          role="status"
-          className="rounded-md bg-primary-light px-4 py-3 text-sm font-medium text-primary"
-        >
-          <span
-            className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent align-[-3px]"
-            aria-hidden="true"
-          />
-          Procesando {pendingItems.length}{" "}
-          {pendingItems.length === 1 ? "foto" : "fotos"}…
-        </div>
+        budgetResetMin !== null ? (
+          // Sin cuota no hay nada girando: un spinner acá sería una animación
+          // que promete progreso que no está ocurriendo.
+          <div
+            role="status"
+            className="rounded-md bg-warning-light px-4 py-3 text-sm font-medium text-warning"
+          >
+            Llegaste al límite de análisis de esta hora. Tus{" "}
+            {pendingItems.length}{" "}
+            {pendingItems.length === 1 ? "foto queda" : "fotos quedan"} en cola y
+            {" "}se reanudan en ~{budgetResetMin} min. Puedes cerrar la app: no
+            se pierden.
+          </div>
+        ) : (
+          <div
+            role="status"
+            className="rounded-md bg-primary-light px-4 py-3 text-sm font-medium text-primary"
+          >
+            <span
+              className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent align-[-3px]"
+              aria-hidden="true"
+            />
+            Procesando {pendingItems.length}{" "}
+            {pendingItems.length === 1 ? "foto" : "fotos"}…
+          </div>
+        )
       ) : null}
 
       {generalError ? (
@@ -376,9 +408,17 @@ export default function ReviewGrid({ userId }: Props) {
             item.status === "processing" && msSince(item.updated_at) > SLOW_PROCESSING_MS;
           return (
             <Card key={item.id} padding="sm">
-              <div className="aspect-[3/4] animate-pulse rounded-lg bg-surface-2" />
+              <div
+                className={`aspect-[3/4] rounded-lg bg-surface-2 ${
+                  budgetResetMin === null ? "animate-pulse" : ""
+                }`}
+              />
               <p className="mt-3 text-center text-xs text-text-muted">
-                {isSlow ? "Está tardando más de lo normal, ya casi…" : "Analizando…"}
+                {budgetResetMin !== null
+                  ? `En cola · ~${budgetResetMin} min`
+                  : isSlow
+                    ? "Está tardando más de lo normal, ya casi…"
+                    : "Analizando…"}
               </p>
             </Card>
           );
