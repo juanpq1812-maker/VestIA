@@ -1,11 +1,20 @@
 // Service Worker de StrandIA — estrategia Network First, Cache Fallback.
 // Se instala automáticamente desde layout.tsx.
 
-const CACHE_NAME = "strandia-v2";
+// El nombre de la caché sale del `?v=<build>` con que ServiceWorkerRegistration
+// registra este script. Antes era la cadena fija "strandia-v2": como `activate`
+// solo borra cachés con OTRO nombre, nunca limpiaba nada entre despliegues.
+const BUILD = new URL(self.location.href).searchParams.get("v") || "dev";
+const CACHE_NAME = `strandia-${BUILD}`;
 
-// Assets estáticos que cacheamos al instalar
+// Assets estáticos que cacheamos al instalar.
+//
+// "/" NO está aquí, y es deliberado. Cachear el HTML de la app es lo que
+// provocaba los 404 al abrir la PWA: ese documento nombra chunks de
+// `/_next/static/...` con hash de build, el despliegue siguiente los borra, y
+// el HTML viejo se quedaba pidiendo archivos que ya no existen. Solo se
+// precachea lo que no cambia entre builds.
 const PRECACHE_URLS = [
-  "/",
   "/manifest.json",
   "/icon-192.png",
   "/icon-512.png",
@@ -55,12 +64,10 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        // Solo cacheamos respuestas exitosas de recursos estáticos
-        if (
-          networkResponse.ok &&
-          (url.pathname.startsWith("/_next/static") ||
-            PRECACHE_URLS.includes(url.pathname))
-        ) {
+        // Solo refrescamos lo precacheado. La rama de `/_next/static` que
+        // había aquí era código muerto: esas peticiones salen antes con el
+        // `return` de arriba y nunca llegan a este punto.
+        if (networkResponse.ok && PRECACHE_URLS.includes(url.pathname)) {
           const clone = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
