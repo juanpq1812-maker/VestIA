@@ -2,8 +2,9 @@
 // una pasada: la ropa que ya tienes + IA = tu outfit de hoy.
 //
 // Server Component que compone el scroll suave (Lenis) + el hero animado +
-// los reveals al hacer scroll. La fotografía editorial (Unsplash, verificada)
-// lleva el peso visual; el chrome de UI se mantiene en el registro sage/crema.
+// los reveals al hacer scroll. Las secciones de atmósfera se apoyan en
+// fotografía editorial (Unsplash, verificada); "Cómo funciona" no, porque ahí
+// el trabajo es demostrar el producto: usa assets reales de StrandIA.
 
 import Link from "next/link";
 import Image from "next/image";
@@ -15,33 +16,182 @@ import Reveal from "./Reveal";
 const img = (id: string, w = 1000) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
 
+// ── Las visuales de "Cómo funciona" ─────────────────────────────────────────
+//
+// Cada paso llevaba una foto de stock de Unsplash: percheros con ropa colgada,
+// tres veces casi la misma imagen. Bonitas y mudas — ninguna mostraba qué hace
+// StrandIA. Ahora cada paso demuestra su propia tecnología con assets reales
+// del producto.
+//
+// Todas se montan dentro de la misma lámina (aspect fijo, overflow hidden) que
+// antes ocupaba la foto, así que la retícula alterna igual que siempre.
+
+/** Paso 01 — la foto del celular contra la misma prenda ya recortada. */
+function VisualRecorte() {
+  return (
+    <div className="relative h-full w-full">
+      {/* La foto tal como sale del celular: la prenda puesta, con su fondo */}
+      <Image
+        src="/camera-tips/antes.jpg"
+        alt="Foto de una prenda tomada con el celular, con el fondo del lugar"
+        fill
+        loading="lazy"
+        sizes="(max-width: 1024px) 90vw, 45vw"
+        className="object-cover"
+      />
+      {/* Velo: baja la foto original para que el recorte sea lo que se mira */}
+      <div aria-hidden="true" className="absolute inset-0 bg-ink/40" />
+
+      <span className="absolute left-4 top-4 rounded-full bg-ink/55 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white backdrop-blur">
+        Tu foto
+      </span>
+
+      {/* La misma prenda, ya recortada, sobre su lámina blanca. El PNG real es
+          un JPG de fondo blanco, así que la lámina no es decoración: sin ella
+          el recorte se derrama sobre el papel y deja de leerse como objeto. */}
+      <div className="absolute right-4 top-[8%] h-[66%] w-[36%] rounded-xl border border-white/70 bg-white p-2 shadow-xl sm:right-6 sm:w-[32%]">
+        <div className="relative h-full w-full">
+          <Image
+            src="/camera-tips/despues.jpg"
+            alt="La misma prenda recortada sobre fondo blanco, lista para el armario"
+            fill
+            loading="lazy"
+            sizes="(max-width: 1024px) 35vw, 16vw"
+            className="object-contain"
+          />
+        </div>
+      </div>
+
+      <span className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-text shadow-sm">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="text-primary">
+          <path d="M12 2l1.8 5.4L19 9.2l-5.2 1.8L12 16l-1.8-5L5 9.2l5.2-1.8L12 2z" />
+        </svg>
+        Fondo eliminado automáticamente
+      </span>
+    </div>
+  );
+}
+
+/** Paso 02 — tres prendas coordinadas, unidas por el hilo de la combinación. */
+const LOOK = [
+  { src: "/icons/prendas/tops/sueter.png", alt: "Suéter" },
+  { src: "/icons/prendas/bottoms/cargo.png", alt: "Pantalón cargo" },
+  { src: "/icons/prendas/calzado/botas.png", alt: "Botas" },
+];
+
+function VisualCombina() {
+  return (
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-surface-2 px-6 py-6 sm:gap-4 sm:px-10">
+      <p className="text-[11px] font-bold uppercase tracking-widest text-primary">
+        Look sugerido
+      </p>
+      <div className="relative w-full">
+        {/* El hilo pasa POR DETRÁS de las láminas, así que solo asoma en los
+            huecos: las tres prendas se leen enhebradas, no sueltas. */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-10 top-1/2 h-px -translate-y-1/2 bg-primary-mid"
+        />
+        <ul className="relative grid grid-cols-3 gap-3">
+          {LOOK.map((prenda) => (
+            <li
+              key={prenda.src}
+              className="flex aspect-[4/5] items-center justify-center rounded-xl border border-border bg-white p-2.5 shadow-sm"
+            >
+              <Image
+                src={prenda.src}
+                alt={prenda.alt}
+                width={128}
+                height={128}
+                loading="lazy"
+                className="h-full w-full object-contain"
+              />
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-primary shadow-sm">
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-primary" />
+        Combinan · 93% de afinidad
+      </p>
+    </div>
+  );
+}
+
+/** Paso 03 — la rotación del armario, con Hebri juzgando el resultado. */
+function VisualRotacion() {
+  return (
+    <div className="flex h-full w-full items-center gap-2 bg-surface-2 px-4 py-5 sm:gap-4 sm:px-7 sm:py-7">
+      <div className="relative h-full w-[40%] shrink-0 overflow-hidden sm:w-[46%]">
+        <Image
+          src="/hebri/estados/hebri_sassy.png"
+          alt="Hebri, la mascota de StrandIA, mirando de reojo"
+          fill
+          loading="lazy"
+          sizes="(max-width: 1024px) 40vw, 20vw"
+          className="scale-[2.1] object-contain"
+        />
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-3">
+        <div className="rounded-xl bg-white p-3 shadow-sm sm:p-4">
+          <p className="font-display text-2xl leading-none tabular-nums text-primary sm:text-3xl">
+            82%
+          </p>
+          <p className="mt-1 text-[11px] font-medium leading-tight text-text-muted sm:text-xs">
+            de tu armario usado este mes
+          </p>
+          <span
+            aria-hidden="true"
+            className="mt-3 block h-2 overflow-hidden rounded-full bg-surface-2"
+          >
+            <span className="block h-full rounded-full bg-primary" style={{ width: "82%" }} />
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 rounded-xl bg-white p-2.5 shadow-sm sm:gap-2.5 sm:p-3">
+          <span
+            aria-hidden="true"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-light text-primary"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6L9 17l-5-5" />
+            </svg>
+          </span>
+          <span className="min-w-0 text-xs leading-snug text-text">
+            <span className="font-semibold">Prenda rescatada</span>
+            <span className="block text-text-muted">Sin usar desde marzo</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const pasos = [
   {
     n: "01",
     titulo: "Sube tus prendas",
     descripcion:
       "Foto rápida desde el celular. StrandIA les quita el fondo y arma tu armario digital en minutos.",
-    src: img("photo-1490481651871-ab68de25d43d"),
-    alt: "Prendas neutras colgadas en ganchos de madera contra una pared blanca",
+    Visual: VisualRecorte,
   },
   {
     n: "02",
     titulo: "La IA combina por ti",
     descripcion:
       "Elige una ocasión o deja que improvise. Recibes outfits reales, armados solo con lo que ya tienes.",
-    src: img("photo-1523381210434-271e8be1f52b"),
-    alt: "Camisetas verde salvia colgadas en ganchos de madera",
+    Visual: VisualCombina,
   },
   {
     n: "03",
     titulo: "Usa el look y repite",
     descripcion:
       "Guarda tus favoritos, registra qué usaste y descubre las prendas olvidadas que merecen otra salida.",
-    src: img("photo-1489987707025-afc232f7ea0f"),
-    alt: "Camisetas de colores ordenadas por tono en un perchero",
+    Visual: VisualRotacion,
   },
 ];
-
 export default function LandingContent() {
   return (
     <SmoothScroll>
@@ -124,16 +274,9 @@ export default function LandingContent() {
                     i % 2 === 1 ? "lg:[&>*:first-child]:order-2" : ""
                   }`}
                 >
-                  {/* Foto */}
-                  <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface-2 sm:aspect-[16/10] lg:aspect-[4/3]">
-                    <Image
-                      src={paso.src}
-                      alt={paso.alt}
-                      fill
-                      loading="lazy"
-                      sizes="(max-width: 1024px) 90vw, 45vw"
-                      className="object-cover"
-                    />
+                  {/* Demostración del paso */}
+                  <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-surface-2 ring-1 ring-border sm:aspect-[16/10] lg:aspect-[4/3]">
+                    <paso.Visual />
                   </div>
                   {/* Texto */}
                   <div className="lg:px-4">
