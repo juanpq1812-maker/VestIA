@@ -114,7 +114,7 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
                     />
                   ) : null}
                   {yaHoy && (
-                    <span className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-success px-2 py-0.5 text-[10px] font-bold text-white shadow">
+                    <span className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-success px-2 py-0.5 text-[11px] font-bold text-white shadow">
                       <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <path d="m5 13 4 4 10-10" />
                       </svg>

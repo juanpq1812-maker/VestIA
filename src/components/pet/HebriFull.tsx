@@ -40,7 +40,7 @@ export default function HebriFull({ score, mood, isDirty }: PetState) {
           </p>
 
           {isDirty ? (
-            <span className="mt-2 text-[11.5px] font-semibold text-danger">
+            <span className="mt-2 text-[11px] font-semibold text-danger">
               {PET_DIRTY_MESSAGE}
             </span>
           ) : null}

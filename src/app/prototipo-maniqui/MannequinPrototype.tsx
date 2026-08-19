@@ -216,14 +216,14 @@ export default function MannequinPrototype() {
           {/* Columna derecha: detección + subcategorías + colores */}
           <div className="min-w-0 flex-1" aria-live="polite">
             {wasAiPrefill ? (
-              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary-light px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-primary-light px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
                 <SparkleIcon />
                 <span className="truncate">
                   IA detectó: {subcategory} · {capitalize(color)}
                 </span>
               </div>
             ) : (
-              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+              <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-text-muted">
                 Zona seleccionada manualmente
               </div>
             )}
@@ -413,7 +413,7 @@ function ModifierChip({
       aria-pressed={active}
       onClick={onClick}
       className={[
-        "inline-flex w-full items-center justify-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold transition-all duration-150",
+        "inline-flex w-full items-center justify-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold transition-all duration-150",
         active
           ? "border-primary bg-primary text-white shadow-sm"
           : "border-border bg-surface text-text-muted hover:border-primary-mid hover:bg-surface-2 hover:text-text",
