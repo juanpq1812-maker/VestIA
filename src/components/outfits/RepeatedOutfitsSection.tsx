@@ -2,6 +2,12 @@
 //
 // Muestra los 4 outfits USADOS mas recientes como "mini cards". Click en una
 // registra uso del dia actual (mismo flujo que "Lo use hoy" de la card grande).
+//
+// Cada card dibuja el OUTFIT COMPLETO con OutfitMoodboard. Antes mostraba solo
+// la primera prenda como "portada", y una card titulada "Casual deportivo con
+// presencia" que enseñaba un único suéter no se lee como outfit: se lee como
+// error. Los datos para el moodboard ya estaban ahí — la página se quedaba con
+// la primera prenda y descartaba el resto.
 // Si el usuario nunca ha registrado uso, la seccion no se renderiza
 // (ya filtramos en el server component).
 
@@ -11,14 +17,15 @@ import { useState } from "react";
 import { registerOutfitUseAction } from "@/app/outfits/actions";
 import Toast from "@/components/ui/Toast";
 import { lastUsedLabel, todayIso } from "@/lib/outfits/dateUtils";
+import OutfitMoodboard from "@/components/outfits/OutfitMoodboard";
 import type { ClothingItem } from "@/types/database";
 
-import { garmentSwatch } from "@/lib/ui/colors";
+import { GARMENT_PLATE_COLOR } from "@/lib/ui/colors";
 export type RepeatableOutfit = {
   id: string;
   name: string | null;
-  /** Primera prenda con foto disponible — la usamos como portada. */
-  cover: ClothingItem | null;
+  /** Las prendas del outfit, para dibujar el moodboard. */
+  items: ClothingItem[];
   lastUsedIso: string;
   /** Fechas ya registradas (para saber si "hoy" ya esta). */
   usedDates: string[];
@@ -98,21 +105,11 @@ export default function RepeatedOutfitsSection({ outfits }: Props) {
                   "disabled:cursor-not-allowed",
                 ].join(" ")}
               >
-                <div
-                  className="relative aspect-square w-full overflow-hidden"
-                  style={{
-                    backgroundColor: garmentSwatch(o.cover?.primary_color),
-                  }}
-                >
-                  {o.cover?.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={o.cover.image_url}
-                      alt={o.name ?? "Outfit"}
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      loading="lazy"
-                    />
-                  ) : null}
+                <div className="relative w-full">
+                  <OutfitMoodboard
+                    items={o.items}
+                    background={GARMENT_PLATE_COLOR}
+                  />
                   {yaHoy && (
                     <span className="absolute right-2 top-2 inline-flex items-center gap-0.5 rounded-full bg-success px-2 py-0.5 text-[11px] font-bold text-white shadow">
                       <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">

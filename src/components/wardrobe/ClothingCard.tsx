@@ -10,7 +10,7 @@ import type { ClothingCategory, ClothingItem } from "@/types/database";
 import LazyImage from "@/components/ui/LazyImage";
 import DeleteItemButton from "@/components/wardrobe/DeleteItemButton";
 
-import { garmentSwatch } from "@/lib/ui/colors";
+import { GARMENT_PLATE_COLOR } from "@/lib/ui/colors";
 const CATEGORY_LABELS: Record<ClothingCategory, string> = {
   top: "Top",
   bottom: "Bottom",
@@ -31,7 +31,7 @@ export default function ClothingCard({ item, priority = false }: Props) {
     item.name?.trim() ||
     item.subcategory?.trim() ||
     CATEGORY_LABELS[item.category];
-  const colorBase = garmentSwatch(item.primary_color);
+  const colorBase = GARMENT_PLATE_COLOR;
 
   return (
     <article className="group">

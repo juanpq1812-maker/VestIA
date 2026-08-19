@@ -17,7 +17,7 @@ import {
   type ClothingItem,
 } from "@/types/database";
 
-import { garmentSwatch } from "@/lib/ui/colors";
+import { GARMENT_PLATE_COLOR } from "@/lib/ui/colors";
 type Filter = "all" | ClothingCategory;
 
 export type FeaturedItem = {
@@ -94,7 +94,7 @@ export default function WardrobeView({ items, destacadas }: Props) {
               >
                 <div
                   className="aspect-square w-full overflow-hidden rounded-lg"
-                  style={{ backgroundColor: garmentSwatch(item.primary_color) }}
+                  style={{ backgroundColor: GARMENT_PLATE_COLOR }}
                 >
                   {item.image_url ? (
                     <LazyImage

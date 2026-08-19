@@ -33,7 +33,7 @@ import {
 } from "@/lib/outfits/dateUtils";
 import type { ClothingItem } from "@/types/database";
 
-import { garmentSwatch } from "@/lib/ui/colors";
+import { GARMENT_PLATE_COLOR } from "@/lib/ui/colors";
 import StyleJournal from "@/components/outfits/StyleJournal";
 import ShareStyleJournalButton from "@/components/outfits/ShareStyleJournalButton";
 
@@ -219,7 +219,7 @@ export default function SavedOutfitCard({
               <li key={it.id} className="text-center">
                 <div
                   className="aspect-[3/4] w-full overflow-hidden rounded-lg border border-border"
-                  style={{ backgroundColor: garmentSwatch(it.primary_color) }}
+                  style={{ backgroundColor: GARMENT_PLATE_COLOR }}
                   title={it.name ?? it.subcategory ?? it.category}
                 >
                   {it.thumbnail_url ?? it.image_url ? (

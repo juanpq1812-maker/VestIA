@@ -10,6 +10,21 @@ import { COLOR_PALETTE } from "@/lib/wardrobe/constants";
  */
 export const GARMENT_PLACEHOLDER_COLOR = "#f0edea";
 
+/**
+ * Lámina sobre la que se muestra la FOTO de una prenda: siempre blanco papel.
+ *
+ * Se probó pintar esa lámina con el color real de la prenda y el resultado fue
+ * peor: el armario pasaba de una retícula tranquila a un mosaico de bloques
+ * saturados —azul rey, verde, marrón— compitiendo entre sí y con la ropa. El
+ * blanco uniforme es lo que hace que las prendas se lean como catálogo y no
+ * como fichas de colores.
+ *
+ * Ojo con la distinción: esto es el FONDO de una foto. Cuando no hay foto y
+ * hay que dibujar la prenda misma (el sustituto del moodboard, el del Style
+ * Journal), ahí sí va `garmentSwatch()` — el color es la prenda, no su marco.
+ */
+export const GARMENT_PLATE_COLOR = "#ffffff";
+
 // `clothing_items.primary_color` NO guarda un hex: guarda el NOMBRE del color
 // en español ("azul", "negro", "café"…), uno de los 13 de `COLOR_PALETTE`.
 // Ver el comentario sobre la paleta en lib/wardrobe/constants.ts.
