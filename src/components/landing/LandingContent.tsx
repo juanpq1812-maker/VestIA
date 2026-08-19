@@ -166,70 +166,59 @@ function VisualRotacion() {
   );
 }
 
-// ── Prueba social ────────────────────────────────────────────────────────────
+// ── Diseñado para resolver ───────────────────────────────────────────────────
 //
-// ⚠️  CONTENIDO DE MUESTRA — NO ES REAL. NO PUBLICAR ASÍ.
+// Esta sección tuvo una primera versión con testimonios y métricas de tracción
+// inventados ("+10.000 prendas" contra las ~266 reales, y tres personas que no
+// existían). Se descartó: es publicidad engañosa y en Colombia la sanciona la
+// SIC. Lo que quedó son afirmaciones sobre lo que el producto HACE, no sobre
+// cuánta gente lo usa — así que no caducan ni dependen de una consulta.
 //
-// Ni las métricas ni los testimonios salen de datos del producto: son texto
-// de relleno para poder construir y revisar la sección. A hoy la app está en
-// lista de espera y la base tiene ~266 prendas, no "+10.000"; y las tres
-// personas de abajo no existen.
-//
-// Antes de que esta landing sea pública hay que hacer una de dos cosas:
-//   a) sustituir esto por cifras consultadas de verdad y citas con permiso
-//      escrito de quien las dijo, o
-//   b) borrar la sección entera.
-// Publicarlo tal cual es publicidad engañosa, y en Colombia la sanciona la SIC.
+// Si alguien vuelve a tocar esto: cada cifra tiene que poder señalarse en el
+// código. Las de abajo se pueden. No metas números de tracción sin datos.
 
-type Metrica = { valor: string; label: string };
+type Metrica = {
+  valor: string;
+  label: string;
+  /**
+   * Amplía SOLO el glifo, no la caja: Libre Caslon dibuja el ∞ con muy poca
+   * altura y al lado de "100%" parecía un error. Escalar con `transform` deja
+   * intacto el alto de línea, así que las cuatro cifras siguen cuadradas
+   * arriba y las etiquetas no se desalinean.
+   */
+  escalaGlifo?: number;
+};
 
 const METRICAS: Metrica[] = [
-  { valor: "+10.000", label: "Prendas digitalizadas sin fondo" },
-  { valor: "3,5×", label: "Más combinaciones descubiertas" },
-  { valor: "82%", label: "Armario activo promedio" },
-  { valor: "< 1 min", label: "Para decidir tu look del día" },
+  // La generación solo recibe prendas del armario del usuario; no hay catálogo.
+  { valor: "100%", label: "Ropa de tu clóset real" },
+  // El recorte lo hace el pipeline de imagen, no la persona: ver
+  // src/lib/ai/imageBackgroundRemoval.ts.
+  { valor: "0 seg", label: "De recorte manual (fondos eliminados por IA)" },
+  // `generateOutfits` pide el clima actual a Open-Meteo y lo mete en el prompt.
+  { valor: "1 tap", label: "Para recibir tu outfit calibrado al clima" },
+  // La única de las cuatro que es retórica y no medida: el armario es finito.
+  { valor: "∞", label: "Combinaciones posibles con tus prendas", escalaGlifo: 1.7 },
 ];
 
-type Testimonio = { cita: string; nombre: string; etiqueta: string };
+type Pilar = { titulo: string; texto: string };
 
-const TESTIMONIOS: Testimonio[] = [
+const PILARES: Pilar[] = [
   {
-    cita: "Dejé de comprar ropa que no necesitaba porque descubrí combinaciones que ya tenía.",
-    nombre: "Valeria M.",
-    etiqueta: "Minimalista · Bogotá",
+    titulo: "Cero estrés matutino",
+    texto: "Tu look listo antes de que te tomes el primer café.",
   },
   {
-    cita: "Vestirme en las mañanas dejó de ser una decisión de 20 minutos con estrés.",
-    nombre: "Andrés T.",
-    etiqueta: "Smart casual · Medellín",
+    titulo: "Moda consciente",
+    texto:
+      "Redescubre piezas olvidadas antes de comprar ropa innecesaria.",
   },
   {
-    cita: "Hebri y la IA me hicieron rescatar sacos y pantalones que llevaban meses olvidados.",
-    nombre: "Camila R.",
-    etiqueta: "Clásico con color · Cali",
+    titulo: "Contexto real",
+    texto:
+      "Combinaciones pensadas para la temperatura y la ocasión de tu día.",
   },
 ];
-
-/**
- * Cinco estrellas en sage, no en dorado: el dorado es el gesto de reseña de
- * e-commerce y aquí rompería la paleta. El significado va en el `aria-label`
- * del `role="img"` — sobre un `<p>` a secas los lectores lo ignorarían.
- */
-function Estrellas() {
-  return (
-    <span
-      role="img"
-      aria-label="5 de 5 estrellas"
-      className="flex items-center gap-0.5 text-primary"
-    >
-      {[0, 1, 2, 3, 4].map((i) => (
-        <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M12 2.6l2.9 5.8 6.4.9-4.6 4.5 1.1 6.4-5.8-3-5.8 3 1.1-6.4L2.7 9.3l6.4-.9L12 2.6Z" />
-        </svg>
-      ))}
-    </span>
-  );
-}
 
 const pasos = [
   {
@@ -474,55 +463,73 @@ export default function LandingContent() {
           </Container>
         </section>
 
-        {/* ── Prueba social ────────────────────────────────────────────
-            OJO: los datos son de muestra. Ver el aviso sobre METRICAS. */}
+        {/* ── Diseñado para resolver ───────────────────────────────────
+            Capacidades del producto, no métricas de tracción. Ver el
+            comentario sobre METRICAS antes de tocar las cifras. */}
         <section className="bg-bg">
           <Container size="lg" className="py-20 sm:py-24">
             <Reveal className="mx-auto max-w-2xl text-center">
               <p className="text-xs font-bold uppercase tracking-widest text-primary">
-                Prueba social
+                Diseñado para resolver
               </p>
               <h2 className="mt-4 font-display text-3xl tracking-tight text-text text-balance sm:text-4xl">
                 Lo que cambia cuando dejas de improvisar
               </h2>
             </Reveal>
 
-            {/* Barra de métricas */}
+            {/* Barra de capacidades */}
             <Reveal delay={80} className="mt-12">
               <dl className="grid grid-cols-2 gap-x-4 gap-y-9 rounded-2xl border border-border/60 bg-surface px-5 py-9 shadow-sm sm:grid-cols-4 sm:gap-x-6 sm:px-8">
                 {METRICAS.map((m) => (
                   // `flex-col-reverse` para que el orden del DOM sea el que
                   // pide un <dl> (término y luego descripción) y el orden
                   // visual sea el que pide la lectura (cifra y luego etiqueta).
-                  <div key={m.label} className="flex flex-col-reverse items-center justify-end text-center">
-                    <dt className="mt-2 px-2 text-xs leading-snug text-text-muted sm:text-sm">
+                  // `justify-end`: en column-reverse el eje va de abajo hacia
+                  // arriba, así que el default apelmaza contra el borde
+                  // inferior y descuadra las cifras entre sí.
+                  <div
+                    key={m.label}
+                    className="flex flex-col-reverse items-center justify-end text-center"
+                  >
+                    <dt className="mt-2 px-1 text-xs leading-snug text-text-muted sm:text-sm">
                       {m.label}
                     </dt>
                     <dd className="font-display text-3xl leading-none tabular-nums text-primary sm:text-4xl">
-                      {m.valor}
+                      {m.escalaGlifo ? (
+                        <span
+                          className="inline-block"
+                          style={{ transform: `scale(${m.escalaGlifo})` }}
+                        >
+                          {m.valor}
+                        </span>
+                      ) : (
+                        m.valor
+                      )}
                     </dd>
                   </div>
                 ))}
               </dl>
             </Reveal>
 
-            {/* Testimonios */}
+            {/* Pilares */}
             <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {TESTIMONIOS.map((t, i) => (
+              {PILARES.map((pilar, i) => (
                 <Reveal
-                  key={t.nombre}
-                  as="figure"
+                  key={pilar.titulo}
+                  as="article"
                   delay={120 + i * 90}
                   className="flex h-full flex-col rounded-2xl border border-border/60 bg-surface p-6 shadow-sm transition-shadow duration-200 hover:shadow-md"
                 >
-                  <Estrellas />
-                  <blockquote className="mt-4 flex-1 text-base leading-relaxed text-text">
-                    <p>&ldquo;{t.cita}&rdquo;</p>
-                  </blockquote>
-                  <figcaption className="mt-5 border-t border-divider pt-4">
-                    <p className="text-sm font-semibold text-text">{t.nombre}</p>
-                    <p className="mt-0.5 text-xs text-text-muted">{t.etiqueta}</p>
-                  </figcaption>
+                  {/* Filete en vez de icono: las tarjetas de "Por qué StrandIA"
+                      justo arriba ya llevan icono, y repetirlo aplanaba las dos
+                      secciones en una sola textura. */}
+                  <span aria-hidden="true" className="h-1 w-10 rounded-full bg-primary-mid" />
+                  <h3 className="mt-5 font-display text-xl text-text">
+                    {pilar.titulo}
+                  </h3>
+                  <p className="mt-2 text-base leading-relaxed text-text-muted">
+                    {pilar.texto}
+                  </p>
                 </Reveal>
               ))}
             </div>
