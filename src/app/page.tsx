@@ -15,8 +15,26 @@ import { feedNecesitaSync, syncCalendarFeed } from "@/lib/calendar/sync";
 import { recordPetAction } from "@/lib/pet/actions";
 import { computePetState } from "@/lib/pet/compute";
 import type { AgendaEvent } from "@/components/dashboard/AgendaCard";
-import type { EventOutfitData } from "@/components/dashboard/EventOutfitSection";
+import type { EventOutfitData } from "@/components/dashboard/EventOutfitBody";
+import type { TodayHeroState } from "@/components/dashboard/TodayHero";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { bogotaDay, computeStreak, streakQuerySince } from "@/lib/pet/streak";
+import { getCurrentWeather } from "@/lib/weather/openMeteo";
+import { pickLookDelDia, seedDelDia } from "@/lib/outfits/lookDelDia";
+import {
+  etiquetaDeDia,
+  outfitsDeLaSemana,
+  SEMANA_DIAS,
+} from "@/lib/outfits/semana";
+import { calcularPaleta } from "@/lib/wardrobe/paleta";
+import { getLatestPublishedPosts } from "@/lib/editorial/query";
+import type { EditorialPostListItem } from "@/lib/editorial/query";
+import type { LookDeLaSemana } from "@/components/dashboard/WeekStrip";
+import {
+  checkWardrobeMinimums,
+  countByCategory,
+} from "@/lib/wardrobe/wardrobeMinimums";
+import type { ClothingCategory } from "@/types/database";
 
 export const metadata: Metadata = {
   title: "StrandIA — Tu armario digital con IA",
@@ -36,7 +54,6 @@ export default async function RootPage() {
 
   // ── Queries del dashboard (todas en paralelo) ─────────────────────────────
   const today = new Date();
-  const fifteenDaysAgoStr = offsetDate(today, -15);
   // Ventana de análisis: los cálculos de prenda estrella/olvidada solo miran
   // los últimos 90 días — evita que el payload de usos crezca sin límite con
   // el historial del usuario.
@@ -55,6 +72,8 @@ export default async function RootPage() {
     allUsesRes,
     allOutfitsRes,
     allItemsRes,
+    streakRes,
+    weather,
   ] = await Promise.all([
     supabase
       .from("profiles")
@@ -69,10 +88,22 @@ export default async function RootPage() {
     supabase
       .from("clothing_items")
       .select(
-        "id, name, subcategory, category, primary_color, image_path, thumbnail_path, created_at"
+        "id, name, subcategory, category, primary_color, image_path, thumbnail_path, background_removed, created_at"
       )
       .eq("status", CONFIRMED_STATUS)
       .order("created_at", { ascending: false }),
+    // Racha: días distintos con "app_opened" en la ventana. RLS ya lo acota al
+    // usuario. Índice: pet_activity_log_created_at_idx.
+    supabase
+      .from("pet_activity_log")
+      .select("created_at")
+      .eq("action_type", "app_opened")
+      .gte("created_at", streakQuerySince(today)),
+    // El clima ya no es exclusivo del estado vacío de la agenda: es contexto
+    // permanente de la cabecera. Cuesta ~0 — el fetch va con
+    // `next: { revalidate: 1800 }`, así que media hora de visitas comparte
+    // una sola llamada a Open-Meteo.
+    getCurrentWeather(),
   ]);
 
   const displayName =
@@ -82,6 +113,11 @@ export default async function RootPage() {
   const allUses = allUsesRes.data ?? [];
   const allOutfits = allOutfitsRes.data ?? [];
   const allItems = allItemsRes.data ?? [];
+
+  const streak = computeStreak(
+    (streakRes.data ?? []).map((row) => bogotaDay(new Date(row.created_at))),
+    today
+  );
 
   const petState = profileRes.data
     ? computePetState({
@@ -96,55 +132,6 @@ export default async function RootPage() {
   for (const outfit of allOutfits) {
     outfitMap.set(outfit.id, outfit.clothing_item_ids ?? []);
   }
-
-  // ── Prenda olvidada: sin uso en outfit_uses en los últimos 15 días ───────
-  const recentlyUsedItemIds = new Set<string>();
-  for (const use of allUses) {
-    if (use.used_date >= fifteenDaysAgoStr) {
-      for (const itemId of outfitMap.get(use.outfit_id) ?? []) {
-        recentlyUsedItemIds.add(itemId);
-      }
-    }
-  }
-
-  // Map de outfit_id → last used_date para buscar la fecha de último uso por prenda
-  const lastUsedByOutfit = new Map<string, string>();
-  for (const use of allUses) {
-    const prev = lastUsedByOutfit.get(use.outfit_id);
-    if (!prev || use.used_date > prev) {
-      lastUsedByOutfit.set(use.outfit_id, use.used_date);
-    }
-  }
-
-  // Candidatas: prendas no usadas en 15 días Y creadas hace 15+ días
-  type Candidata = { id: string; nombre: string; image_path: string | null; thumbnail_path: string | null; primary_color: string | null; diasOlvidada: number };
-  const candidatas: Candidata[] = [];
-  for (const item of allItems) {
-    if (recentlyUsedItemIds.has(item.id)) continue;
-    const createdDaysAgo = daysBetween(new Date(item.created_at), today);
-    if (createdDaysAgo < 15) continue;
-
-    // Buscar última fecha de uso (puede ser null si nunca se usó)
-    let lastUseDate: string | null = null;
-    for (const [outfitId, ids] of outfitMap.entries()) {
-      if (ids.includes(item.id)) {
-        const d = lastUsedByOutfit.get(outfitId);
-        if (d && (!lastUseDate || d > lastUseDate)) lastUseDate = d;
-      }
-    }
-    const refDate = lastUseDate ?? item.created_at.slice(0, 10);
-    const diasOlvidada = daysBetween(new Date(refDate), today);
-    candidatas.push({
-      id: item.id,
-      nombre: item.name?.trim() || item.subcategory?.trim() || item.category,
-      image_path: item.image_path,
-      thumbnail_path: item.thumbnail_path,
-      primary_color: item.primary_color,
-      diasOlvidada,
-    });
-  }
-  candidatas.sort((a, b) => b.diasOlvidada - a.diasOlvidada);
-  const prendaOlvidada = candidatas[0] ?? null;
 
   // ── Calendario: sync si está stale + eventos de hoy (Bogotá) ─────────────
   // Multi-feed: el usuario puede tener Google Y Apple conectados a la vez.
@@ -228,47 +215,77 @@ export default async function RootPage() {
             .filter((i): i is NonNullable<typeof i> => Boolean(i))
             .map((i) => ({
               id: i.id,
-              nombre: i.name?.trim() || i.subcategory?.trim() || i.category,
-              image_url:
-                (i.thumbnail_path ? sugThumbs.get(i.thumbnail_path) : null) ??
-                (i.image_path ? sugUrls.get(i.image_path) ?? null : null),
+              category: i.category,
+              subcategory: i.subcategory,
+              name: i.name,
               primary_color: i.primary_color,
+              image_url: i.image_path ? sugUrls.get(i.image_path) ?? null : null,
+              thumbnail_url: i.thumbnail_path
+                ? sugThumbs.get(i.thumbnail_path) ?? null
+                : null,
             })),
         };
       }
     }
   }
 
-  // ── Firmar URLs para imágenes que vamos a mostrar ────────────────────────
-  const { createSignedUrlMap } = await import("@/lib/storage/clothingImages");
-  const pathsToSign = [prendaOlvidada?.image_path].filter(
-    (p): p is string => Boolean(p)
+  // ── Tu semana: los outfits realmente usados en los últimos días ──────────
+  const semana = outfitsDeLaSemana(allUses, offsetDate(today, -SEMANA_DIAS));
+  const itemsPorOutfit = new Map(
+    semana.map((d) => [
+      d.outfitId,
+      (outfitMap.get(d.outfitId) ?? [])
+        .map((id) => allItems.find((i) => i.id === id))
+        .filter((i): i is NonNullable<typeof i> => Boolean(i)),
+    ])
   );
 
+  // ── Firmar URLs para TODAS las imágenes de la pantalla, en un solo lote ──
+  // Antes se firmaba solo la prenda olvidada. Ahora entran también las prendas
+  // de la tira semanal (~5 outfits × 4 prendas). Una llamada batch por bucket,
+  // no una por bloque de UI.
+  const { createSignedUrlMap } = await import("@/lib/storage/clothingImages");
   const { createThumbnailSignedUrlMap: signThumbs } = await import(
     "@/lib/storage/thumbnailUrls"
   );
-  const [signedUrls, olvidadaThumbs] = await Promise.all([
-    createSignedUrlMap(supabase, pathsToSign),
-    signThumbs([prendaOlvidada?.thumbnail_path]),
+
+  const itemsSemana = [...itemsPorOutfit.values()].flat();
+  const [signedUrls, thumbUrls] = await Promise.all([
+    createSignedUrlMap(
+      supabase,
+      itemsSemana.map((i) => i.image_path).filter((p): p is string => Boolean(p))
+    ),
+    signThumbs(itemsSemana.map((i) => i.thumbnail_path)),
   ]);
 
-  // Inyectar URL firmada en el objeto: miniatura si la hay, si no la completa.
-  if (prendaOlvidada?.image_path) {
-    (prendaOlvidada as { image_url?: string | null }).image_url =
-      (prendaOlvidada.thumbnail_path
-        ? olvidadaThumbs.get(prendaOlvidada.thumbnail_path)
-        : null) ?? signedUrls.get(prendaOlvidada.image_path) ?? null;
-  }
+  const hoyIso = bogotaDay(today);
+  const ayerIso = offsetDate(today, -1);
+  const looksDeLaSemana: LookDeLaSemana[] = semana
+    .map((d) => ({
+      outfitId: d.outfitId,
+      etiqueta: etiquetaDeDia(d.usedDate, hoyIso, ayerIso),
+      items: (itemsPorOutfit.get(d.outfitId) ?? []).map((i) => ({
+        id: i.id,
+        category: i.category,
+        subcategory: i.subcategory,
+        name: i.name,
+        primary_color: i.primary_color,
+        background_removed: i.background_removed,
+        image_url: i.image_path ? signedUrls.get(i.image_path) ?? null : null,
+        thumbnail_url: i.thumbnail_path
+          ? thumbUrls.get(i.thumbnail_path) ?? null
+          : null,
+      })),
+    }))
+    // Un outfit cuyas prendas ya no existen no tiene nada que mostrar.
+    .filter((l) => l.items.length > 0);
 
-  // Clima para el estado vacío de la agenda (feed conectado, día sin eventos).
-  // No se pide cuando hay eventos: ahí el protagonista es el outfit.
-  const weather =
-    hayFeed && agendaEvents.length === 0
-      ? await (await import("@/lib/weather/openMeteo")).getCurrentWeather()
-      : null;
+  const paleta = calcularPaleta(allItems.map((i) => i.primary_color));
 
-  // Hora local del próximo evento, pre-formateada para el banner.
+  // El Hilo: solo el último. RLS ya filtra a status='published'.
+  const [ultimoPost] = await getLatestPublishedPosts(supabase, 1);
+
+  // Hora local del próximo evento, pre-formateada para el hero.
   const nextEventTime = nextEvent
     ? new Date(nextEvent.starts_at).toLocaleTimeString("es-CO", {
         hour: "2-digit",
@@ -278,28 +295,149 @@ export default async function RootPage() {
       })
     : null;
 
+  const heroState = await resolverHeroState({
+    supabase,
+    userId: user.id,
+    today,
+    allItems,
+    allOutfits,
+    allUses,
+    nextEvent,
+    nextEventTime,
+    cachedEventOutfit,
+  });
+
   return (
     <DashboardView
       displayName={displayName}
       totalItems={allItems.length}
       petState={petState}
-      prendaOlvidada={prendaOlvidada as Parameters<typeof DashboardView>[0]["prendaOlvidada"]}
       hasCalendarFeed={hayFeed}
       agendaEvents={agendaEvents}
       weather={weather}
-      eventOutfit={
-        nextEvent && nextEventTime
-          ? {
-              eventId: nextEvent.id,
-              eventTitle: nextEvent.title,
-              eventTime: nextEventTime,
-              cached: cachedEventOutfit,
-            }
-          : null
-      }
+      streak={streak}
+      heroState={heroState}
+      looksDeLaSemana={looksDeLaSemana}
+      paleta={paleta}
+      ultimoPost={ultimoPost ?? null}
     />
   );
 }
+
+// ── Estado del hero ───────────────────────────────────────────────────────────
+//
+// El orden importa y es el del plan: un evento próximo gana siempre; sin
+// evento se propone un look guardado; si el armario no da, se explica qué
+// falta; y con cero prendas, el primer paso. El hero nunca queda vacío.
+
+async function resolverHeroState(params: {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any;
+  userId: string;
+  today: Date;
+  allItems: { id: string; category: ClothingCategory }[];
+  allOutfits: { id: string; clothing_item_ids: string[] }[];
+  allUses: { outfit_id: string; used_date: string }[];
+  nextEvent: AgendaEvent | null;
+  nextEventTime: string | null;
+  cachedEventOutfit: EventOutfitData | null;
+}): Promise<TodayHeroState> {
+  const {
+    supabase,
+    userId,
+    today,
+    allItems,
+    allOutfits,
+    allUses,
+    nextEvent,
+    nextEventTime,
+    cachedEventOutfit,
+  } = params;
+
+  // A — hay evento: la IA viste la agenda.
+  if (nextEvent && nextEventTime) {
+    return {
+      kind: "event",
+      eventId: nextEvent.id,
+      eventTitle: nextEvent.title,
+      eventTime: nextEventTime,
+      cached: cachedEventOutfit,
+    };
+  }
+
+  if (allItems.length === 0) return { kind: "empty" };
+
+  const minimums = checkWardrobeMinimums(countByCategory(allItems));
+  if (!minimums.ok) return { kind: "incomplete", minimums };
+
+  // B — sin evento: un look guardado, elegido de forma determinista por día.
+  // Sin IA: ver la nota de decisión en lib/outfits/lookDelDia.ts.
+  const sieteDiasAtras = offsetDate(today, -7);
+  const usadosRecientemente = new Set(
+    allUses.filter((u) => u.used_date >= sieteDiasAtras).map((u) => u.outfit_id)
+  );
+
+  const { data: outfitsGuardados } = await supabase
+    .from("outfits")
+    .select("id, name, occasion, clothing_item_ids");
+
+  const look = pickLookDelDia({
+    seed: seedDelDia(userId, bogotaDay(today)),
+    outfits: outfitsGuardados ?? [],
+    usadosRecientemente,
+  });
+
+  // Sin outfits guardados todavía: el armario da, pero no hay nada que
+  // proponer. Se trata como armario incompleto — el CTA lleva a generar.
+  if (!look) return { kind: "incomplete", minimums };
+
+  const itemsDelLook = look.clothing_item_ids
+    .map((id) => allItems.find((i) => i.id === id))
+    .filter((i): i is NonNullable<typeof i> => Boolean(i)) as HeroItemRow[];
+
+  const { createSignedUrlMap } = await import("@/lib/storage/clothingImages");
+  const { createThumbnailSignedUrlMap } = await import(
+    "@/lib/storage/thumbnailUrls"
+  );
+  const [lookUrls, lookThumbs] = await Promise.all([
+    createSignedUrlMap(
+      supabase,
+      itemsDelLook.map((i) => i.image_path).filter((p): p is string => Boolean(p))
+    ),
+    createThumbnailSignedUrlMap(itemsDelLook.map((i) => i.thumbnail_path)),
+  ]);
+
+  return {
+    kind: "look",
+    outfitId: look.id,
+    name: look.name?.trim() || "Tu look de hoy",
+    occasion: look.occasion,
+    items: itemsDelLook.map((i) => ({
+      id: i.id,
+      category: i.category,
+      subcategory: i.subcategory,
+      name: i.name,
+      primary_color: i.primary_color,
+      background_removed: i.background_removed,
+      image_url: i.image_path ? lookUrls.get(i.image_path) ?? null : null,
+      thumbnail_url: i.thumbnail_path
+        ? lookThumbs.get(i.thumbnail_path) ?? null
+        : null,
+    })),
+  };
+}
+
+/** Las columnas de `clothing_items` que el hero necesita de `allItems`. */
+type HeroItemRow = {
+  id: string;
+  category: ClothingCategory;
+  subcategory: string | null;
+  name: string | null;
+  primary_color: string | null;
+  image_path: string | null;
+  thumbnail_path: string | null;
+  background_removed: boolean | null;
+};
 
 // ── Helpers de fecha ──────────────────────────────────────────────────────────
 
@@ -307,8 +445,4 @@ function offsetDate(base: Date, days: number): string {
   const d = new Date(base);
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
-}
-
-function daysBetween(from: Date, to: Date): number {
-  return Math.floor((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24));
 }

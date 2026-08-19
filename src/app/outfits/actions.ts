@@ -27,6 +27,8 @@ import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import { isFeedbackReason, type FeedbackReason } from "@/lib/outfits/feedback";
+import type { ClothingCategory } from "@/types/database";
+
 export type GenerateActionInput = {
   mode: GenerateMode;
   occasion?: string;
@@ -112,11 +114,16 @@ export type EventOutfitActionResult =
         explanation: string;
         matchPercentage: number | null;
         occasion: string;
+        // Forma de MoodboardItem: el hero del home pinta estas prendas con
+        // OutfitMoodboard, que ubica cada una en su zona según `category`.
         items: Array<{
           id: string;
-          nombre: string;
-          image_url: string | null;
+          category: ClothingCategory;
+          subcategory: string | null;
+          name: string | null;
           primary_color: string | null;
+          image_url: string | null;
+          thumbnail_url: string | null;
         }>;
       };
     }
@@ -184,12 +191,18 @@ export async function generateEventOutfitAction(
     itemIds = res.suggestion.clothing_item_ids;
   }
 
-  // Hidratar prendas con URLs firmadas para el dashboard.
+  // Hidratar prendas con URLs firmadas para el dashboard. La forma es la que
+  // consume OutfitMoodboard (MoodboardItem): `category` y `subcategory` no son
+  // decorativas — el moodboard posiciona cada prenda en su zona según la
+  // categoría, y sin ella todas se apilarían en la misma esquina.
   const items: Array<{
     id: string;
-    nombre: string;
-    image_url: string | null;
+    category: ClothingCategory;
+    subcategory: string | null;
+    name: string | null;
     primary_color: string | null;
+    image_url: string | null;
+    thumbnail_url: string | null;
   }> = [];
   if (itemIds.length > 0) {
     const { data: itemsRaw } = await supabase
@@ -209,12 +222,14 @@ export async function generateEventOutfitAction(
       if (!it) continue;
       items.push({
         id: it.id,
-        nombre: it.name?.trim() || it.subcategory?.trim() || it.category,
-        // Miniatura si la hay; si no, la imagen completa.
-        image_url:
-          (it.thumbnail_path ? thumbs.get(it.thumbnail_path) : null) ??
-          (it.image_path ? signed.get(it.image_path) ?? null : null),
+        category: it.category,
+        subcategory: it.subcategory,
+        name: it.name,
         primary_color: it.primary_color,
+        image_url: it.image_path ? signed.get(it.image_path) ?? null : null,
+        thumbnail_url: it.thumbnail_path
+          ? thumbs.get(it.thumbnail_path) ?? null
+          : null,
       });
     }
   }
@@ -507,6 +522,9 @@ export async function registerOutfitUseAction(
 
   revalidatePath("/outfits/saved");
   revalidatePath("/outfits");
+  // El home también cambia: el uso alimenta "Tu semana" y saca ese outfit
+  // del pool del que sale el look del día.
+  revalidatePath("/");
 
   return { ok: true, usedDate, useId: data.id };
 }

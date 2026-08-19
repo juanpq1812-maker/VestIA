@@ -1,6 +1,10 @@
 // Invitación a conectar el calendario (usuarios sin feed). Descartable: el
 // cierre se persiste en localStorage y no vuelve a aparecer.
 //
+// Era una tarjeta con relleno propio, y quedó como la única superficie con
+// fondo fuera del hero — que es justo lo que hace que el hero se lea como
+// hero. Ahora es una línea sobre el crema, como el resto del home.
+//
 // Arranca oculta y aparece tras verificar localStorage en el cliente — así no
 // hay flash para quien ya la descartó (el pop-in de ~1 frame es preferible).
 
@@ -36,40 +40,42 @@ export default function ConnectCalendarCard() {
   return (
     <section
       aria-label="Conecta tu calendario"
-      className="relative flex flex-col gap-3 rounded-xl bg-primary-light p-5 sm:p-6"
+      className="flex items-start justify-between gap-4 border-t border-divider pt-6"
     >
+      <div className="flex flex-col items-start gap-2">
+        <p className="max-w-[52ch] text-sm leading-relaxed text-text-muted">
+          Conecta tu calendario y la IA te preparará el look antes de que
+          pienses en qué ponerte. Funciona con Google y Apple.
+        </p>
+        <Link
+          href="/profile"
+          className="-my-3 inline-flex items-center py-3 text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Conectar en mi perfil
+        </Link>
+      </div>
+
+      {/* 44px de área táctil aunque el aspa mida 16: el botón de descarte era
+          de 32×32, por debajo del mínimo. */}
       <button
         type="button"
         onClick={dismiss}
         aria-label="Descartar"
-        className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary-mid/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="-m-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-text-faint transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
           <path d="M6 6l12 12M18 6 6 18" />
         </svg>
       </button>
-
-      <div className="flex items-center gap-2 pr-10">
-        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" />
-        </svg>
-        <h2 className="font-display text-xl text-text">
-          Conecta tu calendario
-        </h2>
-      </div>
-      <p className="max-w-prose text-sm leading-relaxed text-text-muted">
-        Si tienes una reunión, una cita o un plan, la IA te preparará el look
-        antes de que pienses en qué ponerte. Funciona con Google y Apple
-        Calendar.
-      </p>
-      <Link
-        href="/profile"
-        className="inline-flex w-fit items-center gap-1 text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        Conectar en mi perfil
-        <span aria-hidden="true">→</span>
-      </Link>
     </section>
   );
 }
