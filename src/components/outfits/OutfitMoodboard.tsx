@@ -169,7 +169,12 @@ export default function OutfitMoodboard({ items, index = 0, background }: Props)
     setShown(true);
   }, []);
 
-  const board = items.slice(0, 6);
+  // `?? []` en vez de confiar en el tipo: este componente lo consumen cinco
+  // pantallas y un `items` undefined tumbaba el render entero con
+  // "Cannot read properties of undefined (reading 'slice')". Con la guarda se
+  // degrada a lienzo vacío, que es lo mismo que pasa con un outfit cuyas
+  // prendas ya no existen.
+  const board = (items ?? []).slice(0, 6);
   const bg = background ?? BOARD_BG[index % BOARD_BG.length];
   const placements = encuadrar(board);
 

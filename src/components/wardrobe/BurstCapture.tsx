@@ -40,6 +40,11 @@ export default function BurstCapture() {
   const [lastThumb, setLastThumb] = useState<string | null>(null);
   const [flyingThumb, setFlyingThumb] = useState<FlyingThumb | null>(null);
   const [uploading, setUploading] = useState(false);
+  // "Listo" consulta el presupuesto contra el servidor y luego navega a una
+  // ruta con Server Components. Los dos pasos tardan, y sin este estado el
+  // botón se quedaba inerte: el usuario lo pulsaba una y otra vez creyendo
+  // que no había registrado el toque.
+  const [abriendoRevision, setAbriendoRevision] = useState(false);
   const [budgetWarning, setBudgetWarning] = useState<string | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
 
@@ -189,15 +194,30 @@ export default function BurstCapture() {
   }
 
   async function handleListo() {
-    if (userId) {
-      const budget = await peekBurstBudgetAction();
-      if (budget.remaining === 0 && budget.resetInMinutes) {
-        setBudgetWarning(
-          `Ya no te quedan análisis esta hora. Las fotos en cola se procesarán en ~${budget.resetInMinutes} min — puedes revisar las que ya están listas.`
-        );
+    // El estado se levanta ANTES del primer await: es lo único que separa
+    // "pulsé y está trabajando" de "pulsé y no pasó nada". También hace de
+    // candado contra el doble toque, que era la reacción natural al silencio.
+    if (abriendoRevision) return;
+    setAbriendoRevision(true);
+
+    try {
+      if (userId) {
+        const budget = await peekBurstBudgetAction();
+        if (budget.remaining === 0 && budget.resetInMinutes) {
+          setBudgetWarning(
+            `Ya no te quedan análisis esta hora. Las fotos en cola se procesarán en ~${budget.resetInMinutes} min — puedes revisar las que ya están listas.`
+          );
+        }
       }
+      // No se reinicia `abriendoRevision` en el camino feliz: la navegación
+      // tarda y el componente sigue montado mientras tanto. Apagarlo aquí
+      // devolvería el botón a su estado normal justo antes de que la pantalla
+      // cambie, que es el parpadeo que este arreglo viene a quitar.
+      router.push("/wardrobe/upload/review");
+    } catch {
+      setGeneralError("No pudimos abrir la revisión. Intenta de nuevo.");
+      setAbriendoRevision(false);
     }
-    router.push("/wardrobe/upload/review");
   }
 
   return (
@@ -317,7 +337,23 @@ export default function BurstCapture() {
             {lastThumb ? "Tomar otra foto" : "Tomar foto"}
           </Button>
 
-          <Button variant="secondary" size="md" fullWidth onClick={handleListo} disabled={queueCount === 0}>
+          <Button
+            variant="secondary"
+            size="md"
+            fullWidth
+            onClick={handleListo}
+            disabled={queueCount === 0}
+            isLoading={abriendoRevision}
+            loadingText="Preparando tus prendas…"
+            leftIcon={
+              abriendoRevision ? (
+                <span
+                  aria-hidden="true"
+                  className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"
+                />
+              ) : undefined
+            }
+          >
             Listo {queueCount > 0 ? `(${queueCount})` : ""}
           </Button>
 
