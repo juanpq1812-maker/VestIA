@@ -2,9 +2,9 @@
 // una pasada: la ropa que ya tienes + IA = tu outfit de hoy.
 //
 // Server Component que compone el scroll suave (Lenis) + el hero animado +
-// los reveals al hacer scroll. Las secciones de atmósfera se apoyan en
-// fotografía editorial (Unsplash, verificada); "Cómo funciona" no, porque ahí
-// el trabajo es demostrar el producto: usa assets reales de StrandIA.
+// los reveals al hacer scroll. Ya no queda ninguna foto de stock: todo lo que
+// se ve —prendas, recortes, Hebri, la lámina editorial— sale de assets reales
+// del producto, que es lo que separa esta landing de cualquier otra de moda.
 
 import Link from "next/link";
 import Image from "next/image";
@@ -12,9 +12,6 @@ import Container from "@/components/ui/Container";
 import SmoothScroll from "./SmoothScroll";
 import LandingHero from "./LandingHero";
 import Reveal from "./Reveal";
-
-const img = (id: string, w = 1000) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
 
 // ── Las visuales de "Cómo funciona" ─────────────────────────────────────────
 //
@@ -198,10 +195,10 @@ export default function LandingContent() {
       <main className="flex flex-1 flex-col">
         {/* ── Nav ──────────────────────────────────────────────────────── */}
         <header className="sticky top-0 z-30 border-b border-divider bg-surface/80 backdrop-blur supports-[backdrop-filter]:bg-surface/70">
-          <Container size="lg" className="flex items-center justify-between py-3">
+          <Container size="lg" className="flex items-center justify-between gap-3 py-2.5">
             <Link
               href="/"
-              className="flex items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+              className="flex min-h-11 items-center rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
               aria-label="StrandIA — inicio"
             >
               <Image
@@ -216,13 +213,13 @@ export default function LandingContent() {
             <div className="flex items-center gap-2">
               <Link
                 href="/login"
-                className="rounded-full px-4 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-surface-2 hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                className="inline-flex min-h-11 items-center rounded-full px-4 text-sm font-medium text-text-muted transition-colors duration-200 hover:bg-surface-2 hover:text-text active:bg-surface-offset focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 Iniciar sesión
               </Link>
               <Link
                 href="/register"
-                className="hidden rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-px hover:bg-primary-hover hover:shadow-md active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:inline-block"
+                className="hidden min-h-11 items-center rounded-full bg-primary px-5 text-sm font-semibold text-white shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-md active:translate-y-0 active:bg-primary-active focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:inline-flex"
               >
                 Crear cuenta
               </Link>
@@ -296,46 +293,82 @@ export default function LandingContent() {
           </Container>
         </section>
 
-        {/* ── Banda editorial full-bleed ───────────────────────────────── */}
-        <section className="relative isolate overflow-hidden">
-          <Image
-            src={img("photo-1556905055-8f358a7a47b2", 1600)}
-            alt="Flat-lay de un outfit: gorro tejido, suéter gris, jeans y tulipanes sobre sábanas claras"
-            fill
-            loading="lazy"
-            sizes="100vw"
-            className="-z-10 object-cover"
-          />
+        {/* ── Banda editorial full-bleed ───────────────────────────────
+            Era una foto de Unsplash a sangre con un degradado encima para
+            poder leer el texto. Ese scrim es una apuesta: el contraste depende
+            de qué tan clara sea la foto justo debajo de cada línea.
+
+            Ahora el fondo es tinta con un degradado cálido —contraste medido y
+            constante: 13,2:1 en la zona tinta, 7,8:1 en el punto más claro— y
+            la fotografía pasa a ser una lámina contenida. El asset es local
+            (675×900) y la lámina mide 320px, así que se sirve a 2× nativo en
+            vez de estirarse a 1600 de ancho como hacía la foto a sangre. */}
+        <section className="relative isolate overflow-hidden bg-ink">
           <div
             aria-hidden="true"
-            className="absolute inset-0 -z-10 bg-gradient-to-r from-ink/80 via-ink/45 to-transparent"
+            className="absolute inset-0 -z-10"
+            style={{
+              background:
+                "radial-gradient(115% 95% at 12% 0%, #4a5548 0%, #2d312e 55%, #242724 100%)",
+            }}
           />
-          <Container size="lg" className="py-28 sm:py-36 lg:py-44">
-            <Reveal className="max-w-xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-                Outfit del día
-              </p>
-              <h2 className="mt-4 font-display text-3xl leading-tight tracking-tight text-white text-balance sm:text-4xl lg:text-5xl">
-                Un look nuevo cada mañana, hecho con la ropa que ya está en tu
-                clóset.
-              </h2>
-              <p className="mt-5 max-w-md text-base leading-relaxed text-white/85">
-                Nada de vitrinas infinitas ni compras por impulso. StrandIA
-                mira tu armario real y te propone algo que de verdad puedes
-                ponerte hoy.
-              </p>
-            </Reveal>
+          {/* Halo cálido en lino: es lo que evita que el bloque se lea como un
+              rectángulo negro plano. */}
+          <div
+            aria-hidden="true"
+            className="absolute -right-20 top-1/2 -z-10 h-96 w-96 -translate-y-1/2 rounded-full bg-surface-offset/10 blur-3xl"
+          />
+          {/* Trama diagonal finísima: textura editorial sin archivo de ruido. */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 opacity-[0.06]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(135deg, #fcf9f6 0 1px, transparent 1px 7px)",
+            }}
+          />
+
+          <Container size="lg" className="py-20 sm:py-24 lg:py-28">
+            <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+              <Reveal>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-mid">
+                  Outfit del día
+                </p>
+                <h2 className="mt-4 font-display text-3xl leading-tight tracking-tight text-white text-balance sm:text-4xl lg:text-5xl">
+                  Un look nuevo cada mañana, hecho con la ropa que ya está en tu
+                  clóset.
+                </h2>
+                <p className="mt-5 max-w-md text-base leading-relaxed text-white/85">
+                  Nada de vitrinas infinitas ni compras por impulso. StrandIA
+                  mira tu armario real y te propone algo que de verdad puedes
+                  ponerte hoy.
+                </p>
+              </Reveal>
+
+              <Reveal delay={120}>
+                <div className="relative mx-auto aspect-[3/4] w-full max-w-[20rem] overflow-hidden rounded-2xl shadow-lg ring-1 ring-white/15 lg:mr-0 lg:max-w-[21rem]">
+                  <Image
+                    src="/camera-tips/ejemplo-ideal.jpg"
+                    alt="Camiseta verde oliva extendida sobre una sábana clara, fotografiada desde arriba"
+                    fill
+                    loading="lazy"
+                    sizes="(max-width: 1024px) 80vw, 320px"
+                    className="object-cover"
+                  />
+                </div>
+              </Reveal>
+            </div>
           </Container>
         </section>
 
         {/* ── Por qué StrandIA ─────────────────────────────────────────── */}
         <section className="bg-surface-offset">
           <Container size="lg" className="py-20 sm:py-24">
-            <div className="grid gap-12 sm:grid-cols-2 sm:gap-16">
-              <Reveal>
+            <div className="grid gap-6 sm:grid-cols-2 sm:gap-8">
+              <Reveal className="h-full rounded-2xl border border-border/60 bg-surface p-6 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-8">
                 <span
                   aria-hidden="true"
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-primary"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-primary"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 21v-8" />
@@ -346,16 +379,19 @@ export default function LandingContent() {
                 <h3 className="mt-5 font-display text-2xl text-text">
                   Menos consumo, más estilo
                 </h3>
-                <p className="mt-3 max-w-sm text-base leading-relaxed text-text-muted">
+                <p className="mt-3 text-base leading-relaxed text-text-muted">
                   Aprovechar lo que ya tienes es la forma más sostenible —y más
                   económica— de vestir bien. StrandIA te ayuda a comprar solo lo
                   que de verdad te suma.
                 </p>
               </Reveal>
-              <Reveal delay={120}>
+              <Reveal
+                delay={120}
+                className="h-full rounded-2xl border border-border/60 bg-surface p-6 shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-8"
+              >
                 <span
                   aria-hidden="true"
-                  className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-primary"
+                  className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-light text-primary"
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 3c0 4.42-3.58 8-8 8 4.42 0 8 3.58 8 8 0-4.42 3.58-8 8-8-4.42 0-8-3.58-8-8Z" />
@@ -364,7 +400,7 @@ export default function LandingContent() {
                 <h3 className="mt-5 font-display text-2xl text-text">
                   Tu estilo, no un algoritmo genérico
                 </h3>
-                <p className="mt-3 max-w-sm text-base leading-relaxed text-text-muted">
+                <p className="mt-3 text-base leading-relaxed text-text-muted">
                   Las combinaciones salen de tus prendas y tus ocasiones. Entre
                   más lo usas, mejor entiende cómo te gusta vestir.
                 </p>
@@ -391,13 +427,13 @@ export default function LandingContent() {
               <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
                 <Link
                   href="/register"
-                  className="inline-flex h-13 w-full items-center justify-center rounded-full bg-white px-8 text-base font-semibold text-ink shadow-sm transition-all duration-200 ease-out hover:-translate-y-px hover:shadow-lg active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
+                  className="inline-flex h-13 w-full items-center justify-center rounded-full bg-white px-8 text-base font-semibold text-ink shadow-md transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
                 >
                   Crear cuenta gratis
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex h-13 w-full items-center justify-center rounded-full border border-white/40 px-7 text-base font-semibold text-white transition-colors duration-200 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
+                  className="inline-flex h-13 w-full items-center justify-center rounded-full border border-white/40 px-7 text-base font-semibold text-white transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-white/70 hover:bg-white/10 hover:shadow-md active:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white sm:w-auto"
                 >
                   Ya tengo cuenta
                 </Link>
