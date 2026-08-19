@@ -47,6 +47,13 @@ typography:
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: "0.05em"
+  label-sm:
+    fontFamily: "Hanken Grotesk, Helvetica Neue, system-ui, sans-serif"
+    fontSize: "0.6875rem"
+    fontWeight: 600
+    lineHeight: 1.3
+    letterSpacing: "0.05em"
+    note: "11px. Badges y micro-etiquetas sobre imagen o dentro de cards densas. Nunca texto de lectura."
   icons:
     fontFamily: "Material Symbols Outlined"
     note: "Fuente de íconos de línea (2px stroke visual), monocromos; cargada vía Google Fonts en layout.tsx"
@@ -166,8 +173,11 @@ The palette is a restrained warm-neutral field (cream, paper) anchored by a sing
 - **Title / H3** (400–700, `text-xl`): subsection titles, modal headers.
 - **Body** (400, `text-sm`–`text-base`, 1.5 line-height): all reading content, form labels, descriptions. Cap prose at 65–75ch.
 - **Label** (600, `text-xs`, uppercase, `tracking-wider`): category badges, eyebrow labels — used sparingly, never as a default section kicker (see Do's and Don'ts).
+- **Label small** (600, `text-[11px]`, 0.6875rem): el escalón por debajo de Label. Badges sobre imagen y micro-etiquetas dentro de cards densas, donde 12px empuja el layout. **Nunca** para texto de lectura.
 
 ### Named Rules
+**The 11px-Is-The-Floor Rule.** `text-[11px]` es un escalón real del sistema, no deriva: aparece en ~46 sitios y es el tamaño de los badges. Pero es el PISO. Nada de texto baja de ahí — un `text-[10px]` o un `text-[11.5px]` no es un escalón nuevo, es un valor suelto que hay que subir a 11. Los tamaños en px sobre `.material-symbols-outlined` son la excepción: ahí `font-size` dimensiona el glifo, no tipografía.
+
 **The Serif-Never-Body Rule.** Libre Caslon Text renders headings only. It never appears in body copy, buttons, form fields, or navigation — those are always Hanken Grotesk. One sanctioned exception from the reference designs: prices may render in Caslon as editorial figures.
 
 ## 4. Elevation

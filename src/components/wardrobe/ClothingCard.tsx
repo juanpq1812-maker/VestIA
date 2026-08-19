@@ -73,7 +73,7 @@ export default function ClothingCard({ item, priority = false }: Props) {
 
         {/* Badge de item sin categorizar (subido en bulk) */}
         {item.subcategory === null ? (
-          <span className="absolute right-3 top-3 rounded-full bg-warning px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-sm">
+          <span className="absolute right-3 top-3 rounded-full bg-warning px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-white shadow-sm">
             Sin cat.
           </span>
         ) : null}
@@ -89,7 +89,7 @@ export default function ClothingCard({ item, priority = false }: Props) {
         (item.reconstruction_reason !== null && item.reconstructed === false) ? (
           <Link
             href={`/wardrobe/${item.id}/edit`}
-            className="absolute bottom-2 left-2 rounded-full bg-surface/90 px-2.5 py-1 text-[10px] font-semibold text-text-muted shadow-sm backdrop-blur transition-colors hover:text-primary"
+            className="absolute bottom-2 left-2 rounded-full bg-surface/90 px-2.5 py-1 text-[11px] font-semibold text-text-muted shadow-sm backdrop-blur transition-colors hover:text-primary"
           >
             Mejora esta foto
           </Link>

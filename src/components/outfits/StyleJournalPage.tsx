@@ -104,7 +104,7 @@ export default function StyleJournalPage({
             VIEWPORT, no del contenedor. Tamaños fijos verificados en
             Chrome con zoom, no por aritmética — ver plan del cuaderno de
             páginas. */}
-        <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-primary">
           Style Journal
         </p>
         <h3 className="font-display leading-[0.95] text-text">
@@ -120,7 +120,7 @@ export default function StyleJournalPage({
             se truncaba a 1 línea porque desbordar la banda fija de alto
             tapaba la primera fila de prendas — ahora que el header mide lo
             que necesite, envolver a 2 líneas es seguro. */}
-        <p className="mt-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+        <p className="mt-1 px-2 text-[11px] font-semibold uppercase tracking-widest text-text-muted">
           {outfitName}
         </p>
       </div>
