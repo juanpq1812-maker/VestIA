@@ -360,9 +360,16 @@ export default function LandingContent() {
 
             Ahora el fondo es tinta con un degradado cálido —contraste medido y
             constante: 13,2:1 en la zona tinta, 7,8:1 en el punto más claro— y
-            la fotografía pasa a ser una lámina contenida. El asset es local
-            (675×900) y la lámina mide 320px, así que se sirve a 2× nativo en
-            vez de estirarse a 1600 de ancho como hacía la foto a sangre. */}
+            la fotografía pasa a ser una lámina contenida.
+
+            Lo que va en la lámina es el Style Journal de la propia app: el
+            spread de "Look del día" con sus prendas colgadas. Antes había una
+            foto de una camiseta sobre una cama — real, pero muda. Esta enseña
+            la pantalla que el usuario va a recibir.
+
+            La proporción de la lámina se fija a la del archivo (1074/1358) en
+            vez de a un 3/4 redondo: es una página con texto pequeño y
+            recortarla o dejarle franjas se nota. */}
         <section className="relative isolate overflow-hidden bg-ink">
           <div
             aria-hidden="true"
@@ -406,14 +413,14 @@ export default function LandingContent() {
               </Reveal>
 
               <Reveal delay={120}>
-                <div className="relative mx-auto aspect-[3/4] w-full max-w-[20rem] overflow-hidden rounded-2xl shadow-lg ring-1 ring-white/15 lg:mr-0 lg:max-w-[21rem]">
+                <div className="relative mx-auto aspect-[1074/1358] w-full max-w-[21rem] overflow-hidden rounded-2xl shadow-lg ring-1 ring-white/15 lg:mr-0 lg:max-w-[26rem]">
                   <Image
-                    src="/camera-tips/ejemplo-ideal.jpg"
-                    alt="Camiseta verde oliva extendida sobre una sábana clara, fotografiada desde arriba"
+                    src="/landing/style-journal.png"
+                    alt="Página del Style Journal de StrandIA: el look del día con camiseta negra, pantalón cargo verde, tenis, chaqueta de cuadros y gorra, cada prenda colgada de una percha"
                     fill
                     loading="lazy"
-                    sizes="(max-width: 1024px) 80vw, 320px"
-                    className="object-cover"
+                    sizes="(max-width: 1024px) 85vw, 416px"
+                    className="object-contain"
                   />
                 </div>
               </Reveal>
