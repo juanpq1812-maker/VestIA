@@ -76,7 +76,13 @@ export default function RootLayout({
       className={`${hanken.variable} ${caslon.variable} h-full`}
     >
       <head>
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        {/* El <link rel="apple-touch-icon"> ya NO se escribe a mano: lo emite
+            Next desde src/app/apple-icon.png, y su URL lleva un hash del
+            contenido. Eso importa — la etiqueta manual apuntaba a una ruta sin
+            versión, así que iOS se quedaba con el icono viejo para siempre.
+            Además Next inserta la suya DESPUÉS, con lo que la manual quedaba
+            ignorada y "arreglar" el archivo de public/ no cambiaba nada.
+            public/apple-touch-icon.png se conserva: lo precachea el SW. */}
         <AppleSplashLinks />
         <link
           rel="stylesheet"

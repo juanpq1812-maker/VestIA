@@ -1,11 +1,21 @@
 // Genera todos los iconos de la app a partir de UNA sola pieza de arte.
 //
 // Antes convivían dos artes distintas y nadie lo notaba porque cada
-// plataforma toma un archivo diferente: macOS instala la PWA con el icono
-// `maskable` (solo el gancho) y iOS usa `apple-touch-icon` (gancho + la
-// palabra "Strand"). Resultado: la misma app con dos iconos según el
-// dispositivo. El gancho solo es el que se lee a tamaño de icono; la palabra
-// se vuelve una mancha.
+// plataforma toma un archivo diferente. El gancho solo es el que se lee a
+// tamaño de icono; la palabra se vuelve una mancha.
+//
+// OJO — los iconos viven en DOS SITIOS y es fácil arreglar solo uno:
+//
+//   public/            los que nombra el manifest (Android, escritorio) y el
+//                      <link> manual de layout.tsx
+//   src/app/           la convención de ficheros de Next (icon.png,
+//                      apple-icon.png, favicon.ico). Next les pone un hash en
+//                      la URL y emite SUS PROPIAS etiquetas <link>, que van
+//                      DESPUÉS de las manuales en el <head> — así que en iOS
+//                      gana `src/app/apple-icon.png`.
+//
+// La primera pasada de este script solo tocó public/ y el iPhone siguió
+// instalándose con la palabra. Este script escribe en los dos sitios.
 //
 //   node scripts/build-app-icons.mjs
 
@@ -99,9 +109,13 @@ function construirIco(entradas) {
 
 async function run() {
   const salidas = [
+    // Manifest + <link> manual
     ["public/apple-touch-icon.png", 180, false],
     ["public/icon-192.png", 192, false],
     ["public/icon-512.png", 512, false],
+    // Convención de ficheros de Next — son las que ganan en el <head>
+    ["src/app/icon.png", 192, false],
+    ["src/app/apple-icon.png", 180, false],
   ];
 
   for (const [rel, size, zoom] of salidas) {
