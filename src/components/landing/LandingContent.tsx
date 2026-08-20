@@ -69,11 +69,16 @@ function VisualRecorte() {
   );
 }
 
-/** Paso 02 — tres prendas coordinadas, unidas por el hilo de la combinación. */
+/**
+ * Paso 02 — tres prendas coordinadas, unidas por el hilo de la combinación.
+ *
+ * Fotografías reales recortadas por el propio pipeline, exportadas con
+ * scripts/export-landing-garments.mjs. Antes eran ilustraciones de línea.
+ */
 const LOOK = [
-  { src: "/icons/prendas/tops/sueter.png", alt: "Suéter" },
-  { src: "/icons/prendas/bottoms/cargo.png", alt: "Pantalón cargo" },
-  { src: "/icons/prendas/calzado/botas.png", alt: "Botas" },
+  { src: "/landing-outfits/paso2-top.png", alt: "Suéter beige de punto grueso" },
+  { src: "/landing-outfits/paso2-bottom.png", alt: "Pantalón cargo verde militar" },
+  { src: "/landing-outfits/paso2-calzado.png", alt: "Botas chelsea negras" },
 ];
 
 function VisualCombina() {
@@ -93,15 +98,16 @@ function VisualCombina() {
           {LOOK.map((prenda) => (
             <li
               key={prenda.src}
-              className="flex aspect-[4/5] items-center justify-center rounded-xl border border-border bg-white p-2.5 shadow-sm"
+              className="relative aspect-[4/5] overflow-hidden rounded-xl border border-border bg-white shadow-sm"
             >
+              {/* `contain`, no `cover`: son recortes de proporciones dispares. */}
               <Image
                 src={prenda.src}
                 alt={prenda.alt}
-                width={128}
-                height={128}
+                fill
                 loading="lazy"
-                className="h-full w-full object-contain"
+                sizes="(max-width: 640px) 28vw, 150px"
+                className="object-contain p-1.5 sm:p-2.5"
               />
             </li>
           ))}

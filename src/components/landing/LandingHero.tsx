@@ -18,9 +18,14 @@ import { useSmoothScroll } from "./SmoothScroll";
 // ── Datos del mockup ─────────────────────────────────────────────────────────
 //
 // Son datos de demo de la landing, no del producto: viven acá y no en lib/.
-// Las rutas apuntan a los PNG reales de /public/icons/prendas/ — ilustraciones
-// de línea con trazo oscuro, que es justo por lo que cada prenda va sobre una
-// lámina blanca: sobre el verde del hero el trazo desaparecería.
+//
+// Antes esto apuntaba a /icons/prendas/ — ilustraciones de línea. Ahora son
+// fotografías de prendas reales recortadas, exportadas del armario con
+// scripts/export-landing-garments.mjs. Es el output literal del pipeline de
+// StrandIA, así que la landing enseña el producto en vez de dibujarlo.
+//
+// La lámina blanca detrás de cada prenda se queda: los recortes traen fondo
+// transparente, y sobre el verde del hero las prendas oscuras desaparecerían.
 
 type Prenda = { src: string; alt: string };
 
@@ -40,12 +45,12 @@ const OCASIONES: Ocasion[] = [
   {
     id: "universitario",
     label: "Casual universitario",
-    look: "Casual con capas",
+    look: "Casual de todos los días",
     score: 94,
     prendas: [
-      { src: "/icons/prendas/tops/camiseta.png", alt: "Camiseta" },
-      { src: "/icons/prendas/bottoms/jean.png", alt: "Jean" },
-      { src: "/icons/prendas/calzado/tenis.png", alt: "Tenis" },
+      { src: "/landing-outfits/casual-top.png", alt: "Camiseta verde oliva" },
+      { src: "/landing-outfits/casual-bottom.png", alt: "Jean azul de corte recto" },
+      { src: "/landing-outfits/casual-calzado.png", alt: "Tenis blancos de cuero liso" },
     ],
     hebri: "Vas a estar de pie todo el día: algodón y tenis.",
   },
@@ -55,9 +60,9 @@ const OCASIONES: Ocasion[] = [
     look: "Smart casual sobrio",
     score: 91,
     prendas: [
-      { src: "/icons/prendas/tops/camisa.png", alt: "Camisa" },
-      { src: "/icons/prendas/bottoms/pantalon.png", alt: "Pantalón" },
-      { src: "/icons/prendas/calzado/mocasines.png", alt: "Mocasines" },
+      { src: "/landing-outfits/oficina-top.png", alt: "Camisa celeste de botones" },
+      { src: "/landing-outfits/oficina-bottom.png", alt: "Pantalón chino beige" },
+      { src: "/landing-outfits/oficina-calzado.png", alt: "Mocasines café de cuero" },
     ],
     hebri: "Camisa sin corbata: formal sin pasarte de formal.",
   },
@@ -67,9 +72,9 @@ const OCASIONES: Ocasion[] = [
     look: "Noche con intención",
     score: 96,
     prendas: [
-      { src: "/icons/prendas/tops/blusa.png", alt: "Blusa" },
-      { src: "/icons/prendas/bottoms/falda.png", alt: "Falda" },
-      { src: "/icons/prendas/calzado/tacones.png", alt: "Tacones" },
+      { src: "/landing-outfits/noche-top.png", alt: "Top negro satinado sin mangas" },
+      { src: "/landing-outfits/noche-bottom.png", alt: "Falda midi verde botella" },
+      { src: "/landing-outfits/noche-calzado.png", alt: "Tacones negros de punta" },
     ],
     hebri: "Una sola pieza que destaque. El resto, que acompañe.",
   },
@@ -196,15 +201,18 @@ export default function LandingHero() {
               {ocasion.prendas.map((p) => (
                 <li
                   key={p.src}
-                  className="flex aspect-square items-center justify-center rounded-xl border border-border bg-white p-3"
+                  className="relative aspect-square overflow-hidden rounded-xl border border-border bg-white p-3 shadow-sm"
                 >
+                  {/* `object-contain`, nunca cover: estas son prendas
+                      recortadas de proporciones dispares (un jean es el doble
+                      de alto que ancho) y `cover` las cortaría por la mitad. */}
                   <Image
                     src={p.src}
                     alt={p.alt}
-                    width={128}
-                    height={128}
+                    fill
                     priority
-                    className="h-full w-full object-contain"
+                    sizes="(max-width: 640px) 30vw, 160px"
+                    className="object-contain p-1.5 sm:p-3"
                   />
                 </li>
               ))}
