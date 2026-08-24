@@ -102,6 +102,10 @@ export default function ReviewGrid({ userId }: Props) {
   // complete (el chequeo es reactivo: en cuanto la prenda vuelve a estar
   // completa el resaltado desaparece solo, sin tocar este set).
   const [invalidIds, setInvalidIds] = useState<Set<string>>(new Set());
+  // Prendas que el usuario ya editó a mano: sus valores locales mandan sobre
+  // lo que devuelva el sondeo (ver refresh). Es un ref y no estado porque solo
+  // se lee dentro de callbacks — no hay nada que re-renderizar cuando cambia.
+  const touchedRef = useRef<Set<string>>(new Set());
   // Guard de re-entrancia para "Guardar todo" — mismo patrón que UploadForm:
   // se lee/escribe de forma síncrona para descartar un doble clic/tap antes
   // de que arranque un segundo batch de updates.
@@ -123,7 +127,26 @@ export default function ReviewGrid({ userId }: Props) {
     setEdits((prev) => {
       const next = { ...prev };
       for (const item of fetched) {
-        if (!next[item.id]) next[item.id] = editsFromItem(item);
+        // Re-sembrar desde la fila mientras el usuario no la haya tocado.
+        //
+        // El guard `if (!next[item.id])` solo, que es lo que había, siembra
+        // los edits en el PRIMER fetch — y en ese momento la prenda todavía
+        // está en draft/processing con category/color/occasions en null,
+        // porque el análisis no ha corrido. Cuando el pipeline termina y la
+        // fila se llena, los edits locales se quedaban con los nulos viejos:
+        // la prenda aparecía "incompleta" para siempre, bloqueaba el guardado
+        // del lote entero, y solo se arreglaba recargando la página.
+        //
+        // Visto en vivo con dos prendas reales: la que ya estaba lista al
+        // entrar salió bien y la que terminó de procesarse estando la pantalla
+        // abierta salió en rojo pidiendo los cuatro campos.
+        //
+        // `touchedRef` es lo que impide que el sondeo cada 2.5s le pise al
+        // usuario lo que acaba de elegir.
+        const yaEditada = touchedRef.current.has(item.id);
+        if (!next[item.id] || (!yaEditada && item.status === "ready")) {
+          next[item.id] = editsFromItem(item);
+        }
       }
       return next;
     });
@@ -285,6 +308,7 @@ export default function ReviewGrid({ userId }: Props) {
   }
 
   function setItemEdit(id: string, patch: Partial<ReviewEdits>) {
+    touchedRef.current.add(id);
     setEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   }
 
