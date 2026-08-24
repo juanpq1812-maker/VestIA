@@ -42,9 +42,12 @@ const SWATCH_BY_NAME: ReadonlyMap<string, string> = new Map([
   ...COLOR_PALETTE.map((c) => [c.name, c.swatch] as const),
   // Alias de texto libre: prendas viejas y salidas de la IA que no se ciñeron
   // a la paleta. Misma lista que NEUTRAL_ALIASES en lib/wardrobe/outfitRules.ts.
-  ["cafe", "#6b3f1d"],
-  ["marrón", "#6b3f1d"],
-  ["marron", "#6b3f1d"],
+  // Mismo hex que `café` en COLOR_PALETTE — son el mismo color escrito de
+  // otra forma, y si se desincronizan el armario pinta dos cafés distintos
+  // segun como haya quedado escrito el nombre en la fila.
+  ["cafe", "#7a5a41"],
+  ["marrón", "#7a5a41"],
+  ["marron", "#7a5a41"],
   ["camel", "#c19a6b"],
   ["crema", "#f5ebdc"],
   ["navy", "#1e3a5f"],
