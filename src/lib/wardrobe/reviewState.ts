@@ -209,3 +209,46 @@ export function nextAttentionId(
   );
   return siguiente ?? restantes[0];
 }
+
+// ---------------------------------------------------------------------------
+// Qué se pinta en la lista
+// ---------------------------------------------------------------------------
+
+export type ReviewListState =
+  /** Primera carga sin resolver. */
+  | "cargando"
+  /** No se pudo leer la cola y no hay nada en pantalla que conservar. */
+  | "error"
+  /** Respuesta EXITOSA sin prendas: el usuario de verdad no tiene nada en cola. */
+  | "vacia"
+  /** Hay prendas para revisar. */
+  | "lista";
+
+/**
+ * Qué pantalla corresponde. Existe para que el vacío no pueda volver a ser
+ * la pantalla por defecto ante cualquier cosa rara.
+ *
+ * Dos reglas, en este orden, y las dos vienen de un incidente:
+ *
+ *   1. **Con prendas en pantalla, un fetch fallido no cambia la pantalla.**
+ *      El sondeo corre cada 2.5s. Uno solo que falle —trivial en una conexión
+ *      lenta— no puede borrar un lote que el usuario está editando. El fallo
+ *      se avisa aparte, sin tocar la lista.
+ *   2. **El vacío exige una respuesta exitosa.** "No capturaste ninguna foto"
+ *      es una afirmación sobre el estado del usuario. Si la consulta falló, no
+ *      sabemos nada: eso es "error", con su reintento, no un vacío.
+ *
+ * Antes las dos se rompían por el mismo motivo: `fetchPendingItems` se comía
+ * el error y devolvía `[]`, así que "se cayó la red" y "no hay nada" llegaban
+ * acá como el mismo valor y eran indistinguibles.
+ */
+export function reviewListState(args: {
+  loading: boolean;
+  fetchFailed: boolean;
+  itemCount: number;
+}): ReviewListState {
+  if (args.loading) return "cargando";
+  if (args.itemCount > 0) return "lista";
+  if (args.fetchFailed) return "error";
+  return "vacia";
+}

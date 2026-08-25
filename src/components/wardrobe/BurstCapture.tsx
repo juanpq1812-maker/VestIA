@@ -57,11 +57,27 @@ export default function BurstCapture() {
   // solapadas, pero otra pestaña/pantalla puede solaparse igual y el claim
   // atómico es lo que evita que eso duplique trabajo.
   const processingRef = useRef(false);
+  // Se levanta al desmontar. Lo lee `shouldStop` para que la cola no siga
+  // tomando items nuevos desde una pantalla que el usuario ya abandonó — ver
+  // la nota larga en BurstQueueCallbacks.shouldStop.
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
 
   const refreshQueueCount = useCallback(async () => {
     if (!userId) return;
-    const pending = await fetchPendingItems(supabase, userId);
-    setQueueCount(pending.filter((i) => i.status !== "confirmed").length);
+    try {
+      const pending = await fetchPendingItems(supabase, userId);
+      setQueueCount(pending.filter((i) => i.status !== "confirmed").length);
+    } catch {
+      // Contador de cola: si la consulta falla, se DEJA el último valor bueno.
+      // Ponerlo en 0 diría "no tienes nada esperando" sobre fotos que sí están
+      // en cola. Se corrige solo en la próxima llamada (cada onItemChange, y
+      // al volver la señal).
+    }
   }, [supabase, userId]);
 
   const runQueue = useCallback(
@@ -73,6 +89,7 @@ export default function BurstCapture() {
       if (typeof navigator !== "undefined" && !navigator.onLine) return;
       processingRef.current = true;
       processPendingForUser(supabase, uid, {
+        shouldStop: () => unmountedRef.current,
         onItemChange: () => refreshQueueCount(),
         onBudgetExceeded: (resetInMinutes) =>
           setBudgetWarning(
@@ -100,8 +117,15 @@ export default function BurstCapture() {
       await resumeStuckProcessing(supabase, user.id);
       await cleanupStaleDrafts(supabase, user.id);
 
-      const pending = await fetchPendingItems(supabase, user.id);
-      setQueueCount(pending.filter((i) => i.status !== "confirmed").length);
+      try {
+        const pending = await fetchPendingItems(supabase, user.id);
+        setQueueCount(pending.filter((i) => i.status !== "confirmed").length);
+      } catch {
+        // Arranque con la consulta caída: el contador se queda en 0 porque no
+        // sabemos nada todavía, pero la cola SÍ se arranca igual — lo que haya
+        // pendiente se procesa, y el contador se corrige en el primer
+        // onItemChange.
+      }
 
       // Sigue procesando lo que haya quedado pendiente de una sesión anterior.
       runQueue(user.id);

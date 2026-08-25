@@ -24,6 +24,7 @@ import {
   attentionIds,
   autoExpandId,
   nextAttentionId,
+  reviewListState,
   reviewVerdict,
   type ReviewEdits,
 } from "@/lib/wardrobe/reviewState";
@@ -83,6 +84,8 @@ export default function ReviewGrid({ userId }: Props) {
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
   const [edits, setEdits] = useState<Record<string, ReviewEdits>>({});
   const [loading, setLoading] = useState(true);
+  // Última lectura de la cola falló. NO vacía la lista: ver reviewListState.
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [existingItems, setExistingItems] = useState<ExistingItem[]>([]);
@@ -122,7 +125,19 @@ export default function ReviewGrid({ userId }: Props) {
   const [budgetResetMin, setBudgetResetMin] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
-    const fetched = await fetchPendingItems(supabase, userId);
+    let fetched: BurstClothingItem[];
+    try {
+      fetched = await fetchPendingItems(supabase, userId);
+    } catch {
+      // Un sondeo fallido NO toca la lista. Corre cada 2.5s; en una conexión
+      // lenta fallar una vez es normal, y hasta que `fetchPendingItems` dejó de
+      // comerse el error eso llegaba acá como `[]` y borraba de la vista un
+      // lote de prendas que el usuario estaba editando. Se marca el fallo, se
+      // avisa aparte, y el próximo tick lo corrige solo.
+      setFetchFailed(true);
+      return;
+    }
+    setFetchFailed(false);
     setItems(fetched);
     setEdits((prev) => {
       const next = { ...prev };
@@ -411,7 +426,33 @@ export default function ReviewGrid({ userId }: Props) {
     );
   }
 
-  if (items.length === 0) {
+  const listState = reviewListState({
+    loading: false,
+    fetchFailed,
+    itemCount: items.length,
+  });
+
+  // "No capturaste ninguna foto" es una afirmación sobre el estado del
+  // usuario. Si no pudimos leer la cola, no sabemos si es cierta.
+  if (listState === "error") {
+    return (
+      <Card padding="lg">
+        <p role="alert" className="text-center text-sm font-medium text-text">
+          No pudimos cargar tus prendas en cola.
+        </p>
+        <p className="mt-1 text-center text-sm text-text-muted">
+          Revisa tu conexión — tus fotos siguen guardadas, no se perdió ninguna.
+        </p>
+        <div className="mt-4 flex justify-center">
+          <Button variant="ghost" onClick={() => refresh()}>
+            Reintentar
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  if (listState === "vacia") {
     return (
       <Card padding="lg">
         <p className="text-center text-sm text-text-muted">
@@ -429,6 +470,16 @@ export default function ReviewGrid({ userId }: Props) {
 
   return (
     <div className="flex flex-col gap-6">
+      {online && fetchFailed ? (
+        <div
+          role="status"
+          className="rounded-md bg-warning-light px-4 py-3 text-sm font-medium text-warning"
+        >
+          Perdimos contacto con el servidor un momento. Tus prendas siguen acá y
+          lo estamos reintentando.
+        </div>
+      ) : null}
+
       {!online ? (
         <div
           role="status"
@@ -608,6 +659,11 @@ export default function ReviewGrid({ userId }: Props) {
         })}
       </div>
 
+      {/* Un solo "Seguir capturando" en la pantalla: este. El otro estaba en el
+          encabezado (review/page.tsx) y en 305px quedaban los dos a la vista,
+          idénticos, a un dedo de distancia. Se queda el del pie porque es el
+          que forma par con la acción primaria — seguir capturando o guardar es
+          UNA decisión, y las dos mitades tienen que estar juntas. */}
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
         <Button
           variant="ghost"

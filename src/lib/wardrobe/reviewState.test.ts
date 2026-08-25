@@ -10,6 +10,7 @@ import {
   isComplete,
   missingFields,
   nextAttentionId,
+  reviewListState,
   reviewVerdict,
   summaryLine,
   type ReviewEdits,
@@ -224,5 +225,48 @@ test("con varias ocasiones muestra la primera y cuenta el resto", () => {
   assert.equal(
     summaryLine(edits({ occasions: ["Casual", "Trabajo", "Citas"] }), "Tops"),
     "Suéter · Beige · Casual +2"
+  );
+});
+
+// ── Qué pantalla se pinta ────────────────────────────────────────────────────
+
+test("con prendas en pantalla, un fetch fallido NO cambia la pantalla", () => {
+  // El caso del incidente: el sondeo cada 2.5s falla una vez en Slow 4G y el
+  // lote que el usuario está editando desaparece de la vista.
+  assert.equal(
+    reviewListState({ loading: false, fetchFailed: true, itemCount: 3 }),
+    "lista"
+  );
+});
+
+test("sin prendas y con la consulta caída es error, nunca vacío", () => {
+  assert.equal(
+    reviewListState({ loading: false, fetchFailed: true, itemCount: 0 }),
+    "error"
+  );
+});
+
+test("el vacío exige una respuesta exitosa", () => {
+  assert.equal(
+    reviewListState({ loading: false, fetchFailed: false, itemCount: 0 }),
+    "vacia"
+  );
+});
+
+test("mientras carga no se afirma ni vacío ni error", () => {
+  assert.equal(
+    reviewListState({ loading: true, fetchFailed: false, itemCount: 0 }),
+    "cargando"
+  );
+  assert.equal(
+    reviewListState({ loading: true, fetchFailed: true, itemCount: 0 }),
+    "cargando"
+  );
+});
+
+test("el camino normal con prendas", () => {
+  assert.equal(
+    reviewListState({ loading: false, fetchFailed: false, itemCount: 3 }),
+    "lista"
   );
 });
