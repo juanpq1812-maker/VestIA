@@ -20,6 +20,7 @@
 // /wardrobe, y duplicarla en el home solo repetía trabajo del usuario.
 
 import Header from "@/components/layout/Header";
+import PendingItemsBanner from "@/components/wardrobe/PendingItemsBanner";
 import Container from "@/components/ui/Container";
 import AgendaCard, { type AgendaEvent } from "@/components/dashboard/AgendaCard";
 import TodayHero, { type TodayHeroState } from "@/components/dashboard/TodayHero";
@@ -37,6 +38,8 @@ import type { TramoDePaleta } from "@/lib/wardrobe/paleta";
 
 type Props = {
   displayName: string;
+  /** Prendas escaneadas sin confirmar. 0 = no se pinta el aviso. */
+  pendientes: number;
   totalItems: number;
   petState: PetState;
   hasCalendarFeed: boolean;
@@ -51,6 +54,7 @@ type Props = {
 
 export default function DashboardView({
   displayName,
+  pendientes,
   totalItems,
   petState,
   hasCalendarFeed,
@@ -76,6 +80,11 @@ export default function DashboardView({
               weather={weather}
               streak={streak}
             />
+
+            {/* Justo bajo el saludo, antes del hero: es un estado del armario
+                que hay que ver al aterrizar, no algo para descubrir haciendo
+                scroll. */}
+            {pendientes > 0 ? <PendingItemsBanner count={pendientes} /> : null}
 
             <TodayHero state={heroState} />
 
