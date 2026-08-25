@@ -77,17 +77,30 @@ test("un campo faltante la vuelve incompleta y pide atención", () => {
   assert.deepEqual(v.missing, ["color"]);
 });
 
-test("un duplicado con todo lleno es 'revisar', no 'incompleta' — no bloquea guardar", () => {
+test("un duplicado con todo lleno NO pide atención: avisa, no interrumpe", () => {
+  // La heurística compara solo categoría + color: en un armario con varias
+  // prendas azules marca casi todo. Si eso entrara al recorrido guiado, el
+  // recorrido se dispararía siempre y dejaría de dirigir la atención.
   const v = reviewVerdict(edits(), signals({ duplicate: true }));
-  assert.equal(v.state, "revisar");
-  assert.equal(v.needsAttention, true);
+  assert.equal(v.state, "confirmada");
+  assert.equal(v.needsAttention, false);
   assert.deepEqual(v.missing, []);
+  // El aviso sigue existiendo, como nota.
   assert.ok(v.notes.includes("posible_duplicado"));
 });
 
-test("faltar un campo gana sobre el duplicado: lo que bloquea manda", () => {
+test("un lote entero de duplicados no convoca el recorrido", () => {
+  const filas = Array.from({ length: 3 }, (_, i) =>
+    fila(`d${i}`, edits(), signals({ duplicate: true }))
+  );
+  assert.deepEqual(attentionIds(filas), []);
+  assert.equal(autoExpandId(filas), null);
+});
+
+test("faltar un campo sí pide atención, aunque además sea duplicado", () => {
   const v = reviewVerdict(edits({ occasions: [] }), signals({ duplicate: true }));
   assert.equal(v.state, "incompleta");
+  assert.equal(v.needsAttention, true);
   assert.ok(v.notes.includes("posible_duplicado"));
 });
 

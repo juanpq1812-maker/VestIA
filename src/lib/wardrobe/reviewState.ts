@@ -85,10 +85,8 @@ export type ReviewNote =
   | "fondo_sin_quitar";
 
 export type ReviewState =
-  /** Completa y sin nada que decidir: se guarda sin abrirla. */
+  /** Completa: se guarda sin abrirla. */
   | "confirmada"
-  /** Completa, pero hay una decisión pendiente que el usuario debería ver. */
-  | "revisar"
   /** Falta un campo obligatorio. BLOQUEA el guardado del lote entero. */
   | "incompleta";
 
@@ -100,9 +98,22 @@ export type ReviewVerdict = {
   subcategoryHint: string | null;
   /**
    * Entra en el conteo de la barra de arriba y en el recorrido guiado.
-   * Las notas puramente informativas (foto_sin_mejorar, fondo_sin_quitar) NO
-   * lo activan: no hay nada que el usuario tenga que decidir ahí, y meterlas
-   * convertiría el recorrido en un tour por avisos que no piden nada.
+   *
+   * SOLO lo activa que falte un campo obligatorio, porque es lo único que
+   * bloquea el guardado. Ninguna nota lo activa — ni las de imagen
+   * (foto_sin_mejorar, fondo_sin_quitar) ni el duplicado.
+   *
+   * El duplicado SÍ lo activaba, y medido contra un armario real fue un
+   * error: la heurística compara solo categoría + color, así que en un
+   * armario con varias prendas azules marca casi todo. Visto en producción:
+   * las 3 prendas de un lote señaladas como duplicadas, la barra diciendo
+   * "3 prendas necesitan un toque" y el recorrido guiado paseando por tres
+   * tarjetas donde no había nada que arreglar. Un recorrido que se dispara
+   * siempre no dirige la atención: la gasta.
+   *
+   * El aviso no desaparece — sigue como nota, visible en la fila y con sus
+   * botones Descartar / Guardar igual en la tarjeta abierta. Lo que deja de
+   * hacer es reclamar el recorrido.
    */
   needsAttention: boolean;
 };
@@ -119,15 +130,14 @@ export function reviewVerdict(e: ReviewEdits, s: ReviewSignals): ReviewVerdict {
   if (s.reconstructionReason && !s.reconstructed) notes.push("foto_sin_mejorar");
   if (!s.backgroundRemoved) notes.push("fondo_sin_quitar");
 
-  const state: ReviewState =
-    missing.length > 0 ? "incompleta" : s.duplicate ? "revisar" : "confirmada";
+  const state: ReviewState = missing.length > 0 ? "incompleta" : "confirmada";
 
   return {
     state,
     missing,
     notes,
     subcategoryHint: hintVivo ? s.subcategoryAiRaw!.trim() : null,
-    needsAttention: state !== "confirmada",
+    needsAttention: state === "incompleta",
   };
 }
 

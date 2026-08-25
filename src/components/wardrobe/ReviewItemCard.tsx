@@ -49,7 +49,6 @@ type Props = {
 
 const ESTADO_ICONO: Record<ReviewVerdict["state"], { icon: string; className: string; label: string }> = {
   confirmada: { icon: "check", className: "text-primary", label: "Lista" },
-  revisar: { icon: "info", className: "text-warning", label: "Revisa esta" },
   incompleta: { icon: "error", className: "text-danger", label: "Falta completar" },
 };
 
@@ -80,13 +79,14 @@ export default function ReviewItemCard({
   // El borde marca la prenda incompleta desde el principio, no solo después de
   // que el usuario intente guardar: es la única señal que tiene mientras la
   // tarjeta está cerrada.
+  // El duplicado NO tiñe el borde. Es una nota: la prenda está completa y se
+  // va a guardar. Un borde de alerta la haría parecer un problema, y con la
+  // heurística actual (categoría + color) eso pinta medio lote de naranja.
   const borde = invalid
     ? "border-danger ring-2 ring-danger/40"
     : verdict.state === "incompleta"
       ? "border-danger/40"
-      : verdict.state === "revisar"
-        ? "border-warning/40"
-        : "border-border";
+      : "border-border";
 
   return (
     <div
@@ -122,7 +122,7 @@ export default function ReviewItemCard({
             className={`mt-0.5 block truncate text-xs ${
               verdict.state === "incompleta"
                 ? "text-danger"
-                : verdict.state === "revisar"
+                : verdict.notes.includes("posible_duplicado")
                   ? "text-warning"
                   : "text-text-faint"
             }`}
