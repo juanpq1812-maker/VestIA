@@ -1,7 +1,13 @@
-// Grilla de revisión del modo ráfaga. Client Component: sondea el estado de
-// las prendas en el pipeline (draft/processing/ready/error) cada 2.5s
-// mientras haya alguna sin terminar, permite edición inline y confirma el
-// lote completo al final.
+// Lista de revisión del modo ráfaga y de "subir outfit completo" — es la misma
+// pantalla para los dos (OutfitPhotoCapture empuja acá después de confirmar los
+// recortes). Client Component: sondea el estado de las prendas en el pipeline
+// (draft/processing/ready/error) cada 2.5s mientras haya alguna sin terminar,
+// permite edición inline y confirma el lote completo al final.
+//
+// Cada prenda es una FILA COLAPSADA (ReviewItemCard), no una tarjeta con todos
+// los menús abiertos — el porqué está en ese archivo. Acá vive lo que solo se
+// puede decidir mirando el lote entero: cuál se abre sola, el recorrido guiado
+// entre las que necesitan atención, y el guardado.
 
 "use client";
 
@@ -9,11 +15,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Chip from "@/components/onboarding/Chip";
+import ReviewItemCard from "@/components/wardrobe/ReviewItemCard";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browserClient";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { useOnlineStatus } from "@/lib/useOnlineStatus";
-import { CONFIRMED_STATUS, COLOR_PALETTE, ITEM_OCCASIONS, SUBCATEGORIES } from "@/lib/wardrobe/constants";
+import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import {
+  attentionIds,
+  autoExpandId,
+  incompleteNotice,
+  nextAttentionId,
+  reviewListState,
+  reviewVerdict,
+  type ReviewEdits,
+} from "@/lib/wardrobe/reviewState";
 import { recordPetAction } from "@/lib/pet/actions";
 import {
   cleanupStaleDrafts,
@@ -27,13 +42,6 @@ import { CLOTHING_CATEGORIES, type BurstClothingItem, type ClothingCategory } fr
 
 type Props = { userId: string };
 
-type Edits = {
-  category: ClothingCategory | "";
-  subcategory: string;
-  color: string;
-  occasions: string[];
-};
-
 type ExistingItem = {
   id: string;
   category: ClothingCategory;
@@ -41,29 +49,13 @@ type ExistingItem = {
   image_path: string | null;
 };
 
-function toggle<T>(arr: T[], value: T): T[] {
-  return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
-}
-
-function editsFromItem(item: BurstClothingItem): Edits {
+function editsFromItem(item: BurstClothingItem): ReviewEdits {
   return {
     category: item.category ?? "",
     subcategory: item.subcategory ?? "",
     color: item.primary_color ?? "",
     occasions: item.occasions ?? [],
   };
-}
-
-// Subcategoría obligatoria — mismo criterio que UploadForm.tsx (individual)
-// y EditItemForm.tsx (editar prenda). Antes era opcional acá porque Vision
-// puede fallar en autocompletarla (ver matchSubcategory en aiMapping.ts) y
-// eso dejaba prendas guardadas con subcategory=null ("Sin cat." en el
-// armario) — decisión consciente: gana la regla estricta, consistente en los
-// tres flujos de subida. Para que esto sea usable en ráfaga (muchas prendas,
-// no una a la vez), aiMapping.ts tiene sinónimos/reglas por palabra clave
-// que reducen cuántas veces Vision falla el auto-match en primer lugar.
-function isComplete(e: Edits): boolean {
-  return Boolean(e.category && e.subcategory && e.color && e.occasions.length > 0);
 }
 
 const PENDING_STATUSES = new Set(["draft", "processing"]);
@@ -78,19 +70,10 @@ function msSince(iso: string): number {
 }
 
 /** Etiqueta legible para nombrar una prenda en el error de "Guardar todo" — nunca se persiste, solo para el mensaje. */
-function labelForItem(item: BurstClothingItem, e: Edits): string {
+function labelForItem(item: BurstClothingItem, e: ReviewEdits): string {
   if (item.name?.trim()) return item.name.trim();
   const catLabel = CLOTHING_CATEGORIES.find((c) => c.value === e.category)?.label;
   return [catLabel, e.color].filter(Boolean).join(" ") || "Prenda sin categoría";
-}
-
-function missingFields(e: Edits): string[] {
-  const missing: string[] = [];
-  if (!e.category) missing.push("categoría");
-  if (!e.subcategory) missing.push("subcategoría");
-  if (!e.color) missing.push("color");
-  if (e.occasions.length === 0) missing.push("ocasión");
-  return missing;
 }
 
 export default function ReviewGrid({ userId }: Props) {
@@ -100,18 +83,33 @@ export default function ReviewGrid({ userId }: Props) {
 
   const [items, setItems] = useState<BurstClothingItem[]>([]);
   const [imageUrls, setImageUrls] = useState<Map<string, string>>(new Map());
-  const [edits, setEdits] = useState<Record<string, Edits>>({});
+  const [edits, setEdits] = useState<Record<string, ReviewEdits>>({});
   const [loading, setLoading] = useState(true);
+  // Última lectura de la cola falló. NO vacía la lista: ver reviewListState.
+  const [fetchFailed, setFetchFailed] = useState(false);
   const [saving, setSaving] = useState(false);
+  // SOLO para fallos reales del guardado ("no pudimos guardar"). El aviso de
+  // campos incompletos NO vive acá: se deriva (ver `avisoIncompletas`).
   const [generalError, setGeneralError] = useState<string | null>(null);
+  // El usuario ya intentó guardar y el lote estaba bloqueado. Es un booleano,
+  // no un texto: el texto se recalcula solo contra el estado actual.
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [existingItems, setExistingItems] = useState<ExistingItem[]>([]);
   const [dismissedDuplicates, setDismissedDuplicates] = useState<Set<string>>(new Set());
   const [showingOriginal, setShowingOriginal] = useState<Set<string>>(new Set());
-  // Tarjetas marcadas como incompletas en el último intento de "Guardar
-  // todo" — se resaltan con borde de error hasta que el usuario las
-  // complete (el chequeo es reactivo: en cuanto isComplete vuelve a dar
-  // true para ese item, el resaltado desaparece solo, sin tocar este set).
-  const [invalidIds, setInvalidIds] = useState<Set<string>>(new Set());
+  // Una sola tarjeta abierta a la vez. Abrir varias es exactamente el scroll
+  // infinito que esta pantalla existe para matar.
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // La auto-expansión corre UNA vez, cuando el lote termina de procesarse. Sin
+  // este guard el sondeo cada 2.5s volvería a abrir la tarjeta que el usuario
+  // acaba de cerrar — y peor: la tarjeta se cerraría sola en cuanto el usuario
+  // completara el campo que faltaba, porque dejaría de ser "la única que
+  // necesita atención" a mitad de la edición.
+  const [autoExpandDecidido, setAutoExpandDecidido] = useState(false);
+  // Prendas que el usuario ya editó a mano: sus valores locales mandan sobre
+  // lo que devuelva el sondeo (ver refresh). Es un ref y no estado porque solo
+  // se lee dentro de callbacks — no hay nada que re-renderizar cuando cambia.
+  const touchedRef = useRef<Set<string>>(new Set());
   // Guard de re-entrancia para "Guardar todo" — mismo patrón que UploadForm:
   // se lee/escribe de forma síncrona para descartar un doble clic/tap antes
   // de que arranque un segundo batch de updates.
@@ -128,20 +126,52 @@ export default function ReviewGrid({ userId }: Props) {
   const [budgetResetMin, setBudgetResetMin] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
-    const fetched = await fetchPendingItems(supabase, userId);
+    let fetched: BurstClothingItem[];
+    try {
+      fetched = await fetchPendingItems(supabase, userId);
+    } catch {
+      // Un sondeo fallido NO toca la lista. Corre cada 2.5s; en una conexión
+      // lenta fallar una vez es normal, y hasta que `fetchPendingItems` dejó de
+      // comerse el error eso llegaba acá como `[]` y borraba de la vista un
+      // lote de prendas que el usuario estaba editando. Se marca el fallo, se
+      // avisa aparte, y el próximo tick lo corrige solo.
+      setFetchFailed(true);
+      return;
+    }
+    setFetchFailed(false);
     setItems(fetched);
     setEdits((prev) => {
       const next = { ...prev };
       for (const item of fetched) {
-        if (!next[item.id]) next[item.id] = editsFromItem(item);
+        // Re-sembrar desde la fila mientras el usuario no la haya tocado.
+        //
+        // El guard `if (!next[item.id])` solo, que es lo que había, siembra
+        // los edits en el PRIMER fetch — y en ese momento la prenda todavía
+        // está en draft/processing con category/color/occasions en null,
+        // porque el análisis no ha corrido. Cuando el pipeline termina y la
+        // fila se llena, los edits locales se quedaban con los nulos viejos:
+        // la prenda aparecía "incompleta" para siempre, bloqueaba el guardado
+        // del lote entero, y solo se arreglaba recargando la página.
+        //
+        // Visto en vivo con dos prendas reales: la que ya estaba lista al
+        // entrar salió bien y la que terminó de procesarse estando la pantalla
+        // abierta salió en rojo pidiendo los cuatro campos.
+        //
+        // `touchedRef` es lo que impide que el sondeo cada 2.5s le pise al
+        // usuario lo que acaba de elegir.
+        const yaEditada = touchedRef.current.has(item.id);
+        if (!next[item.id] || (!yaEditada && item.status === "ready")) {
+          next[item.id] = editsFromItem(item);
+        }
       }
       return next;
     });
 
-    // Ambos paths por item: `image_path` para el resultado final e
+    // Tres paths por item: `thumbnail_path` para la fila colapsada (es lo que
+    // se pinta ocho veces seguidas), `image_path` para el detalle abierto y
     // `raw_image_path` para el toggle "Ver original" (outfit_extraction).
     const paths = fetched
-      .flatMap((i) => [i.image_path, i.raw_image_path])
+      .flatMap((i) => [i.thumbnail_path, i.image_path, i.raw_image_path])
       .filter((p): p is string => Boolean(p));
     if (paths.length > 0) {
       const signed = await createSignedUrlMap(supabase, paths);
@@ -241,20 +271,98 @@ export default function ReviewGrid({ userId }: Props) {
     [items]
   );
 
-  function setItemEdit(id: string, patch: Partial<Edits>) {
-    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  }
-
-  function findDuplicate(e: Edits): ExistingItem | null {
+  function findDuplicate(e: ReviewEdits): ExistingItem | null {
     if (!e.category || !e.color) return null;
     return (
       existingItems.find((i) => i.category === e.category && i.primary_color === e.color) ?? null
     );
   }
 
+  // Un veredicto por prenda lista, en el orden en que se pintan — ese orden es
+  // el del recorrido guiado.
+  const verdicts = useMemo(() => {
+    return readyItems.map((item) => {
+      const e = edits[item.id] ?? editsFromItem(item);
+      const duplicate =
+        item.source === "outfit_extraction" && !dismissedDuplicates.has(item.id)
+          ? findDuplicate(e)
+          : null;
+      const verdict = reviewVerdict(e, {
+        subcategoryAiRaw: item.subcategory_ai_raw,
+        duplicate: Boolean(duplicate),
+        reconstructed: item.reconstructed,
+        reconstructionReason: item.reconstruction_reason,
+        backgroundRemoved: item.background_removed,
+      });
+      return { id: item.id, item, edits: e, verdict, duplicate };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readyItems, edits, dismissedDuplicates, existingItems]);
+
+  const verdictPairs = useMemo(
+    () => verdicts.map(({ id, verdict }) => ({ id, verdict })),
+    [verdicts]
+  );
+  const pendientes = useMemo(() => attentionIds(verdictPairs), [verdictPairs]);
+  const incompletas = useMemo(
+    () => verdicts.filter((v) => v.verdict.state === "incompleta"),
+    [verdicts]
+  );
+
+  // Derivado, NUNCA guardado en estado.
+  //
+  // Antes esto era un string en `useState` que se escribía al intentar guardar
+  // y no se borraba nunca solo. Todo lo demás de la pantalla es reactivo — el
+  // resumen de la fila, el check verde, el contador —, así que en cuanto la
+  // prenda se completaba (el usuario la arregla, o el sondeo re-siembra la fila
+  // ya procesada) la tarjeta se ponía verde y el aviso rojo seguía ahí,
+  // hablando de un estado que ya no existía. Leído desde afuera parecía que el
+  // resumen y el validador discrepaban; en realidad el aviso era de antes.
+  const avisoIncompletas = saveAttempted
+    ? incompleteNotice(
+        incompletas.map((v) => ({
+          label: labelForItem(v.item, v.edits),
+          missing: v.verdict.missing,
+          position: verdicts.findIndex((x) => x.id === v.id) + 1,
+        })),
+        verdicts.length
+      )
+    : "";
+
+  // Se abre sola SOLO si es una (ver autoExpandId). Se decide una vez, cuando
+  // ya no queda nada procesándose: antes de eso el lote todavía cambia y
+  // "cuántas necesitan atención" no es una pregunta contestable.
+  //
+  // Va acá y no en un useEffect a propósito: ajustar estado durante el render
+  // en respuesta a que cambió algo es el patrón que React documenta para esto,
+  // y evita el render de más (más el parpadeo de una tarjeta que se abre un
+  // frame tarde) que trae hacerlo en un efecto.
+  const loteEstable = !loading && !hasPending && readyItems.length > 0;
+  if (!autoExpandDecidido && loteEstable) {
+    setAutoExpandDecidido(true);
+    setExpandedId(autoExpandId(verdictPairs));
+  }
+
+  function setItemEdit(id: string, patch: Partial<ReviewEdits>) {
+    touchedRef.current.add(id);
+    setEdits((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  }
+
+  function abrirYCentrar(id: string) {
+    setExpandedId(id);
+    // El scroll va después del pintado de la tarjeta abierta, si no se centra
+    // sobre la altura vieja (colapsada) y queda a media pantalla.
+    requestAnimationFrame(() => {
+      document
+        .getElementById(`review-item-${id}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
   async function handleDelete(item: BurstClothingItem) {
     await deletePendingItem(supabase, userId, item);
     setItems((prev) => prev.filter((i) => i.id !== item.id));
+    setExpandedId((prev) => (prev === item.id ? null : prev));
   }
 
   async function handleRetry(item: BurstClothingItem) {
@@ -268,27 +376,18 @@ export default function ReviewGrid({ userId }: Props) {
     if (savingRef.current) return;
 
     setGeneralError(null);
-    setInvalidIds(new Set());
 
     // No guardar parcial: si algo en 'ready' está incompleto, se bloquea el
     // guardado ENTERO (ni siquiera las completas se guardan) — antes acá se
     // filtraban las incompletas en silencio y el usuario perdía una prenda
     // que ya costó una llamada real a Gemini sin enterarse. Señalamos
-    // exactamente cuáles faltan y qué les falta, resaltamos las tarjetas y
-    // hacemos scroll a la primera.
-    const incompletos = readyItems.filter((i) => !isComplete(edits[i.id] ?? editsFromItem(i)));
-    if (incompletos.length > 0) {
-      const detalle = incompletos
-        .map((i) => {
-          const e = edits[i.id] ?? editsFromItem(i);
-          return `${labelForItem(i, e)} (falta ${missingFields(e).join(", ")})`;
-        })
-        .join("; ");
-      setGeneralError(`Completa estos campos antes de guardar — ${detalle}.`);
-      setInvalidIds(new Set(incompletos.map((i) => i.id)));
-      document
-        .getElementById(`review-item-${incompletos[0].id}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // exactamente cuáles faltan y qué les falta, resaltamos las tarjetas, y
+    // abrimos la primera además de hacerle scroll: con las tarjetas
+    // colapsadas, resaltar sin abrir dejaría al usuario mirando una fila
+    // marcada en rojo sin nada que tocar.
+    if (incompletas.length > 0) {
+      setSaveAttempted(true);
+      abrirYCentrar(incompletas[0].id);
       return;
     }
 
@@ -335,15 +434,41 @@ export default function ReviewGrid({ userId }: Props) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="flex flex-col gap-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="aspect-[3/4] animate-pulse rounded-lg bg-surface-2" />
+          <div key={i} className="h-[88px] animate-pulse rounded-xl bg-surface-2" />
         ))}
       </div>
     );
   }
 
-  if (items.length === 0) {
+  const listState = reviewListState({
+    loading: false,
+    fetchFailed,
+    itemCount: items.length,
+  });
+
+  // "No capturaste ninguna foto" es una afirmación sobre el estado del
+  // usuario. Si no pudimos leer la cola, no sabemos si es cierta.
+  if (listState === "error") {
+    return (
+      <Card padding="lg">
+        <p role="alert" className="text-center text-sm font-medium text-text">
+          No pudimos cargar tus prendas en cola.
+        </p>
+        <p className="mt-1 text-center text-sm text-text-muted">
+          Revisa tu conexión — tus fotos siguen guardadas, no se perdió ninguna.
+        </p>
+        <div className="mt-4 flex justify-center">
+          <Button variant="ghost" onClick={() => refresh()}>
+            Reintentar
+          </Button>
+        </div>
+      </Card>
+    );
+  }
+
+  if (listState === "vacia") {
     return (
       <Card padding="lg">
         <p className="text-center text-sm text-text-muted">
@@ -353,8 +478,24 @@ export default function ReviewGrid({ userId }: Props) {
     );
   }
 
+  // La barra de arriba solo aparece cuando hay algo pendiente que el usuario NO
+  // está mirando ya. Si la tarjeta pendiente está abierta, repetir el aviso
+  // arriba sería ruido sobre algo que ya tiene en pantalla.
+  const mostrarBarraAtencion =
+    pendientes.length > 0 && (expandedId === null || !pendientes.includes(expandedId));
+
   return (
     <div className="flex flex-col gap-6">
+      {online && fetchFailed ? (
+        <div
+          role="status"
+          className="rounded-md bg-warning-light px-4 py-3 text-sm font-medium text-warning"
+        >
+          Perdimos contacto con el servidor un momento. Tus prendas siguen acá y
+          lo estamos reintentando.
+        </div>
+      ) : null}
+
       {!online ? (
         <div
           role="status"
@@ -396,31 +537,61 @@ export default function ReviewGrid({ userId }: Props) {
         )
       ) : null}
 
+      {mostrarBarraAtencion ? (
+        <div
+          role="status"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-warning-light px-4 py-3 motion-safe:animate-[fadeInUp_180ms_ease-out]"
+        >
+          <p className="text-sm font-medium text-warning">
+            {pendientes.length === 1
+              ? "1 prenda necesita un toque."
+              : `${pendientes.length} prendas necesitan un toque.`}{" "}
+            El resto quedó lista.
+          </p>
+          <button
+            type="button"
+            onClick={() => abrirYCentrar(pendientes[0])}
+            className="rounded-full border border-warning px-3 py-1.5 text-xs font-semibold text-warning transition-colors hover:bg-warning hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-warning"
+          >
+            {pendientes.length === 1 ? "Revisarla" : "Revisar la primera"}
+          </button>
+        </div>
+      ) : null}
+
+      {avisoIncompletas ? (
+        <p role="alert" className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
+          {avisoIncompletas}
+        </p>
+      ) : null}
+
       {generalError ? (
         <p role="alert" className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
           {generalError}
         </p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="flex flex-col gap-2">
         {pendingItems.map((item) => {
           const isSlow =
             item.status === "processing" && msSince(item.updated_at) > SLOW_PROCESSING_MS;
           return (
-            <Card key={item.id} padding="sm">
+            <div
+              key={item.id}
+              className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3 shadow-sm"
+            >
               <div
-                className={`aspect-[3/4] rounded-lg bg-surface-2 ${
+                className={`h-16 w-12 shrink-0 rounded-lg bg-surface-2 ${
                   budgetResetMin === null ? "animate-pulse" : ""
                 }`}
               />
-              <p className="mt-3 text-center text-xs text-text-muted">
+              <p className="text-xs text-text-muted">
                 {budgetResetMin !== null
                   ? `En cola · ~${budgetResetMin} min`
                   : isSlow
                     ? "Está tardando más de lo normal, ya casi…"
                     : "Analizando…"}
               </p>
-            </Card>
+            </div>
           );
         })}
 
@@ -429,197 +600,92 @@ export default function ReviewGrid({ userId }: Props) {
             ? imageUrls.get(item.image_path ?? item.raw_image_path!)
             : undefined;
           return (
-            <Card key={item.id} padding="sm">
-              <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-surface-2">
-                {url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="" className="h-full w-full object-cover opacity-60" />
-                ) : null}
+            <div
+              key={item.id}
+              className="rounded-xl border border-danger/40 bg-surface p-3 shadow-sm"
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-2">
+                  {url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={url} alt="" className="h-full w-full object-cover opacity-60" />
+                  ) : null}
+                </div>
+                <p
+                  role="alert"
+                  className="min-w-0 flex-1 text-xs font-medium text-danger"
+                >
+                  {item.error_message ?? "No pudimos procesar esta foto."}
+                </p>
               </div>
-              <p role="alert" className="mt-3 rounded-md bg-danger-light px-3 py-2 text-xs font-medium text-danger">
-                {item.error_message ?? "No pudimos procesar esta foto."}
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Button size="md" fullWidth onClick={() => handleRetry(item)}>
-                  Reintentar
-                </Button>
+              <div className="mt-3 flex justify-end gap-2">
                 <Button variant="ghost" size="md" onClick={() => handleDelete(item)}>
                   Eliminar
                 </Button>
+                <Button size="md" onClick={() => handleRetry(item)}>
+                  Reintentar
+                </Button>
               </div>
-            </Card>
+            </div>
           );
         })}
 
-        {readyItems.map((item) => {
-          const e = edits[item.id] ?? editsFromItem(item);
-          const showingOrig = showingOriginal.has(item.id);
+        {verdicts.map(({ id, item, edits: e, verdict, duplicate }) => {
+          const showingOrig = showingOriginal.has(id);
           const finalUrl = item.image_path ? imageUrls.get(item.image_path) : undefined;
-          const originalUrl = item.raw_image_path ? imageUrls.get(item.raw_image_path) : undefined;
-          const url = showingOrig && originalUrl ? originalUrl : finalUrl;
-          const subcategoryOptions = e.category ? SUBCATEGORIES[e.category] : [];
-          const duplicate =
-            item.source === "outfit_extraction" && !dismissedDuplicates.has(item.id)
-              ? findDuplicate(e)
-              : null;
-          const duplicateUrl = duplicate?.image_path ? imageUrls.get(duplicate.image_path) : undefined;
-          const invalid = invalidIds.has(item.id) && !isComplete(e);
+          const originalUrl = item.raw_image_path
+            ? imageUrls.get(item.raw_image_path)
+            : undefined;
+          const thumbUrl =
+            (item.thumbnail_path ? imageUrls.get(item.thumbnail_path) : undefined) ?? finalUrl;
 
           return (
-            <Card
-              key={item.id}
-              id={`review-item-${item.id}`}
-              padding="sm"
-              className={invalid ? "border-danger ring-2 ring-danger/40" : undefined}
-            >
-              <div className="relative aspect-[3/4] overflow-hidden rounded-lg bg-surface-2">
-                {url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={url} alt="Prenda capturada" className="h-full w-full object-cover" />
-                ) : null}
-              </div>
-
-              {item.reconstructed && originalUrl && finalUrl ? (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowingOriginal((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(item.id)) next.delete(item.id);
-                      else next.add(item.id);
-                      return next;
-                    })
-                  }
-                  className="mt-2 text-xs font-medium text-primary hover:underline"
-                >
-                  {showingOrig ? "Ver reconstruida" : "Ver original"}
-                </button>
-              ) : null}
-
-              {item.reconstruction_reason && !item.reconstructed ? (
-                <p className="mt-1 text-[11px] text-text-faint">
-                  No pudimos mejorar esta foto automáticamente — mostrando el recorte original.
-                </p>
-              ) : null}
-
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {CLOTHING_CATEGORIES.map((cat) => (
-                  <Chip
-                    key={cat.value}
-                    active={e.category === cat.value}
-                    onClick={() =>
-                      setItemEdit(item.id, { category: cat.value, subcategory: "" })
-                    }
-                  >
-                    {cat.label}
-                  </Chip>
-                ))}
-              </div>
-
-              {subcategoryOptions.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {subcategoryOptions.map((opt) => (
-                    <Chip
-                      key={opt}
-                      active={e.subcategory === opt}
-                      onClick={() => setItemEdit(item.id, { subcategory: opt })}
-                    >
-                      {opt}
-                    </Chip>
-                  ))}
-                </div>
-              ) : null}
-
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {COLOR_PALETTE.map((c) => (
-                  <button
-                    key={c.name}
-                    type="button"
-                    title={c.name}
-                    aria-label={c.name}
-                    aria-pressed={e.color === c.name}
-                    onClick={() => setItemEdit(item.id, { color: c.name })}
-                    className={[
-                      "h-7 w-7 rounded-full transition-shadow",
-                      e.color === c.name
-                        ? "ring-2 ring-primary ring-offset-2 ring-offset-surface"
-                        : "ring-1 ring-border",
-                    ].join(" ")}
-                    style={{ background: c.swatch }}
-                  />
-                ))}
-              </div>
-
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {ITEM_OCCASIONS.map((o) => (
-                  <Chip
-                    key={o}
-                    active={e.occasions.includes(o)}
-                    onClick={() => setItemEdit(item.id, { occasions: toggle(e.occasions, o) })}
-                  >
-                    {o}
-                  </Chip>
-                ))}
-              </div>
-
-              {!isComplete(e) ? (
-                <p
-                  className={[
-                    "mt-2 text-xs",
-                    invalid ? "font-medium text-danger" : "text-text-faint",
-                  ].join(" ")}
-                >
-                  Falta {missingFields(e).join(", ")}.
-                </p>
-              ) : null}
-
-              {duplicate ? (
-                <div className="mt-3 flex items-center gap-2 rounded-md bg-warning-light px-3 py-2">
-                  {duplicateUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={duplicateUrl}
-                      alt=""
-                      className="h-10 w-8 shrink-0 rounded object-cover"
-                    />
-                  ) : null}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-warning">¿Ya tienes esta?</p>
-                    <p className="text-[11px] text-warning">
-                      Tienes una prenda parecida en tu armario.
-                    </p>
-                  </div>
-                  <div className="flex shrink-0 flex-col gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(item)}
-                      className="rounded-full border border-warning px-2.5 py-1 text-[11px] font-semibold text-warning hover:bg-warning hover:text-white"
-                    >
-                      Descartar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setDismissedDuplicates((prev) => new Set(prev).add(item.id))
-                      }
-                      className="rounded-full px-2.5 py-1 text-[11px] font-medium text-warning underline"
-                    >
-                      Guardar igual
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="mt-3 flex justify-end">
-                <Button variant="ghost" size="md" onClick={() => handleDelete(item)}>
-                  Eliminar
-                </Button>
-              </div>
-            </Card>
+            <ReviewItemCard
+              key={id}
+              item={item}
+              edits={e}
+              verdict={verdict}
+              thumbUrl={thumbUrl}
+              fullUrl={showingOrig && originalUrl ? originalUrl : finalUrl}
+              expanded={expandedId === id}
+              onToggleExpanded={() =>
+                setExpandedId((prev) => (prev === id ? null : id))
+              }
+              onEdit={(patch) => setItemEdit(id, patch)}
+              onDelete={() => handleDelete(item)}
+              invalid={saveAttempted && verdict.state === "incompleta"}
+              canShowOriginal={Boolean(item.reconstructed && originalUrl && finalUrl)}
+              showingOriginal={showingOrig}
+              onToggleOriginal={() =>
+                setShowingOriginal((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                })
+              }
+              duplicateUrl={
+                duplicate?.image_path ? imageUrls.get(duplicate.image_path) : undefined
+              }
+              onDismissDuplicate={() =>
+                setDismissedDuplicates((prev) => new Set(prev).add(id))
+              }
+              nextAttentionId={nextAttentionId(verdictPairs, id)}
+              onGoNext={() => {
+                const siguiente = nextAttentionId(verdictPairs, id);
+                if (siguiente) abrirYCentrar(siguiente);
+                else setExpandedId(null);
+              }}
+            />
           );
         })}
       </div>
 
+      {/* Un solo "Seguir capturando" en la pantalla: este. El otro estaba en el
+          encabezado (review/page.tsx) y en 305px quedaban los dos a la vista,
+          idénticos, a un dedo de distancia. Se queda el del pie porque es el
+          que forma par con la acción primaria — seguir capturando o guardar es
+          UNA decisión, y las dos mitades tienen que estar juntas. */}
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
         <Button
           variant="ghost"
@@ -628,14 +694,33 @@ export default function ReviewGrid({ userId }: Props) {
         >
           Seguir capturando
         </Button>
-        <Button
-          onClick={handleGuardarTodo}
-          isLoading={saving}
-          loadingText="Guardando…"
-          disabled={readyItems.length === 0}
-        >
-          Guardar todo ({readyItems.length})
-        </Button>
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          {/* El botón no puede prometer algo que no va a pasar: con una prenda
+              incompleta, guardar NO guarda nada. El aviso va ARRIBA del botón
+              y en el camino del dedo — debajo, en un teléfono, queda fuera de
+              la mirada de quien ya está estirando el pulgar hacia el verde. Y
+              el botón deja de ser el primario lleno: un CTA verde y confiado
+              sobre un lote bloqueado es la promesa que se rompe al tocarlo. */}
+          {incompletas.length > 0 ? (
+            <p className="flex items-center gap-1.5 rounded-md bg-danger-light px-3 py-2 text-xs font-semibold text-danger">
+              <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
+                error
+              </span>
+              {incompletas.length === 1
+                ? "1 prenda sin completar — tócala para arreglarla"
+                : `${incompletas.length} prendas sin completar — tócalas para arreglarlas`}
+            </p>
+          ) : null}
+          <Button
+            variant={incompletas.length > 0 ? "secondary" : "primary"}
+            onClick={handleGuardarTodo}
+            isLoading={saving}
+            loadingText="Guardando…"
+            disabled={readyItems.length === 0}
+          >
+            Guardar todo ({readyItems.length})
+          </Button>
+        </div>
       </div>
     </div>
   );

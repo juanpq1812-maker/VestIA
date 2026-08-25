@@ -82,6 +82,24 @@ export type BurstQueueCallbacks = {
   onItemChange?: (item: BurstClothingItem) => void;
   /** Se llama si se acaba el cupo de análisis de esta hora antes de terminar la cola. */
   onBudgetExceeded?: (resetInMinutes: number) => void;
+  /**
+   * Si devuelve true, la pasada deja de tomar items nuevos y termina.
+   *
+   * Existe porque esto se lanza fire-and-forget desde un componente: si el
+   * componente se desmonta (el usuario navega), la promesa sigue viva y sigue
+   * llamando Server Actions. Y una Server Action se dirige a la RUTA desde la
+   * que se llamó, no a la que el usuario está viendo — así que una pasada
+   * iniciada en /wardrobe/upload?modo=burst sigue haciendo POST a esa URL
+   * después de que el usuario ya está en /wardrobe/upload/review, y el router
+   * puede terminar aplicando esa respuesta y devolviéndolo a la pantalla
+   * anterior. Ver la nota en BurstCapture.tsx.
+   *
+   * NO cancela la llamada que ya está en vuelo (una reconstrucción puede
+   * tardar ~30s): corta las siguientes. El trabajo no se pierde — la prenda
+   * queda en 'draft' y la retoma la pantalla de revisión, que es justo donde
+   * el usuario acaba de entrar.
+   */
+  shouldStop?: () => boolean;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -144,16 +162,34 @@ export async function enqueueDraftPhoto(
 }
 
 /** Trae los items del usuario que todavía no están confirmados. */
+/**
+ * Snapshot de las prendas que todavía no son parte del armario.
+ *
+ * LANZA si la consulta falla, y eso es deliberado. Antes hacía
+ * `const { data } = ...; return data ?? []`, o sea que descartaba el error y
+ * devolvía una lista vacía: para el que llama, "se cayó la red" y "no tienes
+ * nada en cola" eran EL MISMO valor. En la pantalla de revisión eso significa
+ * que un sondeo fallido —uno solo, en una conexión lenta— borra de la vista
+ * un lote de prendas que sí existe, y deja el botón de guardar deshabilitado
+ * en (0).
+ *
+ * Los tres call sites tratan el fallo distinto, y por eso no puede decidirlo
+ * esta función: la revisión conserva lo que ya tenía en pantalla, la captura
+ * en ráfaga reintenta en el próximo tick, y el procesador de cola aborta la
+ * pasada.
+ */
 export async function fetchPendingItems(
   supabase: Supa,
   userId: string
 ): Promise<BurstClothingItem[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("clothing_items")
     .select(CLOTHING_ITEM_SELECT)
     .eq("user_id", userId)
     .in("status", ["draft", "processing", "ready", "error"])
     .order("created_at", { ascending: true });
+
+  if (error) throw new Error(`No pudimos leer tus prendas en cola: ${error.message}`);
 
   return (data ?? []) as BurstClothingItem[];
 }
@@ -501,6 +537,8 @@ export async function processPendingForUser(
   callbacks: BurstQueueCallbacks = {},
   concurrency: number = DEFAULT_CONCURRENCY
 ): Promise<void> {
+  if (callbacks.shouldStop?.()) return;
+
   const pending = (await fetchPendingItems(supabase, userId)).filter(
     (i) => i.status === "draft"
   );
@@ -511,6 +549,7 @@ export async function processPendingForUser(
 
   async function worker() {
     while (!budgetExceeded) {
+      if (callbacks.shouldStop?.()) return;
       const item = pending[cursor];
       cursor += 1;
       if (!item) return;

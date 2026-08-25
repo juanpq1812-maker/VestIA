@@ -88,6 +88,19 @@ export const SUBCATEGORIES: Record<ClothingCategory, readonly string[]> = {
 // Paleta de colores. Guardamos el `name` (en espanol) en
 // `clothing_items.primary_color` para que sea legible. El `swatch` solo se
 // usa en el picker visual.
+//
+// Los swatches son tonos APAGADOS a proposito, no los primarios saturados que
+// habia antes (#2563eb, #dc2626, #facc15...). Esos eran un color picker por
+// defecto: sobre el bone white del fondo (--color-bg: #fcf9f6) competian en
+// saturacion con la foto de la prenda, que es lo unico que deberia gritar en
+// esa pantalla.
+//
+// OJO — cambiar `swatch` NO toca la deteccion. El match de lo que devuelve
+// Vision corre contra `COLOR_RGB` en aiMapping.ts, que es una tabla aparte con
+// los valores de referencia del color "real", y lo que se persiste en
+// `primary_color` es el `name`, nunca el hex. `swatch` es presentacion pura.
+// Si algun dia quieres que el match use estos mismos valores, hay que moverlo
+// a proposito y medirlo — no pasa solo.
 // ---------------------------------------------------------------------------
 export type ColorOption = {
   name: string;
@@ -96,22 +109,22 @@ export type ColorOption = {
 };
 
 export const COLOR_PALETTE: readonly ColorOption[] = [
-  { name: "negro", swatch: "#111111", contrastText: "light" },
+  { name: "negro", swatch: "#1c1c1a", contrastText: "light" },
   { name: "blanco", swatch: "#ffffff", contrastText: "dark" },
-  { name: "gris", swatch: "#6b7280", contrastText: "light" },
-  { name: "azul", swatch: "#2563eb", contrastText: "light" },
-  { name: "rojo", swatch: "#dc2626", contrastText: "light" },
-  { name: "verde", swatch: "#16a34a", contrastText: "light" },
-  { name: "amarillo", swatch: "#facc15", contrastText: "dark" },
-  { name: "rosa", swatch: "#ec4899", contrastText: "light" },
-  { name: "morado", swatch: "#7c3aed", contrastText: "light" },
+  { name: "gris", swatch: "#8e908b", contrastText: "dark" },
+  { name: "azul", swatch: "#5b7089", contrastText: "light" },
+  { name: "rojo", swatch: "#a35049", contrastText: "light" },
+  { name: "verde", swatch: "#7b8c6e", contrastText: "dark" },
+  { name: "amarillo", swatch: "#d3ab5f", contrastText: "dark" },
+  { name: "rosa", swatch: "#c08f92", contrastText: "dark" },
+  { name: "morado", swatch: "#7e6f8c", contrastText: "light" },
   { name: "beige", swatch: "#d6c7a3", contrastText: "dark" },
-  { name: "café", swatch: "#6b3f1d", contrastText: "light" },
-  { name: "naranja", swatch: "#f97316", contrastText: "light" },
+  { name: "café", swatch: "#7a5a41", contrastText: "light" },
+  { name: "naranja", swatch: "#c07b4e", contrastText: "dark" },
   {
     name: "multicolor",
     swatch:
-      "conic-gradient(from 0deg, #ef4444, #f97316, #facc15, #16a34a, #2563eb, #7c3aed, #ec4899, #ef4444)",
+      "conic-gradient(from 0deg, #a35049, #c07b4e, #d3ab5f, #7b8c6e, #5b7089, #7e6f8c, #c08f92, #a35049)",
     contrastText: "light",
   },
 ];
