@@ -9,6 +9,7 @@
 import type { Metadata } from "next";
 import { after } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
+import { contarPendientes } from "@/lib/wardrobe/pendingCount";
 import DashboardView from "@/components/dashboard/DashboardView";
 import LandingContent from "@/components/landing/LandingContent";
 import { feedNecesitaSync, syncCalendarFeed } from "@/lib/calendar/sync";
@@ -307,9 +308,15 @@ export default async function RootPage() {
     cachedEventOutfit,
   });
 
+  // Prendas escaneadas que nunca se confirmaron. El inicio importa tanto o más
+  // que el armario para esto: el BottomNav abre acá, y alguien puede pasar
+  // días sin entrar al armario.
+  const pendientes = await contarPendientes(supabase, user.id);
+
   return (
     <DashboardView
       displayName={displayName}
+      pendientes={pendientes}
       totalItems={allItems.length}
       petState={petState}
       hasCalendarFeed={hayFeed}

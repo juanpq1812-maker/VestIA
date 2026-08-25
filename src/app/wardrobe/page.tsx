@@ -16,9 +16,11 @@ import WardrobeView, { type FeaturedItem } from "@/components/wardrobe/WardrobeV
 import WardrobeTabs from "@/components/wardrobe/WardrobeTabs";
 import OnboardingProgressBar from "@/components/wardrobe/OnboardingProgressBar";
 import UploadSuccessBanner from "@/components/wardrobe/UploadSuccessBanner";
+import PendingItemsBanner from "@/components/wardrobe/PendingItemsBanner";
 import { createSignedUrlMap } from "@/lib/storage/clothingImages";
 import { createThumbnailSignedUrlMap } from "@/lib/storage/thumbnailUrls";
 import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
+import { contarPendientes } from "@/lib/wardrobe/pendingCount";
 import type { ClothingItem } from "@/types/database";
 
 type Props = {
@@ -119,6 +121,11 @@ export default async function WardrobePage({ searchParams }: Props) {
   const sinCategorizar = items.filter((i) => i.subcategory === null);
   const primeraSinCategorizar = sinCategorizar[0] ?? null;
 
+  // Prendas escaneadas que nunca se confirmaron. Va después de las queries de
+  // arriba y no dentro de su Promise.all porque necesita `user`, que se
+  // resuelve antes; es un count con `head: true`, así que no trae filas.
+  const pendientes = user ? await contarPendientes(supabase, user.id) : 0;
+
   const sp = await searchParams;
   const mostrarBanner = sp.uploaded === "1";
   // La foto no quedo como debia: la prenda se guardo igual, pero hay que
@@ -134,6 +141,15 @@ export default async function WardrobePage({ searchParams }: Props) {
         <Container size="lg">
           {mostrarBanner ? (
             <UploadSuccessBanner photoWarning={fotoAviso} />
+          ) : null}
+
+          {/* Arriba de todo el contenido del armario: el usuario que baja a
+              buscar una prenda que no encuentra tiene que toparse con la
+              explicación ANTES que con la ausencia. */}
+          {pendientes > 0 ? (
+            <div className="mb-6">
+              <PendingItemsBanner count={pendientes} />
+            </div>
           ) : null}
 
           {/* Barra de progreso de onboarding (desaparece al tener 6+ prendas) */}
