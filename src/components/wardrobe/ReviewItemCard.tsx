@@ -98,7 +98,7 @@ export default function ReviewItemCard({
         onClick={onToggleExpanded}
         aria-expanded={expanded}
         aria-controls={panelId}
-        className="flex w-full items-center gap-3 p-3 text-left transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
+        className="flex w-full items-center gap-2.5 p-3 text-left sm:gap-3 transition-colors duration-150 hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary"
       >
         <span
           className="h-16 w-12 shrink-0 overflow-hidden rounded-lg bg-surface-2"
@@ -111,7 +111,11 @@ export default function ReviewItemCard({
         </span>
 
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-text">
+          {/* Sin `truncate`: en 305px "Suéter · Beige · Casual +2" se cortaba en
+              "Suéter · Beige · …" y desaparecían justo los dos campos que el
+              usuario viene a revisar. El resumen ES el contenido de la fila, así
+              que envuelve; lo que se acota es el subtítulo, que es accesorio. */}
+          <span className="block text-sm font-semibold text-text">
             {summaryLine(edits, categoryLabel)}
           </span>
           <span
