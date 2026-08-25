@@ -252,3 +252,37 @@ export function reviewListState(args: {
   if (args.fetchFailed) return "error";
   return "vacia";
 }
+
+// ---------------------------------------------------------------------------
+// El aviso de "esto bloquea el guardado"
+// ---------------------------------------------------------------------------
+
+export type IncompleteRef = {
+  /** Etiqueta legible de la prenda ("Abrigos blanco"). */
+  label: string;
+  missing: MissingField[];
+};
+
+/**
+ * Frase que nombra qué falta y en cuál prenda.
+ *
+ * `total` es cuántas prendas hay en la lista: cuando hay más de una, la
+ * posición entra en la frase. Sin eso, dos prendas de la misma categoría y
+ * color producen etiquetas IDÉNTICAS ("Abrigos blanco" y "Abrigos blanco") y
+ * el usuario no puede saber a cuál de las dos se refiere el aviso — que es
+ * exactamente cómo se termina mirando una tarjeta que está bien y creyendo
+ * que el validador se contradice.
+ */
+export function incompleteNotice(
+  refs: ReadonlyArray<IncompleteRef & { position: number }>,
+  total: number
+): string {
+  if (refs.length === 0) return "";
+  const detalle = refs
+    .map((r) => {
+      const donde = total > 1 ? ` — prenda ${r.position} de ${total}` : "";
+      return `${r.label}${donde} (falta ${r.missing.join(", ")})`;
+    })
+    .join("; ");
+  return `Completa estos campos antes de guardar — ${detalle}.`;
+}

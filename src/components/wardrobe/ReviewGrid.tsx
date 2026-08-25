@@ -23,6 +23,7 @@ import { CONFIRMED_STATUS } from "@/lib/wardrobe/constants";
 import {
   attentionIds,
   autoExpandId,
+  incompleteNotice,
   nextAttentionId,
   reviewListState,
   reviewVerdict,
@@ -87,7 +88,12 @@ export default function ReviewGrid({ userId }: Props) {
   // Última lectura de la cola falló. NO vacía la lista: ver reviewListState.
   const [fetchFailed, setFetchFailed] = useState(false);
   const [saving, setSaving] = useState(false);
+  // SOLO para fallos reales del guardado ("no pudimos guardar"). El aviso de
+  // campos incompletos NO vive acá: se deriva (ver `avisoIncompletas`).
   const [generalError, setGeneralError] = useState<string | null>(null);
+  // El usuario ya intentó guardar y el lote estaba bloqueado. Es un booleano,
+  // no un texto: el texto se recalcula solo contra el estado actual.
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [existingItems, setExistingItems] = useState<ExistingItem[]>([]);
   const [dismissedDuplicates, setDismissedDuplicates] = useState<Set<string>>(new Set());
   const [showingOriginal, setShowingOriginal] = useState<Set<string>>(new Set());
@@ -100,11 +106,6 @@ export default function ReviewGrid({ userId }: Props) {
   // completara el campo que faltaba, porque dejaría de ser "la única que
   // necesita atención" a mitad de la edición.
   const [autoExpandDecidido, setAutoExpandDecidido] = useState(false);
-  // Tarjetas marcadas como incompletas en el último intento de "Guardar
-  // todo" — se resaltan con borde de error hasta que el usuario las
-  // complete (el chequeo es reactivo: en cuanto la prenda vuelve a estar
-  // completa el resaltado desaparece solo, sin tocar este set).
-  const [invalidIds, setInvalidIds] = useState<Set<string>>(new Set());
   // Prendas que el usuario ya editó a mano: sus valores locales mandan sobre
   // lo que devuelva el sondeo (ver refresh). Es un ref y no estado porque solo
   // se lee dentro de callbacks — no hay nada que re-renderizar cuando cambia.
@@ -308,6 +309,26 @@ export default function ReviewGrid({ userId }: Props) {
     [verdicts]
   );
 
+  // Derivado, NUNCA guardado en estado.
+  //
+  // Antes esto era un string en `useState` que se escribía al intentar guardar
+  // y no se borraba nunca solo. Todo lo demás de la pantalla es reactivo — el
+  // resumen de la fila, el check verde, el contador —, así que en cuanto la
+  // prenda se completaba (el usuario la arregla, o el sondeo re-siembra la fila
+  // ya procesada) la tarjeta se ponía verde y el aviso rojo seguía ahí,
+  // hablando de un estado que ya no existía. Leído desde afuera parecía que el
+  // resumen y el validador discrepaban; en realidad el aviso era de antes.
+  const avisoIncompletas = saveAttempted
+    ? incompleteNotice(
+        incompletas.map((v) => ({
+          label: labelForItem(v.item, v.edits),
+          missing: v.verdict.missing,
+          position: verdicts.findIndex((x) => x.id === v.id) + 1,
+        })),
+        verdicts.length
+      )
+    : "";
+
   // Se abre sola SOLO si es una (ver autoExpandId). Se decide una vez, cuando
   // ya no queda nada procesándose: antes de eso el lote todavía cambia y
   // "cuántas necesitan atención" no es una pregunta contestable.
@@ -355,7 +376,6 @@ export default function ReviewGrid({ userId }: Props) {
     if (savingRef.current) return;
 
     setGeneralError(null);
-    setInvalidIds(new Set());
 
     // No guardar parcial: si algo en 'ready' está incompleto, se bloquea el
     // guardado ENTERO (ni siquiera las completas se guardan) — antes acá se
@@ -366,11 +386,7 @@ export default function ReviewGrid({ userId }: Props) {
     // colapsadas, resaltar sin abrir dejaría al usuario mirando una fila
     // marcada en rojo sin nada que tocar.
     if (incompletas.length > 0) {
-      const detalle = incompletas
-        .map((v) => `${labelForItem(v.item, v.edits)} (falta ${v.verdict.missing.join(", ")})`)
-        .join("; ");
-      setGeneralError(`Completa estos campos antes de guardar — ${detalle}.`);
-      setInvalidIds(new Set(incompletas.map((v) => v.id)));
+      setSaveAttempted(true);
       abrirYCentrar(incompletas[0].id);
       return;
     }
@@ -542,6 +558,12 @@ export default function ReviewGrid({ userId }: Props) {
         </div>
       ) : null}
 
+      {avisoIncompletas ? (
+        <p role="alert" className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
+          {avisoIncompletas}
+        </p>
+      ) : null}
+
       {generalError ? (
         <p role="alert" className="rounded-md bg-danger-light px-3 py-2 text-sm font-medium text-danger">
           {generalError}
@@ -631,7 +653,7 @@ export default function ReviewGrid({ userId }: Props) {
               }
               onEdit={(patch) => setItemEdit(id, patch)}
               onDelete={() => handleDelete(item)}
-              invalid={invalidIds.has(id) && verdict.state === "incompleta"}
+              invalid={saveAttempted && verdict.state === "incompleta"}
               canShowOriginal={Boolean(item.reconstructed && originalUrl && finalUrl)}
               showingOriginal={showingOrig}
               onToggleOriginal={() =>
@@ -672,8 +694,25 @@ export default function ReviewGrid({ userId }: Props) {
         >
           Seguir capturando
         </Button>
-        <div className="flex flex-col items-stretch gap-1.5 sm:items-end">
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          {/* El botón no puede prometer algo que no va a pasar: con una prenda
+              incompleta, guardar NO guarda nada. El aviso va ARRIBA del botón
+              y en el camino del dedo — debajo, en un teléfono, queda fuera de
+              la mirada de quien ya está estirando el pulgar hacia el verde. Y
+              el botón deja de ser el primario lleno: un CTA verde y confiado
+              sobre un lote bloqueado es la promesa que se rompe al tocarlo. */}
+          {incompletas.length > 0 ? (
+            <p className="flex items-center gap-1.5 rounded-md bg-danger-light px-3 py-2 text-xs font-semibold text-danger">
+              <span className="material-symbols-outlined text-base leading-none" aria-hidden="true">
+                error
+              </span>
+              {incompletas.length === 1
+                ? "1 prenda sin completar — tócala para arreglarla"
+                : `${incompletas.length} prendas sin completar — tócalas para arreglarlas`}
+            </p>
+          ) : null}
           <Button
+            variant={incompletas.length > 0 ? "secondary" : "primary"}
             onClick={handleGuardarTodo}
             isLoading={saving}
             loadingText="Guardando…"
@@ -681,16 +720,6 @@ export default function ReviewGrid({ userId }: Props) {
           >
             Guardar todo ({readyItems.length})
           </Button>
-          {/* El botón no puede mentir sobre lo que va a pasar: si hay
-              incompletas, guardar NO va a guardar nada. Se dice antes de que
-              lo toque, no después en un error. */}
-          {incompletas.length > 0 ? (
-            <p className="text-xs font-medium text-danger">
-              {incompletas.length === 1
-                ? "1 prenda sin completar"
-                : `${incompletas.length} prendas sin completar`}
-            </p>
-          ) : null}
         </div>
       </div>
     </div>

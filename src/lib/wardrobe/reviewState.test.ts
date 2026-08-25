@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
   attentionIds,
   autoExpandId,
+  incompleteNotice,
   isComplete,
   missingFields,
   nextAttentionId,
@@ -269,4 +270,39 @@ test("el camino normal con prendas", () => {
     reviewListState({ loading: false, fetchFailed: false, itemCount: 3 }),
     "lista"
   );
+});
+
+// ── Aviso de incompletas ─────────────────────────────────────────────────────
+
+test("sin incompletas no hay aviso", () => {
+  assert.equal(incompleteNotice([], 3), "");
+});
+
+test("con una sola prenda en la lista no hace falta la posición", () => {
+  assert.equal(
+    incompleteNotice([{ label: "Abrigos blanco", missing: ["subcategoría"], position: 1 }], 1),
+    "Completa estos campos antes de guardar — Abrigos blanco (falta subcategoría)."
+  );
+});
+
+test("con varias prendas el aviso dice CUÁL, no solo qué", () => {
+  // Dos prendas de la misma categoría y color dan la MISMA etiqueta. Sin la
+  // posición, el usuario mira la tarjeta equivocada y cree que el validador
+  // se contradice con el resumen.
+  assert.equal(
+    incompleteNotice([{ label: "Abrigos blanco", missing: ["subcategoría"], position: 2 }], 3),
+    "Completa estos campos antes de guardar — Abrigos blanco — prenda 2 de 3 (falta subcategoría)."
+  );
+});
+
+test("varias incompletas se listan todas", () => {
+  const texto = incompleteNotice(
+    [
+      { label: "Abrigos blanco", missing: ["subcategoría"], position: 2 },
+      { label: "Tops negro", missing: ["color", "ocasión"], position: 3 },
+    ],
+    3
+  );
+  assert.match(texto, /Abrigos blanco — prenda 2 de 3 \(falta subcategoría\)/);
+  assert.match(texto, /Tops negro — prenda 3 de 3 \(falta color, ocasión\)/);
 });
