@@ -54,7 +54,10 @@ export default function PrivacyPolicyPage() {
           <li>
             <strong className="text-text">Calendario (opcional):</strong> si lo
             conectas, la URL ICS y los próximos eventos (título, fecha, lugar)
-            para sugerirte outfits.
+            para sugerirte outfits. Si lo desconectas, borramos de inmediato la
+            URL, los eventos guardados y las sugerencias asociadas; pueden
+            persistir hasta 7 días en copias de seguridad cifradas antes de
+            expirar.
           </li>
           <li>
             <strong className="text-text">Soporte:</strong> los mensajes que
@@ -106,8 +109,11 @@ export default function PrivacyPolicyPage() {
         <p>
           Tus fotos viven en un bucket privado con políticas por usuario; los
           datos de la base están protegidos con seguridad a nivel de fila (solo
-          tu sesión puede leer lo tuyo); las URLs de calendario se tratan como
-          secretas y solo se muestran enmascaradas. Ningún sistema es 100%
+          tu sesión puede leer lo tuyo). La URL de tu calendario se trata como
+          un secreto: se guarda con acceso restringido a tu sola cuenta
+          mediante seguridad a nivel de fila, viaja siempre por HTTPS y dentro
+          de la app solo se muestra enmascarada. Puedes revocarla desde tu
+          proveedor de calendario en cualquier momento. Ningún sistema es 100%
           infalible, pero aplicamos prácticas razonables de seguridad.
         </p>
       </LegalSection>
@@ -117,7 +123,8 @@ export default function PrivacyPolicyPage() {
           Conforme a la Ley 1581 de 2012 (habeas data) puedes conocer,
           actualizar, rectificar y suprimir tus datos, y revocar tu
           autorización. Dentro de la app ya puedes ejercer los principales
-          desde Perfil → Configuración → Privacidad:
+          desde el ícono de perfil (arriba a la derecha) → Configuración →
+          Privacidad:
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
@@ -130,7 +137,10 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong className="text-text">Supresión:</strong> borra tu cuenta y
-            todos tus datos definitivamente, incluidas las fotos.
+            todos tus datos definitivamente, incluidas las fotos. La ruta
+            completa es: ícono de perfil (arriba a la derecha) → Configuración
+            → Privacidad → Zona de peligro → Borrar mi cuenta → escribir
+            ELIMINAR → Borrar definitivamente.
           </li>
         </ul>
         <p>

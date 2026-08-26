@@ -1,9 +1,11 @@
 // /comunidad — pantalla de comunidad (Design STRANDIA — strandia_comunidad).
 //
-// La funcionalidad social todavía no existe: esta pantalla presenta la
-// estructura editorial del diseño (challenges, outfits de la comunidad,
-// marcas aliadas) con todo lo no funcional marcado explícitamente como
-// "Próximamente" — nada simula ser real.
+// Las tres secciones son reales y funcionan: los challenges vienen de `quests`
+// (0013), el feed de `community_shares` (0015) con like, seguir, reportar y
+// bloquear (0035), y El Hilo de `editorial_posts` (0022). El texto de la
+// bajada decía "estamos construyendo esta sección" de cuando era solo
+// maqueta — frente a un revisor de tienda eso contradice lo que la pantalla
+// hace, que es alojar contenido generado por usuarios.
 
 import Link from "next/link";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
@@ -54,8 +56,8 @@ export default async function ComunidadPage() {
                 Comunidad
               </h1>
               <p className="mt-2 max-w-xl text-base text-text-muted">
-                Challenges, outfits de otros usuarios y beneficios de marcas
-                aliadas. Estamos construyendo esta sección.
+                Completa challenges, mira los looks que comparte la
+                comunidad y ponte al día con El Hilo.
               </p>
             </div>
             <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-surface px-4 py-2 text-sm font-semibold text-text shadow-sm">
@@ -69,7 +71,7 @@ export default async function ComunidadPage() {
             {quests.length === 0 ? (
               <div className="mt-4 rounded-xl bg-surface p-5 shadow-sm">
                 <p className="text-sm text-text-muted">
-                  No hay challenges activos ahora mismo — volvé pronto.
+                  No hay challenges activos ahora mismo — vuelve pronto.
                 </p>
               </div>
             ) : (
@@ -87,9 +89,9 @@ export default async function ComunidadPage() {
             {feed.length === 0 ? (
               <div className="mt-4 rounded-xl bg-surface p-5 shadow-sm">
                 <p className="text-sm text-text-muted">
-                  Todavía nadie compartió un look. Marca &ldquo;Lo usé
-                  hoy&rdquo; en un outfit guardado y sé la primera persona en
-                  compartirlo con la comunidad.
+                  Todavía nadie ha compartido un look. Marca &ldquo;Lo usé
+                  hoy&rdquo; en un outfit guardado y compártelo tú primero con
+                  la comunidad.
                 </p>
               </div>
             ) : (

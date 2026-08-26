@@ -233,3 +233,43 @@ export async function getCommunityFeed(
     isOwnShare: share.user_id === currentUserId,
   }));
 }
+
+// =============================================================================
+// BLOQUEOS (community_blocks, migración 0035)
+// =============================================================================
+
+export type BlockedUser = {
+  blockedId: string;
+  displayName: string;
+  createdAt: string;
+};
+
+/**
+ * A quién tiene bloqueado el usuario actual, para /profile/blocked.
+ *
+ * El nombre sale del snapshot `blocked_display_name` y no de `profiles`:
+ * esa tabla es select-own, así que no hay forma de leerlo en vivo. Si la
+ * persona se cambió el nombre después del bloqueo, acá se ve el de esa época
+ * — mismo comportamiento que los nombres de autor en el feed.
+ *
+ * La RLS ya limita a `blocker_id = auth.uid()`; el filtro explícito es
+ * defensa en profundidad.
+ */
+export async function getBlockedUsers(
+  supabase: SupabaseClient,
+  currentUserId: string
+): Promise<BlockedUser[]> {
+  const { data } = await supabase
+    .from("community_blocks")
+    .select("blocked_id, blocked_display_name, created_at")
+    .eq("blocker_id", currentUserId)
+    .order("created_at", { ascending: false });
+
+  return (data ?? []).map(
+    (b: { blocked_id: string; blocked_display_name: string | null; created_at: string }) => ({
+      blockedId: b.blocked_id,
+      displayName: b.blocked_display_name?.trim() || "Alguien de la comunidad",
+      createdAt: b.created_at,
+    })
+  );
+}
