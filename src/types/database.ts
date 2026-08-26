@@ -289,6 +289,27 @@ export type CommunityLikeInsert = {
   created_at?: string;
 };
 
+// ── Comunidad: bloquear usuarios (migración 0035) ───────────────────────────
+
+// `blocked_display_name` es un snapshot del nombre al momento de bloquear:
+// `profiles` es select-own, así que /profile/blocked no puede leerlo en vivo.
+// Mismo patrón que CommunityShare.author_display_name.
+export type CommunityBlock = {
+  id: string;
+  blocker_id: string;
+  blocked_id: string;
+  blocked_display_name: string | null;
+  created_at: string;
+};
+
+export type CommunityBlockInsert = {
+  id?: string;
+  blocker_id: string;
+  blocked_id: string;
+  blocked_display_name?: string | null;
+  created_at?: string;
+};
+
 export type CommunityFollow = {
   id: string;
   follower_id: string;
@@ -450,6 +471,11 @@ export type Database = {
         Row: CommunityFollow;
         Insert: CommunityFollowInsert;
         Update: Partial<CommunityFollowInsert>;
+      };
+      community_blocks: {
+        Row: CommunityBlock;
+        Insert: CommunityBlockInsert;
+        Update: Partial<CommunityBlockInsert>;
       };
       community_share_reports: {
         Row: CommunityShareReport;

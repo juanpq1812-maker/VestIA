@@ -37,6 +37,7 @@ const CONFIG_ITEMS = [
   { label: "Notificaciones", icon: IconBell, href: "#notificaciones" },
   { label: "Estilo preferido", icon: IconShirt, href: "/profile/style" },
   { label: "Privacidad", icon: IconLock, href: "/profile/privacy" },
+  { label: "Cuentas bloqueadas", icon: IconBlock, href: "/profile/blocked" },
   { label: "Ayuda y soporte", icon: IconHelp, href: "/profile/help" },
 ];
 
@@ -284,6 +285,15 @@ function IconLock() {
     <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <rect x="5" y="11" width="14" height="10" rx="2" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
+function IconBlock() {
+  return (
+    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.6 5.6l12.8 12.8" />
     </svg>
   );
 }

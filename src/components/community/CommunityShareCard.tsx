@@ -1,5 +1,5 @@
 // Card de un outfit compartido en el feed de /comunidad — foto real, autor,
-// like y seguir. El botón de reportar abre ReportShareModal.
+// like y seguir. El menú (···) de la esquina abre reportar o bloquear.
 
 "use client";
 
@@ -9,6 +9,8 @@ import {
   toggleFollowAction,
 } from "@/lib/community/actions";
 import ReportShareModal from "@/components/community/ReportShareModal";
+import BlockUserModal from "@/components/community/BlockUserModal";
+import ShareCardMenu from "@/components/community/ShareCardMenu";
 import ShareStoryCardButton from "@/components/community/ShareStoryCardButton";
 import type { CommunityShareFeedItem } from "@/lib/community/query";
 
@@ -23,6 +25,7 @@ export default function CommunityShareCard({ share }: Props) {
   const [likeCount, setLikeCount] = useState(share.like_count);
   const [following, setFollowing] = useState(share.isFollowingAuthor);
   const [reportOpen, setReportOpen] = useState(false);
+  const [blockOpen, setBlockOpen] = useState(false);
   // La URL firmada puede existir pero apuntar a un archivo que el navegador
   // no puede decodificar (p.ej. shares viejos subidos en HEIC antes del fix
   // en ShareOutfitModal) — sin esto, un <img> roto deja ver el fondo sólido
@@ -81,17 +84,10 @@ export default function CommunityShareCard({ share }: Props) {
         )}
 
         {!share.isOwnShare && (
-          <button
-            type="button"
-            onClick={() => setReportOpen(true)}
-            aria-label="Reportar contenido"
-            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-surface/90 text-text-muted shadow-sm backdrop-blur transition-colors hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 21V4" />
-              <path d="M5 4h13l-2.5 4L18 12H5" />
-            </svg>
-          </button>
+          <ShareCardMenu
+            onReport={() => setReportOpen(true)}
+            onBlock={() => setBlockOpen(true)}
+          />
         )}
       </div>
 
@@ -153,6 +149,14 @@ export default function CommunityShareCard({ share }: Props) {
 
       {reportOpen && (
         <ReportShareModal shareId={share.id} onClose={() => setReportOpen(false)} />
+      )}
+
+      {blockOpen && (
+        <BlockUserModal
+          authorId={share.user_id}
+          authorName={autor}
+          onClose={() => setBlockOpen(false)}
+        />
       )}
     </div>
   );

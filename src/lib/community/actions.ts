@@ -1,4 +1,5 @@
-// Server Actions de /comunidad: reclamar Fashion Quests + compartir outfits.
+// Server Actions de /comunidad: reclamar Fashion Quests, compartir outfits y
+// moderación (reportar y bloquear).
 // Reclamar delega toda la verificacion (progreso real, anti-doble-cobro,
 // puntos, Hebri) a complete_quest() — ver
 // supabase/migrations/0014_complete_quest.sql.
@@ -232,5 +233,72 @@ export async function reportShareAction(
     return { ok: false, error: "No pudimos enviar el reporte. Intenta de nuevo." };
   }
 
+  return { ok: true };
+}
+
+// =============================================================================
+// BLOQUEAR USUARIOS (community_blocks, migración 0035)
+// =============================================================================
+//
+// El bloqueo es de dos vías y el bloqueado nunca se entera — el porqué de
+// ambas cosas está en el encabezado de 0035_community_blocks.sql. Acá solo
+// vale la pena recordar que el filtrado del feed NO se hace en esta capa:
+// vive en la RLS de `community_shares`, así que no hay forma de olvidarse de
+// aplicarlo en una query nueva.
+
+export type BlockUserResult = { ok: true } | { ok: false; error: string };
+
+export async function blockUserAction(blockedId: string): Promise<BlockUserResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { ok: false, error: "Tu sesión expiró. Vuelve a iniciar sesión." };
+  if (blockedId === user.id) return { ok: false, error: "No puedes bloquearte a ti mismo." };
+
+  // El insert del bloqueo y el borrado de los follows en las dos direcciones
+  // van juntos en el RPC: si se hicieran acá serían dos viajes y un bloqueo
+  // podría quedar sin limpiar los follows. Además, borrar el follow donde el
+  // bloqueado es el follower necesita SECURITY DEFINER (su policy de delete
+  // exige follower_id = auth.uid()).
+  const { error } = await supabase.rpc("bloquear_usuario", { p_blocked_id: blockedId });
+
+  if (error) {
+    console.error("[blockUserAction] rpc falló", error);
+    return { ok: false, error: "No pudimos bloquear a esta persona. Intenta de nuevo." };
+  }
+
+  revalidatePath("/comunidad");
+  revalidatePath("/profile/blocked");
+  return { ok: true };
+}
+
+export type UnblockUserResult = { ok: true } | { ok: false; error: string };
+
+export async function unblockUserAction(blockedId: string): Promise<UnblockUserResult> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { ok: false, error: "Tu sesión expiró. Vuelve a iniciar sesión." };
+
+  // Sin RPC: desbloquear solo borra la fila. Los follows NO se restauran —
+  // si quieren volver a seguirse, lo hacen a mano (nota 4 de la migración).
+  // El filtro por blocker_id es defensa en profundidad sobre la RLS.
+  const { error } = await supabase
+    .from("community_blocks")
+    .delete()
+    .eq("blocker_id", user.id)
+    .eq("blocked_id", blockedId);
+
+  if (error) {
+    console.error("[unblockUserAction] delete falló", error);
+    return { ok: false, error: "No pudimos desbloquear a esta persona. Intenta de nuevo." };
+  }
+
+  revalidatePath("/comunidad");
+  revalidatePath("/profile/blocked");
   return { ok: true };
 }

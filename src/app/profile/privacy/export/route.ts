@@ -16,7 +16,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
-  const [profile, preferences, items, outfits, uses, feeds, events] =
+  const [profile, preferences, items, outfits, uses, feeds, events, blocks] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("user_preferences").select("*").maybeSingle(),
@@ -28,6 +28,10 @@ export async function GET() {
       supabase.from("outfit_uses").select("*"),
       supabase.from("calendar_feeds").select("*"),
       supabase.from("calendar_events").select("*"),
+      // La lista de bloqueos es dato personal del usuario (migración 0035) y
+      // entra en el derecho de portabilidad. Solo salen los bloqueos que él
+      // hizo: la RLS de community_blocks nunca devuelve los que recibió.
+      supabase.from("community_blocks").select("*"),
     ]);
 
   const exportData = {
@@ -41,6 +45,7 @@ export async function GET() {
     outfit_uses: uses.data ?? [],
     calendar_feeds: feeds.data ?? [],
     calendar_events: events.data ?? [],
+    community_blocks: blocks.data ?? [],
   };
 
   const fecha = new Date().toISOString().slice(0, 10);
