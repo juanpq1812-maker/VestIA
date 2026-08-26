@@ -132,22 +132,24 @@ export default function LoginPage() {
         </Link>
       </p>
 
-      <p className="mt-3 text-center text-xs text-text-faint">
-        Al continuar aceptas los{" "}
+      {/* Enlaces, no aceptación: iniciar sesión no es el momento de aceptar
+          nada — eso ocurre en el registro, con casillas y constancia en
+          legal_consents. Se mantienen visibles porque son la vía pública a
+          los documentos y un revisor de tienda los busca acá. */}
+      <p className="mt-3 flex items-center justify-center gap-2 text-xs text-text-faint">
         <Link
           href="/terms"
           className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
         >
-          Términos
-        </Link>{" "}
-        y la{" "}
+          Términos de Servicio
+        </Link>
+        <span aria-hidden="true">·</span>
         <Link
           href="/privacy-policy"
           className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
         >
           Política de Privacidad
         </Link>
-        .
       </p>
     </AuthShell>
   );

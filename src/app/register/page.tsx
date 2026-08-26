@@ -8,6 +8,8 @@ import AuthShell from "@/components/layout/AuthShell";
 import GoogleButton from "@/components/auth/GoogleButton";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import ConsentCheckboxes from "@/components/auth/ConsentCheckboxes";
+import { registrarConsentimientoAction } from "@/lib/legal/actions";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -15,6 +17,24 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  const [mayorDeEdad, setMayorDeEdad] = useState(false);
+  const [aceptaDocumentos, setAceptaDocumentos] = useState(false);
+  const [errorConsentimiento, setErrorConsentimiento] = useState<string | null>(null);
+
+  // Las dos casillas gobiernan los DOS caminos de alta. Antes el botón de
+  // Google estaba arriba del formulario y daba de alta al instante, así que
+  // por ahí no se pasaba por ningún consentimiento.
+  const consentimientoDado = mayorDeEdad && aceptaDocumentos;
+
+  function faltaConsentimiento() {
+    setErrorConsentimiento(
+      !mayorDeEdad && !aceptaDocumentos
+        ? "Marca las dos casillas para continuar."
+        : !mayorDeEdad
+          ? "Debes confirmar que eres mayor de 18 años."
+          : "Debes aceptar los Términos y la Política de Privacidad."
+    );
+  }
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -26,6 +46,12 @@ export default function RegisterPage() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    if (!consentimientoDado) {
+      faltaConsentimiento();
+      return;
+    }
+    setErrorConsentimiento(null);
 
     const emailLimpio = email.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLimpio)) {
@@ -49,6 +75,11 @@ export default function RegisterPage() {
       setCargando(false);
       return;
     }
+
+    // Constancia del consentimiento (legal_consents, migración 0036). No
+    // aborta el alta si falla: la cuenta ya existe y dejar al usuario tirado
+    // en el registro sería peor que quedarnos sin la fila.
+    await registrarConsentimientoAction();
 
     // Los usuarios nuevos entran a la lista de espera; el Proxy los mantendra
     // ahi hasta que un admin los apruebe.
@@ -81,9 +112,33 @@ export default function RegisterPage() {
         </p>
       )}
 
+      {/* Consentimiento — gobierna el botón de Google y el formulario */}
+      <div className="mt-6">
+        <ConsentCheckboxes
+          mayorDeEdad={mayorDeEdad}
+          aceptaDocumentos={aceptaDocumentos}
+          onMayorDeEdadChange={(v) => {
+            setMayorDeEdad(v);
+            if (v) setErrorConsentimiento(null);
+          }}
+          onAceptaDocumentosChange={(v) => {
+            setAceptaDocumentos(v);
+            if (v) setErrorConsentimiento(null);
+          }}
+          error={errorConsentimiento}
+        />
+      </div>
+
       {/* Google OAuth */}
       <div className="mt-6">
-        <GoogleButton />
+        <GoogleButton
+          bloqueado={!consentimientoDado}
+          mensajeBloqueo="Marca las dos casillas para continuar con Google"
+          onIntentoBloqueado={faltaConsentimiento}
+          alAutenticar={async () => {
+            await registrarConsentimientoAction();
+          }}
+        />
       </div>
 
       {/* Separador */}
@@ -127,28 +182,11 @@ export default function RegisterPage() {
           isLoading={cargando}
           loadingText="Creando cuenta…"
           className="mt-2"
+          disabled={!consentimientoDado}
         >
           Crear cuenta
         </Button>
       </form>
-
-      <p className="mt-4 text-center text-xs text-text-faint">
-        Al crear tu cuenta aceptas los{" "}
-        <Link
-          href="/terms"
-          className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
-        >
-          Términos y Condiciones
-        </Link>{" "}
-        y la{" "}
-        <Link
-          href="/privacy-policy"
-          className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
-        >
-          Política de Privacidad
-        </Link>
-        .
-      </p>
 
       <p className="mt-8 text-center text-sm text-text-muted">
         ¿Ya tienes cuenta?{" "}

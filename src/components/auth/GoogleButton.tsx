@@ -9,6 +9,14 @@
 // Seguridad: generamos un nonce por sesión de botón; GIS recibe el SHA-256
 // del nonce y Supabase recibe el nonce crudo — Supabase verifica que el hash
 // dentro del ID token coincida (por eso "Skip nonce checks" queda apagado).
+//
+// GATE DE CONSENTIMIENTO (`bloqueado`). En /register este botón da de alta al
+// instante, así que era la ruta que se saltaba el consentimiento entero. No se
+// puede deshabilitar el botón: su DOM lo renderiza y lo posee Google
+// (renderButton muta el contenedor). Lo que sí se puede es tapar el contenedor
+// con un botón propio que intercepta el clic, y marcarlo `inert` para que
+// además salga del orden de tabulación — sin `inert`, el botón de Google
+// seguiría siendo alcanzable con el teclado por detrás de la capa.
 
 "use client";
 
@@ -70,7 +78,27 @@ async function generarNonce(): Promise<{ nonce: string; hashed: string }> {
   return { nonce, hashed };
 }
 
-export default function GoogleButton() {
+type Props = {
+  /** Tapa el botón e impide autenticarse (consentimiento sin marcar). */
+  bloqueado?: boolean;
+  /** Qué anunciar en la capa que tapa, para lectores de pantalla. */
+  mensajeBloqueo?: string;
+  /** Se dispara si el usuario toca el botón estando bloqueado. */
+  onIntentoBloqueado?: () => void;
+  /**
+   * Corre con la sesión ya creada y ANTES de redirigir. En /register se usa
+   * para dejar constancia del consentimiento; si falla, no se aborta el alta
+   * (la cuenta ya existe, ver registrarConsentimientoAction).
+   */
+  alAutenticar?: () => Promise<void>;
+};
+
+export default function GoogleButton({
+  bloqueado = false,
+  mensajeBloqueo = "Acepta los términos para continuar con Google",
+  onIntentoBloqueado,
+  alAutenticar,
+}: Props = {}) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const nonceRef = useRef<string | null>(null);
@@ -96,6 +124,9 @@ export default function GoogleButton() {
         return;
       }
 
+      // Constancia del consentimiento antes de movernos de pantalla.
+      if (alAutenticar) await alAutenticar();
+
       // Replicamos la lógica del callback OAuth: waitlist → onboarding → app.
       const {
         data: { user },
@@ -114,7 +145,7 @@ export default function GoogleButton() {
       router.push(destino);
       router.refresh();
     },
-    [router]
+    [router, alAutenticar]
   );
 
   const inicializarGis = useCallback(async () => {
@@ -157,7 +188,22 @@ export default function GoogleButton() {
           DOM); React nunca debe renderizar hijos ahí dentro. El skeleton vive
           como hermano y se oculta cuando GIS termina. */}
       <div className="relative min-h-[44px] w-full" aria-busy={procesando}>
-        <div ref={containerRef} className="flex w-full justify-center" />
+        <div
+          ref={containerRef}
+          className="flex w-full justify-center"
+          inert={bloqueado}
+        />
+
+        {bloqueado && (
+          <button
+            type="button"
+            onClick={onIntentoBloqueado}
+            aria-label={mensajeBloqueo}
+            title={mensajeBloqueo}
+            className="absolute inset-0 z-10 h-full w-full cursor-not-allowed rounded-full bg-surface/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          />
+        )}
+
         {!gisListo && (
           <div
             className="absolute inset-0 mx-auto h-11 w-full max-w-[400px] animate-pulse rounded-full bg-surface-2"

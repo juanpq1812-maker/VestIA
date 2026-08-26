@@ -5,9 +5,13 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import Container from "@/components/ui/Container";
+import { LEGAL_CONTACT_EMAIL } from "@/lib/legal/constants";
 
-export const LEGAL_CONTACT_EMAIL = "strandia.fashion@gmail.com";
-export const LEGAL_RESPONSIBLE = "Strand Inc.";
+// Reexportadas desde @/lib/legal/constants para no duplicar el valor: ahí
+// viven también las versiones de los documentos, que la Server Action del
+// consentimiento necesita y que no puede importar desde un componente.
+export { LEGAL_CONTACT_EMAIL, LEGAL_RESPONSIBLE } from "@/lib/legal/constants";
+
 
 type Props = {
   eyebrow: string;

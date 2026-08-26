@@ -16,7 +16,7 @@ export async function GET() {
     return NextResponse.json({ error: "No autenticado" }, { status: 401 });
   }
 
-  const [profile, preferences, items, outfits, uses, feeds, events, blocks] =
+  const [profile, preferences, items, outfits, uses, feeds, events, blocks, consents] =
     await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("user_preferences").select("*").maybeSingle(),
@@ -32,6 +32,8 @@ export async function GET() {
       // entra en el derecho de portabilidad. Solo salen los bloqueos que él
       // hizo: la RLS de community_blocks nunca devuelve los que recibió.
       supabase.from("community_blocks").select("*"),
+      // Constancia de los documentos que aceptó y cuándo (migración 0036).
+      supabase.from("legal_consents").select("*"),
     ]);
 
   const exportData = {
@@ -46,6 +48,7 @@ export async function GET() {
     calendar_feeds: feeds.data ?? [],
     calendar_events: events.data ?? [],
     community_blocks: blocks.data ?? [],
+    legal_consents: consents.data ?? [],
   };
 
   const fecha = new Date().toISOString().slice(0, 10);

@@ -294,6 +294,25 @@ export type CommunityLikeInsert = {
 // `blocked_display_name` es un snapshot del nombre al momento de bloquear:
 // `profiles` es select-own, así que /profile/blocked no puede leerlo en vivo.
 // Mismo patrón que CommunityShare.author_display_name.
+// ── Consentimiento legal (migración 0036) ───────────────────────────────────
+
+// Inmutable por diseño: no hay Update. Ver la nota de la migración.
+export type LegalConsent = {
+  id: string;
+  user_id: string;
+  document: "terms" | "privacy" | "age";
+  version: string;
+  accepted_at: string;
+};
+
+export type LegalConsentInsert = {
+  id?: string;
+  user_id: string;
+  document: "terms" | "privacy" | "age";
+  version: string;
+  accepted_at?: string;
+};
+
 export type CommunityBlock = {
   id: string;
   blocker_id: string;
@@ -471,6 +490,11 @@ export type Database = {
         Row: CommunityFollow;
         Insert: CommunityFollowInsert;
         Update: Partial<CommunityFollowInsert>;
+      };
+      legal_consents: {
+        Row: LegalConsent;
+        Insert: LegalConsentInsert;
+        Update: never;
       };
       community_blocks: {
         Row: CommunityBlock;
