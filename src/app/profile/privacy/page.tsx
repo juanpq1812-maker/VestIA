@@ -34,7 +34,7 @@ const DATOS: { titulo: string; detalle: string }[] = [
   {
     titulo: "Tu calendario (opcional)",
     detalle:
-      "Si conectas un calendario, guardamos la URL ICS (secreta) y los próximos eventos para sugerirte outfits. Puedes desconectarlo cuando quieras desde Perfil → Calendario, y revocar la URL desde tu proveedor.",
+      "Si conectas un calendario, guardamos la URL ICS (secreta) y los próximos eventos para sugerirte outfits. Puedes desconectarlo cuando quieras desde Perfil → Calendario: al hacerlo borramos de inmediato la URL y los eventos guardados. También puedes revocar la URL desde tu proveedor.",
   },
 ];
 
