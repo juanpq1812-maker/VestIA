@@ -597,6 +597,30 @@ export default function LandingContent() {
                 className="h-8 w-auto"
               />
             </div>
+            {/* Enlaces legales: son la vía pública a los documentos para
+                quien no tiene cuenta — un revisor de App Store los busca en
+                el pie de la landing antes que en ningún otro sitio. */}
+            <nav
+              aria-label="Enlaces legales"
+              className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs"
+            >
+              <Link
+                href="/terms"
+                className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
+              >
+                Términos de Servicio
+              </Link>
+              <span aria-hidden="true" className="text-text-faint">
+                ·
+              </span>
+              <Link
+                href="/privacy-policy"
+                className="font-medium text-text-muted underline underline-offset-4 hover:text-primary"
+              >
+                Política de Privacidad
+              </Link>
+            </nav>
+
             <p className="text-xs text-text-muted">
               Tu armario digital con IA · {new Date().getFullYear()}
             </p>

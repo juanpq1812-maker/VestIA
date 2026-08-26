@@ -9,6 +9,7 @@ import LegalShell, {
   LEGAL_CONTACT_EMAIL,
   LEGAL_RESPONSIBLE,
 } from "@/components/legal/LegalShell";
+import { LEGAL_UPDATED_AT, MIN_AGE } from "@/lib/legal/constants";
 
 export const metadata = {
   title: "Términos y Condiciones — StrandIA",
@@ -19,7 +20,7 @@ export default function TermsPage() {
     <LegalShell
       eyebrow="Legal"
       title="Términos y Condiciones"
-      updatedAt="11 de julio de 2026"
+      updatedAt={LEGAL_UPDATED_AT}
     >
       <LegalSection titulo="1. Quiénes somos">
         <p>
@@ -53,9 +54,11 @@ export default function TermsPage() {
         <p>
           Necesitas una cuenta (email y contraseña, o Google) para usar
           StrandIA. Eres responsable de mantener tus credenciales seguras y de
-          la actividad que ocurra en tu cuenta. Debes tener al menos 14 años;
-          si eres menor de 18, necesitas autorización de tu representante
-          legal.
+          la actividad que ocurra en tu cuenta. Debes tener cumplidos{" "}
+          {MIN_AGE} años, la mayoría de edad legal en la República de Colombia.
+          Al registrarte lo confirmas de forma expresa, y guardamos constancia
+          de esa confirmación junto con la fecha y la versión de los documentos
+          que aceptaste.
         </p>
       </LegalSection>
 
@@ -92,11 +95,21 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection titulo="7. Uso aceptable">
+      <LegalSection titulo="7. Uso aceptable y moderación de la comunidad">
         <p>
           No puedes usar StrandIA para actividades ilegales, intentar acceder
           a datos de otros usuarios, sobrecargar o atacar el servicio, hacer
           ingeniería inversa, ni revender el acceso sin nuestra autorización.
+        </p>
+        <p>
+          En la sección de comunidad está prohibido publicar contenido ilícito
+          o inapropiado. Dentro de la app tienes dos herramientas visibles
+          sobre cada publicación, en el menú de tres puntos: reportarla y
+          bloquear a quien la publicó. Al bloquear a alguien dejas de ver sus
+          publicaciones y esa persona deja de ver las tuyas, sin que reciba
+          aviso de que la bloqueaste. Revisamos los reportes que nos llegan y
+          nos esforzamos por atenderlos lo antes posible; podemos retirar
+          contenido o suspender cuentas que incumplan estas reglas.
         </p>
       </LegalSection>
 
