@@ -113,6 +113,15 @@ as $$
 $$;
 
 grant execute on function private.strandia_bloqueo_entre(uuid, uuid) to authenticated;
+
+-- El revoke a PUBLIC es el que de verdad cierra la puerta, y no es redundante
+-- con el de `anon`: Postgres concede EXECUTE a PUBLIC al crear una funcion, y
+-- revocarsela solo a `anon` deja intacta esa via — medido al aplicar esta
+-- migracion, has_function_privilege('anon', ...) seguia dando true después del
+-- revoke a `anon`. Lo que salvaba el caso era que `anon` no tiene USAGE sobre
+-- el esquema `private`; aun asi, se cierra explicitamente. `authenticated`
+-- conserva su grant nominal de la linea de arriba.
+revoke execute on function private.strandia_bloqueo_entre(uuid, uuid) from public;
 revoke execute on function private.strandia_bloqueo_entre(uuid, uuid) from anon;
 
 
