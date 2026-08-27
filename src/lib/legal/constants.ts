@@ -17,6 +17,14 @@ export const PRIVACY_VERSION = "2026-08-25";
 export const LEGAL_UPDATED_AT = "25 de agosto de 2026";
 
 /**
+ * Autorización para el modo "outfit completo", que sube una foto del usuario
+ * de cuerpo entero y la manda a Claude Vision. Tiene su propia versión porque
+ * es un consentimiento aparte del registro: si cambias ese texto, súbela y a
+ * todo el mundo se le vuelve a pedir.
+ */
+export const BODY_PHOTO_CONSENT_VERSION = "2026-08-27";
+
+/**
  * Edad mínima para usar StrandIA: mayoría de edad legal en Colombia.
  * Antes eran 14 años (con autorización del representante legal entre 14 y
  * 18); se subió a 18 para no tener que gestionar consentimiento parental.

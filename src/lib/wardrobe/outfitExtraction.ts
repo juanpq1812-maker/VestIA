@@ -34,7 +34,16 @@ export type ExtractedCrop = {
 export type ExtractOutfitPhotoResult =
   | { ok: true; detectedCount: number; crops: ExtractedCrop[] }
   | { ok: false; reason: "rate_limited"; resetInMinutes: number }
-  | { ok: false; reason: "invalid_response" | "no_image" | "no_session" | "upload_failed" };
+  | {
+      ok: false;
+      reason:
+        | "invalid_response"
+        | "no_image"
+        | "no_session"
+        | "upload_failed"
+        // Falta la autorización de foto de cuerpo entero (migración 0037).
+        | "no_consent";
+    };
 
 async function enqueueDetectedOutfitGarment(
   supabase: Supa,

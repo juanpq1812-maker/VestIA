@@ -300,7 +300,7 @@ export type CommunityLikeInsert = {
 export type LegalConsent = {
   id: string;
   user_id: string;
-  document: "terms" | "privacy" | "age";
+  document: "terms" | "privacy" | "age" | "body_photo";
   version: string;
   accepted_at: string;
 };
@@ -308,7 +308,7 @@ export type LegalConsent = {
 export type LegalConsentInsert = {
   id?: string;
   user_id: string;
-  document: "terms" | "privacy" | "age";
+  document: "terms" | "privacy" | "age" | "body_photo";
   version: string;
   accepted_at?: string;
 };
