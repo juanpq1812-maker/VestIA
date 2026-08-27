@@ -7,9 +7,16 @@
 //   4. Ocasiones favoritas (chips multi-select, minimo 1)
 //   5. Tallas (top, bottom, calzado)
 //   6. Medidas opcionales (con boton "Saltar")
+//   7. Autorizacion de fotos de cuerpo entero (opcional, con boton "Saltar")
 //
-// El estado vive en este componente; al final del paso 6 llama a la Server
+// El estado vive en este componente; al final del paso 7 llama a la Server
 // Action `saveOnboarding` y, si todo sale bien, redirige a /wardrobe.
+//
+// EL PASO 7 NO BLOQUEA. Es una autorizacion, no un requisito: quien la salte
+// termina el onboarding igual y usa la app completa salvo el modo "outfit
+// completo", que se la pedira cuando la necesite (BodyPhotoConsentModal). Por
+// eso es un acto afirmativo separado del consentimiento del registro y no un
+// paso obligatorio mas.
 
 "use client";
 
@@ -31,8 +38,9 @@ import {
   type Gender,
 } from "@/types/database";
 import { saveOnboarding } from "@/app/onboarding/actions";
+import BodyPhotoConsentFields from "@/components/legal/BodyPhotoConsentFields";
 
-const TOTAL_PASOS = 6;
+const TOTAL_PASOS = 7;
 
 type Medidas = {
   chestCm: string;
@@ -83,6 +91,7 @@ export default function OnboardingFlow() {
     waistCm: "",
     hipCm: "",
   });
+  const [autorizaFotoCuerpo, setAutorizaFotoCuerpo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -117,7 +126,7 @@ export default function OnboardingFlow() {
     if (paso > 1) setPaso((p) => p - 1);
   }
 
-  function finalizar(saltarMedidas: boolean) {
+  function finalizar(autorizaFoto: boolean) {
     setError(null);
     const errorNombre = validarNombre(nombre);
     if (errorNombre) {
@@ -138,9 +147,12 @@ export default function OnboardingFlow() {
       topSize: topSize || null,
       bottomSize: bottomSize || null,
       shoeSize: parseNumber(shoeSize),
-      chestCm: saltarMedidas ? null : parseNumber(medidas.chestCm),
-      waistCm: saltarMedidas ? null : parseNumber(medidas.waistCm),
-      hipCm: saltarMedidas ? null : parseNumber(medidas.hipCm),
+      chestCm: parseNumber(medidas.chestCm),
+      waistCm: parseNumber(medidas.waistCm),
+      hipCm: parseNumber(medidas.hipCm),
+      // Solo `true` deja constancia; saltar el paso no escribe nada (no
+      // registramos "dijo que no", solo lo que autorizó).
+      bodyPhotoConsent: autorizaFoto,
     };
 
     startTransition(async () => {
@@ -208,6 +220,13 @@ export default function OnboardingFlow() {
             {paso === 6 && (
               <PasoMedidas medidas={medidas} onChange={setMedidas} />
             )}
+            {paso === 7 && (
+              <PasoFotoCuerpo
+                autoriza={autorizaFotoCuerpo}
+                onChange={setAutorizaFotoCuerpo}
+                disabled={isPending}
+              />
+            )}
           </div>
 
           {error ? (
@@ -229,21 +248,42 @@ export default function OnboardingFlow() {
               Atrás
             </Button>
 
-            {paso < TOTAL_PASOS ? (
-              <Button onClick={siguiente} disabled={isPending}>
-                Siguiente
-              </Button>
-            ) : (
+            {paso === 6 ? (
+              // Las medidas son opcionales: saltarlas las limpia y avanza.
+              // `parseNumber("")` ya devuelve null, así que no hace falta
+              // arrastrar un flag de "saltado" hasta el final.
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
                 <Button
                   variant="ghost"
-                  onClick={() => finalizar(true)}
+                  onClick={() => {
+                    setMedidas({ chestCm: "", waistCm: "", hipCm: "" });
+                    siguiente();
+                  }}
                   disabled={isPending}
                 >
                   Saltar este paso
                 </Button>
+                <Button onClick={siguiente} disabled={isPending}>
+                  Siguiente
+                </Button>
+              </div>
+            ) : paso < TOTAL_PASOS ? (
+              <Button onClick={siguiente} disabled={isPending}>
+                Siguiente
+              </Button>
+            ) : (
+              // Paso 7: la autorización nunca bloquea. "Saltar" termina sin
+              // registrar nada; "Terminar" manda lo que diga la casilla.
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
                 <Button
+                  variant="ghost"
                   onClick={() => finalizar(false)}
+                  disabled={isPending}
+                >
+                  Saltar por ahora
+                </Button>
+                <Button
+                  onClick={() => finalizar(autorizaFotoCuerpo)}
                   isLoading={isPending}
                   loadingText="Guardando…"
                 >
@@ -271,6 +311,41 @@ export default function OnboardingFlow() {
 // no fragmentar de mas; si el onboarding crece, los movemos a sus propios
 // archivos.
 // ---------------------------------------------------------------------------
+
+function PasoFotoCuerpo({
+  autoriza,
+  onChange,
+  disabled,
+}: {
+  autoriza: boolean;
+  onChange: (v: boolean) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-bold text-text sm:text-3xl">
+        ¿Nos dejas leer tus fotos de cuerpo entero?
+      </h2>
+      <p className="mt-2 text-sm text-text-muted">
+        Con el modo <strong className="text-text">Outfit completo</strong> subes
+        una sola foto —una selfie de espejo, por ejemplo— y detectamos cada
+        prenda por ti, en vez de subirlas una a una.
+      </p>
+      <p className="mt-2 text-sm text-text-muted">
+        Como en esas fotos sales tú, te lo pedimos aparte. Es opcional: puedes
+        saltarlo y seguir usando el resto de la app igual.
+      </p>
+
+      <div className="mt-6">
+        <BodyPhotoConsentFields
+          checked={autoriza}
+          onChange={onChange}
+          disabled={disabled}
+        />
+      </div>
+    </div>
+  );
+}
 
 function ProgressBar({ paso, total }: { paso: number; total: number }) {
   const pct = (paso / total) * 100;

@@ -9,12 +9,22 @@
 // Se pide una vez por versión del texto (ver BODY_PHOTO_CONSENT_VERSION), no
 // en cada foto: es un modo de uso repetido, y una casilla en cada subida se
 // convierte en ruido que se marca sin leer.
+//
+// DESDE QUE LA AUTORIZACIÓN VIVE EN EL ONBOARDING, este modal es el respaldo,
+// no el camino principal: cubre a quien saltó ese paso y a las cuentas creadas
+// antes del cambio (el piloto y las de Juan). Si ya está autorizado, el modo
+// outfit no lo levanta y abre directo en los tips.
+//
+// La casilla y el texto salen de BodyPhotoConsentFields, compartido con el
+// paso del onboarding, para que lo que se acepta sea literalmente lo mismo en
+// los dos sitios.
 
 "use client";
 
 import { useId, useState, useTransition } from "react";
 import Button from "@/components/ui/Button";
 import { registrarConsentimientoFotoCuerpoAction } from "@/lib/legal/actions";
+import BodyPhotoConsentFields from "@/components/legal/BodyPhotoConsentFields";
 
 type Props = {
   /** Corre tras registrar la autorización — reanuda la acción que la disparó. */
@@ -68,24 +78,16 @@ export default function BodyPhotoConsentModal({ onAutorizado, onClose }: Props) 
             pedimos aparte y una sola vez.
           </p>
 
-          <label className="mt-4 flex items-start gap-2.5 rounded-lg border border-border bg-surface-2 p-4 text-sm text-text">
-            <input
-              type="checkbox"
+          <div className="mt-4">
+            <BodyPhotoConsentFields
               checked={autoriza}
-              onChange={(e) => {
-                setAutoriza(e.target.checked);
-                if (e.target.checked) setError(null);
+              onChange={(v) => {
+                setAutoriza(v);
+                if (v) setError(null);
               }}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-primary/15"
+              disabled={isPending}
             />
-            <span className="leading-relaxed">
-              Autorizo a Strand Inc. a tratar mis fotografías de outfit completo
-              (cuerpo entero) —reconocidas como dato sensible— y a transferirlas
-              temporalmente a Anthropic y Google en EE. UU. para detectar las
-              prendas y darme recomendaciones de estilismo. Puedo eliminar las
-              fotos y revocar esta autorización cuando quiera desde la app.
-            </span>
-          </label>
+          </div>
 
           <p className="mt-3 text-xs text-text-faint">
             Si prefieres no autorizarlo, puedes seguir subiendo tus prendas una
