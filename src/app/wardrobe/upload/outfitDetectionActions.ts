@@ -12,12 +12,13 @@
 import { callAnthropicVisionApi, getDetectionModelName } from "@/lib/ai/aiClient";
 import { checkAndConsumeBurstUse } from "@/lib/ai/burstUsageGate";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
+import { tieneConsentimientoFotoCuerpoAction } from "@/lib/legal/actions";
 import { parseDetectionResponse, type DetectedOutfitGarment } from "@/lib/wardrobe/outfitDetectionSchema";
 
 export type DetectOutfitResult =
   | { ok: true; items: DetectedOutfitGarment[] }
   | { ok: false; reason: "rate_limited"; resetInMinutes: number }
-  | { ok: false; reason: "invalid_response" | "no_image" | "no_session" };
+  | { ok: false; reason: "invalid_response" | "no_image" | "no_session" | "no_consent" };
 
 const DETECTION_PROMPT = `Analiza esta foto de un outfit completo (puede ser una selfie de espejo, una foto de cuerpo entero, o ropa tendida sobre una superficie) y devuelve ÚNICAMENTE JSON válido con este formato exacto:
 {
@@ -66,6 +67,15 @@ export async function detectOutfitItemsAction(
   } = await supabase.auth.getUser();
 
   if (!user) return { ok: false, reason: "no_session" };
+
+  // Autorización de foto de cuerpo entero. El modal de OutfitPhotoCapture ya
+  // la exige, pero eso es UI: esta acción es invocable directamente y la foto
+  // puede ser la persona. La verificación tiene que vivir donde ocurre el
+  // tratamiento, no solo donde se dibuja el botón. Va ANTES de consumir el
+  // crédito — sin autorización no se procesa, así que tampoco se cobra.
+  if (!(await tieneConsentimientoFotoCuerpoAction())) {
+    return { ok: false, reason: "no_consent" };
+  }
 
   const file = formData.get("image");
   if (!file || !(file instanceof Blob)) return { ok: false, reason: "no_image" };

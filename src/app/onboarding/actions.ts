@@ -6,6 +6,8 @@
 //   1. Validamos que haya sesion (defensa en profundidad — el Proxy ya lo hace).
 //   2. Hacemos UPSERT en `user_preferences` con los datos del onboarding.
 //   3. Marcamos `profiles.onboarding_completed = true`.
+//   3b. Si el usuario autorizo el uso de fotos de cuerpo entero en el paso 7,
+//       dejamos constancia en `legal_consents` (migracion 0037).
 //   4. revalidatePath para que la siguiente navegacion vea los datos frescos.
 //
 // Si algo falla, devolvemos un error legible en espanol para mostrarselo al
@@ -16,6 +18,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/serverClient";
 import type { Gender } from "@/types/database";
+import { BODY_PHOTO_CONSENT_VERSION } from "@/lib/legal/constants";
 
 const VALID_GENDERS: Gender[] = ["hombre", "mujer", "prefiero_no_decir"];
 
@@ -30,6 +33,12 @@ export type OnboardingPayload = {
   chestCm: number | null;
   waistCm: number | null;
   hipCm: number | null;
+  /**
+   * Paso 7 (opcional). Solo `true` deja constancia: no registramos "dijo que
+   * no", unicamente lo que autorizo. Quien lo salte vera el modal
+   * just-in-time cuando entre al modo "outfit completo".
+   */
+  bodyPhotoConsent: boolean;
 };
 
 const DISPLAY_NAME_MIN = 2;
@@ -113,6 +122,29 @@ export async function saveOnboarding(
       ok: false,
       error: `No pudimos marcar el onboarding como completado: ${profileError.message}`,
     };
+  }
+
+  // Constancia de la autorizacion de fotos de cuerpo entero (paso 7). Va
+  // DESPUES de marcar el onboarding como completado y su fallo NO aborta:
+  // el onboarding ya termino y devolver error aqui dejaria al usuario
+  // atrapado en un paso que es opcional. Se registra en el log para poder
+  // repararlo; si falta la fila, el modal just-in-time se la volvera a pedir
+  // cuando entre al modo "outfit completo", que es justo el respaldo.
+  if (payload.bodyPhotoConsent) {
+    const { error: consentError } = await supabase.from("legal_consents").upsert(
+      {
+        user_id: user.id,
+        document: "body_photo",
+        version: BODY_PHOTO_CONSENT_VERSION,
+      },
+      { onConflict: "user_id,document,version", ignoreDuplicates: true }
+    );
+    if (consentError) {
+      console.error("[saveOnboarding] no se pudo registrar body_photo", consentError, {
+        userId: user.id,
+        version: BODY_PHOTO_CONSENT_VERSION,
+      });
+    }
   }
 
   // Refresca el cache de las rutas que dependen del flag.

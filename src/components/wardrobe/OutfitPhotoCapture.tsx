@@ -3,6 +3,14 @@
 // Acepta cámara (1 foto) o galería (multi-select, tope 10). Cada foto se
 // procesa secuencialmente — 1 llamada a Vision por foto — y las prendas
 // detectadas van a la misma pantalla de revisión de la ráfaga.
+//
+// Antes de abrir cámara o galería se exige la autorización de foto de cuerpo
+// entero (BodyPhotoConsentModal): acá la foto puede ser la persona, no una
+// prenda sobre la cama, y el consentimiento del registro solo cubre "las
+// fotografías de prendas que cargue". El gate va en los dos botones —igual que
+// el de Google en /register, donde el botón suelto era el que se saltaba el
+// consentimiento— y `accionPendiente` recuerda cuál se tocó para reanudarla
+// sola después de autorizar, sin obligar a un segundo toque.
 
 "use client";
 
@@ -17,6 +25,8 @@ import { extractOutfitPhoto, type ExtractedCrop } from "@/lib/wardrobe/outfitExt
 import OutfitCropConfirm from "@/components/wardrobe/OutfitCropConfirm";
 import { peekBurstBudgetAction } from "@/app/wardrobe/upload/burstActions";
 import { deletePendingItem, processPendingForUser } from "@/lib/wardrobe/burstQueue";
+import BodyPhotoConsentModal from "@/components/wardrobe/BodyPhotoConsentModal";
+import { tieneConsentimientoFotoCuerpoAction } from "@/lib/legal/actions";
 
 const MAX_PHOTOS = 10;
 const CAMERA_TIPS_KEY_PREFIX = "strandia_camera_tips_seen";
@@ -40,6 +50,10 @@ export default function OutfitPhotoCapture() {
   // tenga contenido NO se llamó a Gemini todavía — ese es el punto del paso.
   const [pendingCrops, setPendingCrops] = useState<ExtractedCrop[]>([]);
   const [confirming, setConfirming] = useState(false);
+  // null = todavía no lo consultamos; los botones esperan a saberlo.
+  const [tieneConsentimiento, setTieneConsentimiento] = useState<boolean | null>(null);
+  const [pidiendoConsentimiento, setPidiendoConsentimiento] = useState(false);
+  const [accionPendiente, setAccionPendiente] = useState<"camara" | "galeria" | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -50,6 +64,19 @@ export default function OutfitPhotoCapture() {
       active = false;
     };
   }, [supabase]);
+
+  // Se consulta al servidor y no a legal_consents desde el cliente: la RLS
+  // dejaría leerlo, pero entonces la autorización viviría donde el usuario
+  // puede alterarla.
+  useEffect(() => {
+    let active = true;
+    tieneConsentimientoFotoCuerpoAction().then((tiene) => {
+      if (active) setTieneConsentimiento(tiene);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const totalDetected = results.reduce(
     (sum, r) => sum + (r.ok ? Number(r.detail.match(/\d+/)?.[0] ?? 0) : 0),
@@ -98,6 +125,18 @@ export default function OutfitPhotoCapture() {
           newResults.push({
             label: `Foto ${i + 1}`,
             detail: `límite alcanzado — se reintenta en ~${result.resetInMinutes} min`,
+            ok: false,
+          });
+          stopped = true;
+        } else if (result.reason === "no_consent") {
+          // El servidor rechazó por falta de autorización. Solo debería
+          // llegar acá si el estado del cliente quedó desincronizado (otra
+          // pestaña, sesión vieja); se corrige y se levanta el modal.
+          setTieneConsentimiento(false);
+          setPidiendoConsentimiento(true);
+          newResults.push({
+            label: `Foto ${i + 1}`,
+            detail: "falta tu autorización para fotos de cuerpo entero",
             ok: false,
           });
           stopped = true;
@@ -162,12 +201,34 @@ export default function OutfitPhotoCapture() {
     processFiles(capped);
   }
 
-  function handleCameraClick() {
+  function abrirCamara() {
     if (userId && localStorage.getItem(`${CAMERA_TIPS_KEY_PREFIX}:${userId}`)) {
       cameraInputRef.current?.click();
     } else {
       setShowCameraTips(true);
     }
+  }
+
+  /**
+   * Puerta única de entrada al modo: sin autorización no se abre ni cámara ni
+   * galería. Devuelve false y levanta el modal, recordando qué se quería hacer.
+   */
+  function conConsentimiento(accion: "camara" | "galeria") {
+    if (tieneConsentimiento !== true) {
+      setAccionPendiente(accion);
+      setPidiendoConsentimiento(true);
+      return;
+    }
+    if (accion === "camara") abrirCamara();
+    else galleryInputRef.current?.click();
+  }
+
+  function handleCameraClick() {
+    conConsentimiento("camara");
+  }
+
+  function handleGalleryClick() {
+    conConsentimiento("galeria");
   }
 
   if (pendingCrops.length > 0) {
@@ -184,6 +245,25 @@ export default function OutfitPhotoCapture() {
 
   return (
     <div className="flex flex-col gap-6">
+      {pidiendoConsentimiento ? (
+        <BodyPhotoConsentModal
+          onAutorizado={() => {
+            setTieneConsentimiento(true);
+            setPidiendoConsentimiento(false);
+            // Reanuda sola la acción que levantó el modal: pedir autorización
+            // no debería costar un segundo toque.
+            const accion = accionPendiente;
+            setAccionPendiente(null);
+            if (accion === "camara") abrirCamara();
+            else if (accion === "galeria") galleryInputRef.current?.click();
+          }}
+          onClose={() => {
+            setPidiendoConsentimiento(false);
+            setAccionPendiente(null);
+          }}
+        />
+      ) : null}
+
       {showCameraTips && userId ? (
         <CameraTipsModal
           storageKey={`${CAMERA_TIPS_KEY_PREFIX}:${userId}`}
@@ -246,14 +326,14 @@ export default function OutfitPhotoCapture() {
           <Button
             variant="ghost"
             onClick={handleCameraClick}
-            disabled={processing || !userId}
+            disabled={processing || !userId || tieneConsentimiento === null}
           >
             Cámara
           </Button>
           <Button
             variant="ghost"
-            onClick={() => galleryInputRef.current?.click()}
-            disabled={processing || !userId}
+            onClick={handleGalleryClick}
+            disabled={processing || !userId || tieneConsentimiento === null}
           >
             Galería
           </Button>

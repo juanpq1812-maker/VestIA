@@ -1,6 +1,13 @@
 // Sección "Calendario" de /profile: conectar calendarios por URL ICS.
 // Multi-feed: se pueden tener Google Y Apple conectados a la vez — cada uno
 // aparece en la lista con su estado y su botón de desconexión.
+//
+// Conectar un calendario exige una autorización propia, marcada acá mismo y
+// no heredada del consentimiento del registro: es un tratamiento distinto
+// (metadatos de tus eventos) sobre datos que la app no necesita para
+// funcionar, y la Ley 1581 de 2012 pide consentimiento previo, expreso e
+// informado para cada finalidad. La casilla se reinicia después de conectar
+// para que agregar un segundo calendario vuelva a pedirla.
 
 "use client";
 
@@ -37,11 +44,16 @@ export default function CalendarFeedForm({ feeds: initialFeeds }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
+  const [autoriza, setAutoriza] = useState(false);
 
   async function onConnect() {
     const trimmed = url.trim();
     if (!trimmed) {
       setError("Pega la URL de tu calendario primero.");
+      return;
+    }
+    if (!autoriza) {
+      setError("Marca la autorización para conectar tu calendario.");
       return;
     }
     setSaving(true);
@@ -63,6 +75,7 @@ export default function CalendarFeedForm({ feeds: initialFeeds }: Props) {
       },
     ]);
     setUrl("");
+    setAutoriza(false);
     setOkMsg(
       res.eventCount > 0
         ? `Conectado — encontramos ${res.eventCount} evento${res.eventCount === 1 ? "" : "s"} en los próximos días.`
@@ -180,10 +193,33 @@ export default function CalendarFeedForm({ feeds: initialFeeds }: Props) {
             </div>
           </details>
 
+          {/* Autorización just-in-time — ver la nota de cabecera. */}
+          <label className="flex items-start gap-2.5 rounded-lg border border-border bg-surface-2 p-4 text-sm text-text">
+            <input
+              type="checkbox"
+              checked={autoriza}
+              onChange={(e) => {
+                setAutoriza(e.target.checked);
+                if (e.target.checked) setError(null);
+              }}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary focus:ring-primary/15"
+            />
+            <span className="leading-relaxed">
+              Autorizo a StrandIA a almacenar y usar la URL secreta de mi
+              calendario y los metadatos de mis próximos eventos, con el único
+              fin de sugerirme outfits y recordatorios de estilismo. La URL se
+              guarda con acceso restringido a mi sola cuenta, viaja por HTTPS y
+              en la app solo se muestra enmascarada. Puedo desconectar el
+              calendario cuando quiera —al hacerlo se borran de inmediato la URL
+              y los eventos guardados— y revocar la URL desde mi proveedor.
+            </span>
+          </label>
+
           <Button
             onClick={onConnect}
             isLoading={saving}
             loadingText="Verificando calendario…"
+            disabled={!autoriza}
           >
             {feeds.length > 0 ? "Agregar calendario" : "Conectar calendario"}
           </Button>

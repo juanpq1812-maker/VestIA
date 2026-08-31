@@ -10,6 +10,7 @@ import LegalShell, {
   LEGAL_CONTACT_EMAIL,
   LEGAL_RESPONSIBLE,
 } from "@/components/legal/LegalShell";
+import { LEGAL_UPDATED_AT, MIN_AGE } from "@/lib/legal/constants";
 
 export const metadata = {
   title: "Política de Privacidad — StrandIA",
@@ -20,7 +21,7 @@ export default function PrivacyPolicyPage() {
     <LegalShell
       eyebrow="Legal"
       title="Política de Privacidad"
-      updatedAt="11 de julio de 2026"
+      updatedAt={LEGAL_UPDATED_AT}
     >
       <LegalSection titulo="1. Responsable del tratamiento">
         <p>
@@ -140,12 +141,16 @@ export default function PrivacyPolicyPage() {
             todos tus datos definitivamente, incluidas las fotos. La ruta
             completa es: ícono de perfil (arriba a la derecha) → Configuración
             → Privacidad → Zona de peligro → Borrar mi cuenta → escribir
-            ELIMINAR → Borrar definitivamente.
+            ELIMINAR → Borrar definitivamente. Ten en cuenta que se entra al
+            perfil por el ícono de la barra superior: no es una pestaña de la
+            barra inferior.
           </li>
         </ul>
         <p>
-          Para cualquier otra solicitud, escríbenos a {LEGAL_CONTACT_EMAIL} y
-          responderemos en los plazos que fija la ley.
+          Para cualquier otra solicitud —incluidos los derechos de acceso,
+          rectificación, cancelación y oposición (ARCO)— escríbenos a{" "}
+          {LEGAL_CONTACT_EMAIL}. Responderemos en un plazo máximo de diez (10)
+          días hábiles.
         </p>
       </LegalSection>
 
@@ -155,6 +160,13 @@ export default function PrivacyPolicyPage() {
           se eliminan de inmediato de nuestros sistemas; pueden persistir por
           un periodo corto en copias de seguridad del proveedor antes de
           desaparecer por completo.
+        </p>
+        <p>
+          <strong className="text-text">Borradores de prendas.</strong> Las
+          fotos que subes y no llegas a confirmar quedan como borrador. Se
+          eliminan de nuestra base de datos, junto con sus imágenes, a los
+          siete (7) días; pueden persistir hasta 7 días adicionales en copias
+          de seguridad cifradas antes de expirar.
         </p>
       </LegalSection>
 
@@ -168,9 +180,11 @@ export default function PrivacyPolicyPage() {
 
       <LegalSection titulo="9. Menores de edad">
         <p>
-          StrandIA no está dirigida a menores de 14 años. Si detectamos una
-          cuenta de un menor sin autorización de su representante legal, la
-          eliminaremos.
+          StrandIA es para personas con {MIN_AGE} años cumplidos o más, la
+          mayoría de edad legal en la República de Colombia. Al registrarte
+          confirmas expresamente que los tienes, y guardamos constancia de esa
+          confirmación. Si detectamos una cuenta de una persona menor de{" "}
+          {MIN_AGE} años, la eliminaremos junto con sus datos.
         </p>
       </LegalSection>
 
